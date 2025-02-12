@@ -1,0 +1,175 @@
+{
+    "committees": {
+      "-Nv2Kjlsd98asd8": {
+        "name": "UN Security Council",
+        "emoji": "🌍",
+        "portfolios": {
+          "-Nv2Lkjsd76sdf9": {
+            "country": "USA",
+            "countryCode": "US",
+            "isDoubleDelAllowed": true,
+            "isVacant": true,
+            "minExperience": 2
+          },
+          "-Nv2Mkjsd76sdf0": {
+            "country": "China",
+            "countryCode": "CN",
+            "isDoubleDelAllowed": false,
+            "isVacant": true,
+            "minExperience": 3
+          },
+          "-Nv3Lhjksd76sdf1": {
+            "country": "Russia",
+            "countryCode": "RU",
+            "isDoubleDelAllowed": true,
+            "isVacant": false,
+            "minExperience": 2
+          },
+          "-Nv3Mjksd76sdf2": {
+            "country": "France",
+            "countryCode": "FR",
+            "isDoubleDelAllowed": false,
+            "isVacant": true,
+            "minExperience": 2
+          }
+        }
+      },
+      "-Nv2Kjlsd98asd9": {
+        "name": "World Health Organization",
+        "emoji": "⚕️",
+        "portfolios": {
+          "-Nv4Lkjsd76sdf3": {
+            "country": "Germany",
+            "countryCode": "DE",
+            "isDoubleDelAllowed": false,
+            "isVacant": false,
+            "minExperience": 2
+          },
+          "-Nv4Mkjsd76sdf4": {
+            "country": "India",
+            "countryCode": "IN",
+            "isDoubleDelAllowed": true,
+            "isVacant": true,
+            "minExperience": 1
+          },
+          "-Nv4Nkjsd76sdf5": {
+            "country": "Japan",
+            "countryCode": "JP",
+            "isDoubleDelAllowed": false,
+            "isVacant": true,
+            "minExperience": 3
+          },
+          "-Nv4Okjsd76sdf6": {
+            "country": "Brazil",
+            "countryCode": "BR",
+            "isDoubleDelAllowed": true,
+            "isVacant": false,
+            "minExperience": 1
+          }
+        }
+      },
+      "-Nv2Kjlsd98asda": {
+        "name": "International Monetary Fund",
+        "emoji": "💰",
+        "portfolios": {
+          "-Nv5Lkjsd76sdf7": {
+            "country": "United Kingdom",
+            "countryCode": "GB",
+            "isDoubleDelAllowed": true,
+            "isVacant": false,
+            "minExperience": 3
+          },
+          "-Nv5Mkjsd76sdf8": {
+            "country": "South Korea",
+            "countryCode": "KR",
+            "isDoubleDelAllowed": false,
+            "isVacant": true,
+            "minExperience": 2
+          },
+          "-Nv5Nkjsd76sdf9": {
+            "country": "Canada",
+            "countryCode": "CA",
+            "isDoubleDelAllowed": false,
+            "isVacant": false,
+            "minExperience": 2
+          },
+          "-Nv5Okjsd76sdf0": {
+            "country": "South Africa",
+            "countryCode": "ZA",
+            "isDoubleDelAllowed": true,
+            "isVacant": true,
+            "minExperience": 1
+          }
+        }
+      },
+      "-Nv2Kjlsd98asdb": {
+        "name": "United Nations Environment Programme",
+        "emoji": "🌱",
+        "portfolios": {
+          "-Nv6Lkjsd76sdf1": {
+            "country": "Australia",
+            "countryCode": "AU",
+            "isDoubleDelAllowed": false,
+            "isVacant": true,
+            "minExperience": 3
+          },
+          "-Nv6Mkjsd76sdf2": {
+            "country": "Mexico",
+            "countryCode": "MX",
+            "isDoubleDelAllowed": true,
+            "isVacant": false,
+            "minExperience": 2
+          },
+          "-Nv6Nkjsd76sdf3": {
+            "country": "Sweden",
+            "countryCode": "SE",
+            "isDoubleDelAllowed": false,
+            "isVacant": true,
+            "minExperience": 1
+          },
+          "-Nv6Okjsd76sdf4": {
+            "country": "Norway",
+            "countryCode": "NO",
+            "isDoubleDelAllowed": true,
+            "isVacant": true,
+            "minExperience": 2
+          }
+        }
+      },
+      "-Nv2Kjlsd98asdc": {
+        "name": "UN Human Rights Council",
+        "emoji": "🕊️",
+        "portfolios": {
+          "-Nv7Lkjsd76sdf5": {
+            "country": "Turkey",
+            "countryCode": "TR",
+            "isDoubleDelAllowed": false,
+            "isVacant": true,
+            "minExperience": 2
+          },
+          "-Nv7Mkjsd76sdf6": {
+            "country": "Argentina",
+            "countryCode": "AR",
+            "isDoubleDelAllowed": true,
+            "isVacant": false,
+            "minExperience": 1
+          },
+          "-Nv7Nkjsd76sdf7": {
+            "country": "Egypt",
+            "countryCode": "EG",
+            "isDoubleDelAllowed": false,
+            "isVacant": true,
+            "minExperience": 2
+          },
+          "-Nv7Okjsd76sdf8": {
+            "country": "Italy",
+            "countryCode": "IT",
+            "isDoubleDelAllowed": true,
+            "isVacant": true,
+            "minExperience": 3
+          }
+        }
+      }
+    }
+  }
+  
