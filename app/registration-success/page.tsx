@@ -189,10 +189,7 @@ export default function RegistrationSuccess() {
                   <p className="text-sm text-gray-500 uppercase">Delegate ID</p>
                   <p className="text-lg font-bold text-gray-800">{registration.id.slice(-8).toUpperCase()}</p>
                 </div>
-                <div className="bg-gray-100 rounded-xl p-4">
-                  <p className="text-sm text-gray-500 uppercase">Name</p>
-                  <p className="text-lg font-bold text-gray-800">{registration.delegateInfo.name}</p>
-                </div>
+             
                 <div className="bg-gray-100 rounded-xl p-4">
                   <p className="text-sm text-gray-500 uppercase">Committee</p>
                   <p className="text-lg font-bold text-gray-800">{committee}</p>
@@ -205,14 +202,7 @@ export default function RegistrationSuccess() {
 
               {/* Right Column: Additional Details */}
               <div className="space-y-4">
-                <div className="bg-gray-100 rounded-xl p-4">
-                  <p className="text-sm text-gray-500 uppercase">Institution</p>
-                  <p className="text-lg font-bold text-gray-800">{registration.delegateInfo.institution}</p>
-                </div>
-                <div className="bg-gray-100 rounded-xl p-4">
-                  <p className="text-sm text-gray-500 uppercase">Contact</p>
-                  <p className="text-lg font-bold text-gray-800">{registration.delegateInfo.phone}</p>
-                </div>
+
                 <div className="bg-gray-100 rounded-xl p-4">
                   <p className="text-sm text-gray-500 uppercase">Venue</p>
                   <p className="text-lg font-bold text-gray-800">BMPS Takshila School Patia</p>
@@ -221,13 +211,13 @@ export default function RegistrationSuccess() {
                   <p className="text-sm text-gray-500 uppercase">Gate</p>
                   <p className="text-lg font-bold text-gray-800">1 : Zone {zone}</p>
                 </div>
+                <div className="bg-gray-100 rounded-xl p-4">
+                  <p className="text-sm text-gray-500 uppercase">Valid From/To</p>
+                  <p className="text-lg font-bold text-gray-800">Feb 16 to June 16 2025</p>
+                </div>
               </div>
             </div>
-
-            <div className="bg-gray-100 rounded-xl p-4 items-center mt-4">
-              <p className="text-sm text-gray-500 uppercase">Valid From/To</p>
-              <p className="text-lg font-bold text-gray-800">Feb 16 2025 to June 16 2025</p>
-            </div>
+   
 
             {/* Centered Barcode and Download Button */}
             <div className="text-center mt-8">
