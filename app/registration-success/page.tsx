@@ -59,13 +59,8 @@ export default function RegistrationSuccess() {
   const [portfolio, setPortfolio] = useState<string>('')  
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [zone, setZone] = useState<number>(0) // Add zone state
+  const [zone, setZone] = useState<number>(0)
   const idCardRef = useRef<HTMLDivElement>(null)
-
-  const getFlagComponent = (countryCode: string) => {
-    const Flag = Flags[countryCode as keyof typeof Flags]
-    return Flag ? React.createElement(Flag, { className: 'w-8 h-8 rounded-sm' }) : null
-  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -73,7 +68,6 @@ export default function RegistrationSuccess() {
         setLoading(true)
         if (!paymentId) throw new Error('Missing payment ID')
         
-        // Query registrations by paymentId
         const registrationsRef = query(
           ref(db, 'registrations'),
           orderByChild('paymentId'),
@@ -81,40 +75,30 @@ export default function RegistrationSuccess() {
         )
   
         const snapshot = await get(registrationsRef)
-        
-        if (!snapshot.exists()) {
-          throw new Error('Registration not found')
-        }
+        if (!snapshot.exists()) throw new Error('Registration not found')
   
         const registrations = snapshot.val()
-        const [registrationKey, registrationData] = Object.entries(registrations)[0]
+        let matchedRegistration = null
+  
+        Object.entries(registrations).forEach(([key, data]) => {
+          if (!registrationId || key === registrationId) {
+            matchedRegistration = { id: key, ...data as Omit<RegistrationData, 'id'> }
+          }
+        })
         
-        // Validate registration ID if provided
-        if (registrationId && registrationKey !== registrationId) {
-          throw new Error('Registration ID mismatch')
-        }
+        if (!matchedRegistration) throw new Error('Registration ID mismatch')
   
-        const fullRegistration: RegistrationData = {
-          id: registrationKey,
-          ...registrationData as Omit<RegistrationData, 'id'>
-        }
-  
-        // Fetch committee data
-        const committeeRef = ref(db, `committees/${fullRegistration.committeeId}`)
+        const committeeRef = ref(db, `committees/${matchedRegistration.committeeId}`)
         const committeeSnapshot = await get(committeeRef)
         const committeeData = committeeSnapshot.val() as CommitteeData
   
-        // Get portfolio details
-        const portfolioData = committeeData.portfolios[fullRegistration.portfolioId]
+        const portfolioData = committeeData.portfolios[matchedRegistration.portfolioId]
   
-        setRegistration(fullRegistration)
+        setRegistration(matchedRegistration)
         setCommittee(committeeData.name)
         setPortfolio(portfolioData.country)
+        setZone(Math.floor(Math.random() * 5) + 1)
         setLoading(false)
-  
-        // Set a random zone value between 1 and 5
-        const randomZone = Math.floor(Math.random() * 5) + 1
-        setZone(randomZone)
   
       } catch (err) {
         console.error('Fetch error:', err)
@@ -130,11 +114,7 @@ export default function RegistrationSuccess() {
     if (!idCardRef.current) return
     
     try {
-      const canvas = await html2canvas(idCardRef.current, {
-        useCORS: true,
-        scale: 3,
-        logging: true
-      })
+      const canvas = await html2canvas(idCardRef.current, { useCORS: true, scale: 3 })
       
       const link = document.createElement('a')
       link.download = `${registration?.id.slice(-8)}.png`
@@ -146,92 +126,26 @@ export default function RegistrationSuccess() {
     }
   }
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <Loader2 className="animate-spin w-8 h-8 mr-2 text-blue-600" />
-    </div>
-  )
-
-  if (error) return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
-      <AlertCircle className="w-12 h-12 text-red-600 mb-4" />
-      <h2 className="text-xl font-semibold text-gray-800 mb-2">Registration Error</h2>
-      <p className="text-gray-600 max-w-md mb-4">{error}</p>
-      <p className="text-sm text-gray-500">Payment ID: {paymentId}</p>
-    </div>
-  )
-
-  if (!registration) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <span className="text-gray-600">No registration data available</span>
-    </div>
-  )
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-blue-600" /></div>
+  if (error) return <div className="min-h-screen flex flex-col items-center justify-center text-center"><AlertCircle className="w-12 h-12 text-red-600 mb-4" /><h2 className="text-xl font-semibold text-gray-800">{error}</h2></div>
+  if (!registration) return <div className="min-h-screen flex items-center justify-center text-gray-600">No registration data available</div>
 
   return (
     <div className="min-h-screen bg-gray-100 p-8 flex flex-col items-center">
-      <div className="max-w-2xl w-full">
-        <h1 className="text-3xl font-bold text-center mb-8 flex items-center justify-center gap-2">
-          {/* Your heading here */}
-        </h1>
-
-        {/* ID Card */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
-          <div ref={idCardRef} className="id-card bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl">
-            <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">Kalinga International Model United Nations 2025</h2>
-              <p className="text-gray-600">Delegate Digital ID Card</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              {/* Left Column: Delegate Details */}
-              <div className="space-y-4">
-                <div className="bg-gray-100 rounded-xl p-4">
-                  <p className="text-sm text-gray-500 uppercase">Delegate ID</p>
-                  <p className="text-lg font-bold text-gray-800">{registration.id.slice(-8).toUpperCase()}</p>
-                </div>
-             
-                <div className="bg-gray-100 rounded-xl p-4">
-                  <p className="text-sm text-gray-500 uppercase">Committee</p>
-                  <p className="text-lg font-bold text-gray-800">{committee}</p>
-                </div>
-                <div className="bg-gray-100 rounded-xl p-4">
-                  <p className="text-sm text-gray-500 uppercase">Portfolio</p>
-                  <p className="text-lg font-bold text-gray-800">{portfolio}</p>
-                </div>
-              </div>
-
-              {/* Right Column: Additional Details */}
-              <div className="space-y-4">
-
-                <div className="bg-gray-100 rounded-xl p-4">
-                  <p className="text-sm text-gray-500 uppercase">Venue</p>
-                  <p className="text-lg font-bold text-gray-800">BMPS Takshila School Patia</p>
-                </div>
-                <div className="bg-gray-100 rounded-xl p-4">
-                  <p className="text-sm text-gray-500 uppercase">Gate</p>
-                  <p className="text-lg font-bold text-gray-800">1 : Zone {zone}</p>
-                </div>
-                <div className="bg-gray-100 rounded-xl p-4">
-                  <p className="text-sm text-gray-500 uppercase">Valid From/To</p>
-                  <p className="text-lg font-bold text-gray-800">Feb 16 to June 16 2025</p>
-                </div>
-              </div>
-            </div>
-   
-
-            {/* Centered Barcode and Download Button */}
-            <div className="text-center mt-8">
-              <div className="mb-4">
-                <Barcode value={registration.id.slice(-8).toUpperCase()} />
-              </div>
-              <button onClick={downloadIDCard} className="btn btn-primary mx-auto flex items-center gap-2">
-                <Download className="w-5 h-5" /> Download ID Card
-              </button>
-            </div>
-          </div>
-
-          <p className="text-lg font-bold text-gray-800 text-center mt-4">PRESENT THIS ID CARD AT THE REGISTRATION DESK</p>
+      <div className="max-w-2xl w-full bg-white rounded-2xl shadow-xl p-8">
+        <h2 className="text-2xl font-bold text-center mb-6">Kalinga International Model United Nations 2025</h2>
+        <p className="text-gray-600 text-center mb-4">Delegate Digital ID Card</p>
+        <div ref={idCardRef} className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl">
+          <p className="text-lg font-bold text-gray-800">{registration.delegateInfo.name}</p>
+          <p className="text-gray-600">Committee: {committee}</p>
+          <p className="text-gray-600">Portfolio: {portfolio}</p>
+          <p className="text-gray-600">Gate: Zone {zone}</p>
+          <Barcode value={registration.id.slice(-8).toUpperCase()} className="my-4" />
+          <button onClick={downloadIDCard} className="btn btn-primary flex items-center gap-2">
+            <Download className="w-5 h-5" /> Download ID Card
+          </button>
         </div>
+        <p className="text-lg font-bold text-gray-800 text-center mt-4">PRESENT THIS ID CARD AT THE REGISTRATION DESK</p>
       </div>
     </div>
   )
