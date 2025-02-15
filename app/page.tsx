@@ -18,7 +18,7 @@ export default function Home() {
   const scale = useTransform(scrollYProgress, [0, 1], [0.8, 1.2])
 
   const floatingStickers = [
-    { id: 1, top: '15%', left: '5%', src: 'https://png.pngtree.com/png-vector/20221109/ourmid/pngtree-idea-light-bulb-sticker-with-rainbow-effect-png-image_6432439.png', size: 80 },
+    { id: 1, top: '25%', left: '5%', src: 'https://png.pngtree.com/png-vector/20221109/ourmid/pngtree-idea-light-bulb-sticker-with-rainbow-effect-png-image_6432439.png', size: 80 },
     { id: 2, top: '25%', right: '10%', src: 'https://static.vecteezy.com/system/resources/thumbnails/045/256/751/small_2x/retro-distressed-sticker-of-a-cartoon-decorative-stars-doodle-png.png', size: 100 },
     { id: 3, bottom: '20%', left: '20%', src: 'https://png.pngtree.com/png-clipart/20241114/original/pngtree-a-golden-globe-against-png-image_17002833.png', size: 120 },
     { id: 4, top: '40%', right: '5%', src: 'https://static.vecteezy.com/system/resources/thumbnails/024/045/589/small_2x/arrow-stickers-graphic-clipart-design-free-png.png', size: 90 },
