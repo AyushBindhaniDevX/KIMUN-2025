@@ -44,36 +44,7 @@ export async function POST(req: Request) {
     // ✅ Email Content with Inline Barcode
     const subject = '🎉 KIMUN 2025 Registration Confirmation';
     const body = `
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                margin: 20px;
-                padding: 20px;
-                background-color: #f4f4f4;
-            }
-            .container {
-                max-width: 800px;
-                margin: 0 auto;
-                background: white;
-                padding: 20px;
-                border-radius: 10px;
-                box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-            }
-            h1, h2, h3, h4 {
-                color: #333;
-            }
-            ul {
-                list-style-type: none;
-                padding: 0;
-            }
-            li {
-                padding: 5px 0;
-            }
-            img {
-                max-width: 100%;
-                height: auto;
-            }
-        </style>
+
       <h2>Hello ${name},</h2>
       <p>Thank you for registering for Kalinga International Model United Nations 2025!</p>
 
@@ -93,12 +64,6 @@ export async function POST(req: Request) {
                 <li>All participants must comply with local laws and KIMUN regulations.</li>
                 <li>Participation implies acceptance of all policies.</li>
                 <li>The Secretary-General holds the authority for any policy exceptions.</li>
-            </ul>
-        </section>
-
-        <section>
-            <h2>Registration Guidelines</h2>
-            <ul>
                 <li>Open to students from Secondary, Higher-Secondary, Undergraduate, and Graduate programs.</li>
                 <li>Formal dress code is mandatory during committee sessions.</li>
                 <li>Delegates must pay their registration fee before participation.</li>
@@ -106,34 +71,9 @@ export async function POST(req: Request) {
             </ul>
         </section>
 
-        <section>
-            <h2>Code of Conduct</h2>
-            <ul>
-                <li>No consumption of alcohol, drugs, or smoking within conference premises.</li>
-                <li>Delegates must maintain diplomatic decorum and use English as the official language.</li>
-                <li>Attending at least 75% of the sessions is required for certification.</li>
-            </ul>
-        </section>
 
-        <section>
-            <h2>Anti-Sexual Harassment Policy</h2>
-            <h3>A. Policy Provisions</h3>
-            <ul>
-                <li>All members of the Organizing Committee and Executive Board must prevent and deter sexual harassment.</li>
-                <li>Sexual harassment includes unwelcome physical, verbal, and non-verbal conduct of a sexual nature.</li>
-                <li>Organizing Committee must ensure clear anti-harassment policies are displayed and enforced.</li>
-            </ul>
-            
-            <h3>B. Examples of Sexual Harassment</h3>
-            <ul>
-                <li>Unwanted physical contact such as patting, pinching, or inappropriate touching.</li>
-                <li>Verbal harassment including sexual jokes, comments, or threats.</li>
-                <li>Sending sexually explicit messages.</li>
-                <li>Non-verbal gestures such as whistling, suggestive looks, or displaying inappropriate content.</li>
-            </ul>
-        </section>
 
-      <p>Please bring this email and your barcode to the event for verification.</p>
+      <h2>Please bring this email and your barcode to the event for verification.</h2>
 
       <h3>📌 Your Barcode:</h3>
       <img src="${barcodeBase64}" alt="Delegate ID" />
