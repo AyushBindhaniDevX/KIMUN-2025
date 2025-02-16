@@ -111,7 +111,7 @@ function RegistrationSuccess() {
           <h2 className="text-xl font-bold text-center">KIMUN 2025</h2>
           <p className="text-gray-600 text-center">Delegate Digital ID</p>
           <div className="grid grid-cols-2 gap-6 mt-4">
-            <InfoBox title="Delegate ID" value={registration.id.slice(-8).toUpperCase()} />
+            <InfoBox title="Delegate ID" value={registration.id.slice(0).toUpperCase()} />
             <InfoBox title="Committee" value={committee} />
             <InfoBox title="Portfolio" value={portfolio} />
             <InfoBox title="Venue" value="BMPS Takshila School Patia" />
@@ -119,7 +119,7 @@ function RegistrationSuccess() {
             <InfoBox title="Valid From/To" value="Feb 16 to June 16 2025" />
           </div>
           <div className="text-center mt-6">
-            <Barcode value={registration.id.slice(-8).toUpperCase()} />
+            <Barcode value={registration.id.slice(0).toUpperCase()} />
             <button onClick={downloadIDCard} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2">
               <Download className="w-5 h-5" /> Download ID Card
             </button>

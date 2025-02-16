@@ -18,7 +18,7 @@ export default function Home() {
   const scale = useTransform(scrollYProgress, [0, 1], [0.8, 1.2])
 
   const floatingStickers = [
-    { id: 1, top: '15%', left: '5%', src: 'https://png.pngtree.com/png-vector/20221109/ourmid/pngtree-idea-light-bulb-sticker-with-rainbow-effect-png-image_6432439.png', size: 80 },
+    { id: 1, top: '25%', left: '5%', src: 'https://png.pngtree.com/png-vector/20221109/ourmid/pngtree-idea-light-bulb-sticker-with-rainbow-effect-png-image_6432439.png', size: 80 },
     { id: 2, top: '25%', right: '10%', src: 'https://static.vecteezy.com/system/resources/thumbnails/045/256/751/small_2x/retro-distressed-sticker-of-a-cartoon-decorative-stars-doodle-png.png', size: 100 },
     { id: 3, bottom: '20%', left: '20%', src: 'https://png.pngtree.com/png-clipart/20241114/original/pngtree-a-golden-globe-against-png-image_17002833.png', size: 120 },
     { id: 4, top: '40%', right: '5%', src: 'https://static.vecteezy.com/system/resources/thumbnails/024/045/589/small_2x/arrow-stickers-graphic-clipart-design-free-png.png', size: 90 },
@@ -191,22 +191,19 @@ export default function Home() {
             <div className="grid md:grid-cols-3 gap-8">
               {[
                 { 
-                  name: "Alexandra Chen",
-                  role: "Secretary-General",
+                  name: "Secretary General Name",
+                  role: "Secretary General",
                   image: "https://encrypted-tbn1.gstatic.com/licensed-image?q=tbn:ANd9GcQCyzdroOgXf1JRT-59-ejJoIE0a9KVvyVwXUrA5xytU8gCuncLXYXL3DO2b1_-YnaUWD0lgEsd3ddXvZg",
-                  badge: "/images/stickers/medal.png"
                 },
                 { 
-                  name: "Rajesh Kapoor",
-                  role: "Deputy Secretary-General", 
-                  image: "/images/team/member-2.jpg",
-                  badge: "/images/stickers/ribbon.png"
+                  name: "Deputy Secretary General Name",
+                  role: "Deputy Secretary General", 
+                  image: "https://encrypted-tbn1.gstatic.com/licensed-image?q=tbn:ANd9GcQCyzdroOgXf1JRT-59-ejJoIE0a9KVvyVwXUrA5xytU8gCuncLXYXL3DO2b1_-YnaUWD0lgEsd3ddXvZg",
                 },
                 { 
-                  name: "Fatima Al-Mansoori",
-                  role: "Chief of Staff",
-                  image: "/images/team/member-3.jpg",
-                  badge: "/images/stickers/star.png"
+                  name: "Director General Name",
+                  role: "Director General",
+                  image: "https://encrypted-tbn1.gstatic.com/licensed-image?q=tbn:ANd9GcQCyzdroOgXf1JRT-59-ejJoIE0a9KVvyVwXUrA5xytU8gCuncLXYXL3DO2b1_-YnaUWD0lgEsd3ddXvZg",
                 }
               ].map((member, index) => (
                 <motion.div
@@ -222,15 +219,6 @@ export default function Home() {
                     className="h-96 object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-amber-800/60 via-transparent to-transparent p-6 flex flex-col justify-end">
-                    <div className="absolute top-4 right-4 w-16 h-16">
-                      <Image
-                        src={member.badge}
-                        alt="Badge"
-                        width={64}
-                        height={64}
-                        className="object-contain"
-                      />
-                    </div>
                     <h3 className="text-2xl font-bold text-white mb-2">{member.name}</h3>
                     <p className="text-amber-200">{member.role}</p>
                   </div>

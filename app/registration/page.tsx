@@ -145,7 +145,7 @@ export default function RegistrationPage() {
   }
 
   const calculatePrice = () => {
-    return isDoubleDel ? 60 : 40 // Example prices
+    return isDoubleDel ? 1299 : 2499 // Example prices
   }
 
   const getAverageExperience = () => {
@@ -175,12 +175,28 @@ export default function RegistrationPage() {
       const portfolioRef = ref(db, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
       await update(portfolioRef, { isVacant: false })
 
-      return newRegistration.key
-    } catch (err) {
-      console.error('Registration failed:', err)
-      throw new Error('Failed to save registration')
-    }
+     // Prepare email data
+const emailData = {
+  email: delegateInfo.delegate1.email, // Primary Delegate Email
+  name: delegateInfo.delegate1.name, // Primary Delegate Name
+  registrationId: newRegistration?.key, // Ensure it's defined
+  committee: selectedCommittee?.name, // Send committee name
+  portfolio: selectedPortfolio?.country, // Send portfolio (country name)
+};
+
+
+// Send Confirmation Email
+await fetch('/api/sendEmail', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(emailData)
+})
+    return newRegistration.key
+  } catch (err) {
+    console.error('Registration failed:', err)
+    throw new Error('Failed to save registration')
   }
+}
 
   const initiatePayment = async () => {
     const amount = calculatePrice() * 100 // Convert to paise
@@ -275,7 +291,7 @@ export default function RegistrationPage() {
                     className="form-radio h-5 w-5 text-blue-600"
                     required
                   />
-                  <span className="text-gray-700">Single Delegation (₹40)</span>
+                  <span className="text-gray-700">Single Delegation</span>
                 </label>
                 <label className="flex items-center gap-2 p-4 bg-gray-100 rounded-xl cursor-pointer">
                   <input
@@ -286,7 +302,7 @@ export default function RegistrationPage() {
                     className="form-radio h-5 w-5 text-blue-600"
                     required
                   />
-                  <span className="text-gray-700">Double Delegation (₹60)</span>
+                  <span className="text-gray-700">Double Delegation</span>
                 </label>
               </div>
               <Button
