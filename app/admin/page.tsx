@@ -441,6 +441,172 @@ export default function AdminDashboard() {
             </div>
           </motion.div>
         )}
+
+        {/* Modals */}
+      <AnimatePresence>
+        {(isModalOpen || isAddCommitteeModalOpen || isAddPortfolioModalOpen) && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-orange-600">
+                  {editingCommittee ? 'Edit Committee' : editingPortfolio ? 'Edit Portfolio' : 'Add Committee'}
+                </h2>
+                <button onClick={() => { setIsModalOpen(false); setIsAddCommitteeModalOpen(false); setIsAddPortfolioModalOpen(false); }} className="text-gray-500 hover:text-gray-700">
+                  <X size={20} />
+                </button>
+              </div>
+
+              {editingCommittee && (
+                <div>
+                  <input
+                    type="text"
+                    className="border p-2 w-full mb-4 rounded-lg"
+                    placeholder="Committee Name"
+                    value={editingCommittee.name}
+                    onChange={(e) => setEditingCommittee({ ...editingCommittee, name: e.target.value })}
+                  />
+                  <input
+                    type="text"
+                    className="border p-2 w-full mb-4 rounded-lg"
+                    placeholder="Emoji"
+                    value={editingCommittee.emoji}
+                    onChange={(e) => setEditingCommittee({ ...editingCommittee, emoji: e.target.value })}
+                  />
+                  <Button onClick={saveCommittee} className="bg-orange-500 hover:bg-orange-600 text-white w-full">
+                    Save
+                  </Button>
+                </div>
+              )}
+
+              {editingPortfolio && (
+                <div>
+                  <input
+                    type="text"
+                    className="border p-2 w-full mb-4 rounded-lg"
+                    placeholder="Country"
+                    value={editingPortfolio.country}
+                    onChange={(e) => setEditingPortfolio({ ...editingPortfolio, country: e.target.value })}
+                  />
+                  <Select
+                    options={countryOptions}
+                    value={countryOptions.find((opt) => opt.value === editingPortfolio.countryCode)}
+                    onChange={(option) => setEditingPortfolio({ ...editingPortfolio, countryCode: option.value })}
+                    className="mb-4"
+                  />
+                  <div className="flex items-center mb-4">
+                    <input
+                      type="checkbox"
+                      checked={editingPortfolio.isDoubleDelAllowed}
+                      onChange={(e) => setEditingPortfolio({ ...editingPortfolio, isDoubleDelAllowed: e.target.checked })}
+                      className="mr-2"
+                    />
+                    <span>Double Delegation Allowed</span>
+                  </div>
+                  <div className="flex items-center mb-4">
+                    <input
+                      type="checkbox"
+                      checked={editingPortfolio.isVacant}
+                      onChange={(e) => setEditingPortfolio({ ...editingPortfolio, isVacant: e.target.checked })}
+                      className="mr-2"
+                    />
+                    <span>Vacant</span>
+                  </div>
+                  <input
+                    type="number"
+                    className="border p-2 w-full mb-4 rounded-lg"
+                    placeholder="Minimum Experience"
+                    value={editingPortfolio.minExperience}
+                    onChange={(e) => setEditingPortfolio({ ...editingPortfolio, minExperience: e.target.value })}
+                  />
+                  <Button onClick={savePortfolio} className="bg-orange-500 hover:bg-orange-600 text-white w-full">
+                    Save
+                  </Button>
+                </div>
+              )}
+
+              {isAddCommitteeModalOpen && (
+                <div>
+                  <input
+                    type="text"
+                    className="border p-2 w-full mb-4 rounded-lg"
+                    placeholder="Committee Name"
+                    value={newCommittee.name}
+                    onChange={(e) => setNewCommittee({ ...newCommittee, name: e.target.value })}
+                  />
+                  
+                  <input
+                    type="text"
+                    className="border p-2 w-full mb-4 rounded-lg"
+                    placeholder="Emoji"
+                    value={newCommittee.emoji}
+                    onChange={(e) => setNewCommittee({ ...newCommittee, emoji: e.target.value })}
+                  />
+                  <Button onClick={addCommittee} className="bg-orange-500 hover:bg-orange-600 text-white w-full">
+                    Add Committee
+                  </Button>
+                </div>
+              )}
+
+              {isAddPortfolioModalOpen && (
+                <div>
+                  <input
+                    type="text"
+                    className="border p-2 w-full mb-4 rounded-lg"
+                    placeholder="Country"
+                    value={newPortfolio.country}
+                    onChange={(e) => setNewPortfolio({ ...newPortfolio, country: e.target.value })}
+                  />
+                  <Select
+                    options={countryOptions}
+                    value={countryOptions.find((opt) => opt.value === newPortfolio.countryCode)}
+                    onChange={(option) => setNewPortfolio({ ...newPortfolio, countryCode: option.value })}
+                    className="mb-4"
+                  />
+                  <div className="flex items-center mb-4">
+                    <input
+                      type="checkbox"
+                      checked={newPortfolio.isDoubleDelAllowed}
+                      onChange={(e) => setNewPortfolio({ ...newPortfolio, isDoubleDelAllowed: e.target.checked })}
+                      className="mr-2"
+                    />
+                    <span>Double Delegation Allowed</span>
+                  </div>
+                  <div className="flex items-center mb-4">
+                    <input
+                      type="checkbox"
+                      checked={newPortfolio.isVacant}
+                      onChange={(e) => setNewPortfolio({ ...newPortfolio, isVacant: e.target.checked })}
+                      className="mr-2"
+                    />
+                    <span>Vacant</span>
+                  </div>
+                  <input
+                    type="number"
+                    className="border p-2 w-full mb-4 rounded-lg"
+                    placeholder="Minimum Experience"
+                    value={newPortfolio.minExperience}
+                    onChange={(e) => setNewPortfolio({ ...newPortfolio, minExperience: e.target.value })}
+                  />
+                  <Button onClick={() => addPortfolio(editingCommittee.id)} className="bg-orange-500 hover:bg-orange-600 text-white w-full">
+                    Add Portfolio
+                  </Button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       </main>
     </div>
   );
