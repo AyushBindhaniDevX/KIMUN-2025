@@ -145,7 +145,7 @@ export default function RegistrationPage() {
   }
 
   const calculatePrice = () => {
-    return isDoubleDel ? 1299 : 2499 // Example prices
+    return isDoubleDel ?  2499 : 1299 // Example prices
   }
 
   const getAverageExperience = () => {
