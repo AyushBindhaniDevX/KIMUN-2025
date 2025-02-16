@@ -136,13 +136,13 @@ export async function POST(req: Request) {
       <p>Please bring this email and your barcode to the event for verification.</p>
 
       <h3>📌 Your Barcode:</h3>
-      <img src="${barcodeBase64}" alt="Delegate Barcode" />
+      <img src="${barcodeBase64}" alt="Delegate ID" />
 
       <h4>Best Regards,<br/>MUN Team</h4>
     `;
 
     const mailOptions = {
-      from: `"MUN Registration" <${process.env.SMTP_USER}>`,
+      from: `"KIMUN Registration" <${process.env.SMTP_USER}>`,
       to: email,
       subject: subject,
       html: body,
