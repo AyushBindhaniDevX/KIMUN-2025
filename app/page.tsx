@@ -3,13 +3,9 @@
 import Image from "next/image"
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
-
 import { motion, useScroll, useTransform } from "framer-motion"
-
 import { Parallax, ParallaxLayer } from "@react-spring/parallax"
-
-import { Mail, Phone, MapPin, Users, Globe, Calendar, Clock, Gavel, Award, BookOpen, ScrollText } from "lucide-react"
-
+import { Mail, Phone, MapPin, Users, Globe, Gavel } from "lucide-react"
 import { useRef } from "react"
 
 export default function Home() {
@@ -137,25 +133,7 @@ export default function Home() {
                   logo: "https://blog.ipleaders.in/wp-content/uploads/2020/02/906px-UN_emblem_blue.png"
                 },
                 { 
-                  name: "UNHRC 1",
-                  agenda: ["Refugee Rights", "Digital Privacy"],
-                  icon: <Gavel className="w-12 h-12 text-amber-600" />,
-                  logo: "https://blog.ipleaders.in/wp-content/uploads/2020/02/906px-UN_emblem_blue.png"
-                },
-                { 
-                  name: "UNHRC 2",
-                  agenda: ["Refugee Rights", "Digital Privacy"],
-                  icon: <Gavel className="w-12 h-12 text-amber-600" />,
-                  logo: "https://blog.ipleaders.in/wp-content/uploads/2020/02/906px-UN_emblem_blue.png"
-                },
-                { 
-                  name: "UNHRC 3",
-                  agenda: ["Refugee Rights", "Digital Privacy"],
-                  icon: <Gavel className="w-12 h-12 text-amber-600" />,
-                  logo: "https://blog.ipleaders.in/wp-content/uploads/2020/02/906px-UN_emblem_blue.png"
-                },
-                { 
-                  name: "UNHRC 4",
+                  name: "UNHRC",
                   agenda: ["Refugee Rights", "Digital Privacy"],
                   icon: <Gavel className="w-12 h-12 text-amber-600" />,
                   logo: "https://blog.ipleaders.in/wp-content/uploads/2020/02/906px-UN_emblem_blue.png"
@@ -178,6 +156,11 @@ export default function Home() {
                     />
                   </div>
                   <h3 className="text-2xl font-bold text-amber-800 mb-4 text-center">{committee.name}</h3>
+                  <ul className="text-amber-700 text-center">
+                    {committee.agenda.map((item, i) => (
+                      <li key={i} className="mb-2">{item}</li>
+                    ))}
+                  </ul>
                 </motion.div>
               ))}
             </div>
