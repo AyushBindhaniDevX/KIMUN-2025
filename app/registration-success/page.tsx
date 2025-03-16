@@ -21,7 +21,7 @@ const firebaseConfig = {
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig)
 const db = getDatabase(app)
 
-export default function RegistrationSuccess() {
+function RegistrationSuccess() {
   const searchParams = useSearchParams()
   const paymentId = searchParams.get('paymentId')
   const registrationId = searchParams.get('registrationId')
@@ -113,17 +113,6 @@ export default function RegistrationSuccess() {
             <InfoBox title="Venue" value="BMPS Takshila School Patia" />
             <InfoBox title="Gate" value={`1 : Zone ${zone}`} />
             <InfoBox title="Valid From/To" value="Feb 16 to June 16 2025" />
-            {/* Display dietary preferences */}
-            <InfoBox
-              title="Primary Delegate Dietary Preference"
-              value={registration.delegateInfo.delegate1.dietaryPreference}
-            />
-            {registration.isDoubleDel && registration.delegateInfo.delegate2 && (
-              <InfoBox
-                title="Secondary Delegate Dietary Preference"
-                value={registration.delegateInfo.delegate2.dietaryPreference}
-              />
-            )}
           </div>
           <div className="text-center mt-6">
             <Barcode value={registration.id.slice(0).toUpperCase()} />
