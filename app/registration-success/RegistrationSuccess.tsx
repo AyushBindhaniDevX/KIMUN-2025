@@ -1,5 +1,4 @@
 'use client'
-// app/registration-success/RegistrationSuccess.tsx
 import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { getDatabase, ref, get, query, orderByChild, equalTo } from 'firebase/database'
