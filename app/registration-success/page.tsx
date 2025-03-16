@@ -1,14 +1,13 @@
 'use client'
-import { useEffect, useState, useRef, Suspense } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { getDatabase, ref, get, query, orderByChild, equalTo } from 'firebase/database'
 import { initializeApp, getApps } from 'firebase/app'
 import Barcode from 'react-barcode'
 import html2canvas from 'html2canvas'
-import { CheckCircle, Download, Loader2, AlertCircle } from 'lucide-react'
-import Flags from 'country-flag-icons/react/3x2'
+import { Download, Loader2, AlertCircle } from 'lucide-react'
 
-// Ensure Firebase is initialized only once
+// Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -22,26 +21,18 @@ const firebaseConfig = {
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig)
 const db = getDatabase(app)
 
-export default function RegistrationSuccessWrapper() {
-  return (
-    <Suspense fallback={<LoadingSpinner />}>
-      <RegistrationSuccess />
-    </Suspense>
-  )
-}
-
-function RegistrationSuccess() {
+export default function RegistrationSuccess() {
   const searchParams = useSearchParams()
   const paymentId = searchParams.get('paymentId')
   const registrationId = searchParams.get('registrationId')
   
-  const [registration, setRegistration] = useState(null)
-  const [committee, setCommittee] = useState('')  
-  const [portfolio, setPortfolio] = useState('')  
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [zone, setZone] = useState(0)
-  const idCardRef = useRef(null)
+  const [registration, setRegistration] = useState<any>(null)
+  const [committee, setCommittee] = useState<string>('')
+  const [portfolio, setPortfolio] = useState<string>('')
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string>('')
+  const [zone, setZone] = useState<number>(0)
+  const idCardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!paymentId) {
@@ -64,7 +55,7 @@ function RegistrationSuccess() {
         if (!snapshot.exists()) throw new Error('Registration not found')
 
         const registrations = snapshot.val()
-        const [registrationKey, registrationData] = Object.entries(registrations)[0]
+        const [registrationKey, registrationData] = Object.entries(registrations)[0] as [string, any]
         
         if (registrationId && registrationKey !== registrationId) throw new Error('Registration ID mismatch')
 
@@ -72,12 +63,17 @@ function RegistrationSuccess() {
         const committeeSnapshot = await get(ref(db, `committees/${fullRegistration.committeeId}`))
         const committeeData = committeeSnapshot.val()
 
+        if (!committeeData) throw new Error('Committee data not found')
+
+        const portfolioData = committeeData.portfolios[fullRegistration.portfolioId]
+        if (!portfolioData) throw new Error('Portfolio data not found')
+
         setRegistration(fullRegistration)
         setCommittee(committeeData.name)
-        setPortfolio(committeeData.portfolios[fullRegistration.portfolioId].country)
+        setPortfolio(portfolioData.country)
         setZone(Math.floor(Math.random() * 5) + 1)
         setLoading(false)
-      } catch (err) {
+      } catch (err: any) {
         setError(err.message || 'Failed to load registration')
         setLoading(false)
       }
@@ -117,10 +113,24 @@ function RegistrationSuccess() {
             <InfoBox title="Venue" value="BMPS Takshila School Patia" />
             <InfoBox title="Gate" value={`1 : Zone ${zone}`} />
             <InfoBox title="Valid From/To" value="Feb 16 to June 16 2025" />
+            {/* Display dietary preferences */}
+            <InfoBox
+              title="Primary Delegate Dietary Preference"
+              value={registration.delegateInfo.delegate1.dietaryPreference}
+            />
+            {registration.isDoubleDel && registration.delegateInfo.delegate2 && (
+              <InfoBox
+                title="Secondary Delegate Dietary Preference"
+                value={registration.delegateInfo.delegate2.dietaryPreference}
+              />
+            )}
           </div>
           <div className="text-center mt-6">
             <Barcode value={registration.id.slice(0).toUpperCase()} />
-            <button onClick={downloadIDCard} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2">
+            <button
+              onClick={downloadIDCard}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
+            >
               <Download className="w-5 h-5" /> Download ID Card
             </button>
           </div>
@@ -136,7 +146,7 @@ const LoadingSpinner = () => (
   </div>
 )
 
-const ErrorDisplay = ({ message, paymentId }) => (
+const ErrorDisplay = ({ message, paymentId }: { message: string; paymentId: string | null }) => (
   <div className="min-h-screen flex flex-col items-center justify-center text-center p-8">
     <AlertCircle className="w-12 h-12 text-red-600 mb-4" />
     <h2 className="text-xl font-semibold">Error</h2>
@@ -151,7 +161,7 @@ const NoData = () => (
   </div>
 )
 
-const InfoBox = ({ title, value }) => (
+const InfoBox = ({ title, value }: { title: string; value: string }) => (
   <div className="bg-gray-100 rounded-xl p-4">
     <p className="text-sm text-gray-500 uppercase">{title}</p>
     <p className="text-lg font-bold text-gray-800">{value}</p>
