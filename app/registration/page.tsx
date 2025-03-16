@@ -34,7 +34,7 @@ type DelegateInfo = {
     year: string
     course: string
     experience: string
-    dietaryPreference: 'Veg' | 'Non-Veg' // Add dietary preference
+    dietaryPreference: 'Veg' | 'Non-Veg' // Added dietary preference
   }
   delegate2?: {
     name: string
@@ -44,7 +44,7 @@ type DelegateInfo = {
     year: string
     course: string
     experience: string
-    dietaryPreference: 'Veg' | 'Non-Veg' // Add dietary preference
+    dietaryPreference: 'Veg' | 'Non-Veg' // Added dietary preference
   }
 }
 
@@ -77,13 +77,15 @@ export default function RegistrationPage() {
       institution: '',
       year: '',
       course: '',
-      experience: '' // Default experience set to empty string
+      experience: '',
+      dietaryPreference: 'Veg' // Default to Veg
     }
   })
   const [selectedCommittee, setSelectedCommittee] = useState<Committee | null>(null)
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [isDoubleDel, setIsDoubleDel] = useState(false)
 
+  // Fetch committees from Firebase
   useEffect(() => {
     const fetchCommittees = async () => {
       try {
@@ -112,6 +114,7 @@ export default function RegistrationPage() {
     fetchCommittees()
   }, [])
 
+  // Handle input changes for delegate info
   const handleInputChange = (delegate: 'delegate1' | 'delegate2', field: string, value: string) => {
     setDelegateInfo(prev => ({
       ...prev,
@@ -122,6 +125,7 @@ export default function RegistrationPage() {
     }))
   }
 
+  // Validate current step
   const validateStep = () => {
     const baseValidation = (
       delegateInfo.delegate1.name.trim() !== '' &&
@@ -130,7 +134,8 @@ export default function RegistrationPage() {
       delegateInfo.delegate1.institution.trim() !== '' &&
       delegateInfo.delegate1.year.trim() !== '' &&
       delegateInfo.delegate1.course.trim() !== '' &&
-      delegateInfo.delegate1.experience.trim() !== ''
+      delegateInfo.delegate1.experience.trim() !== '' &&
+      delegateInfo.delegate1.dietaryPreference.trim() !== '' // Ensure dietary preference is selected
     )
 
     if (isDoubleDel) {
@@ -141,22 +146,13 @@ export default function RegistrationPage() {
         delegateInfo.delegate2?.institution.trim() !== '' &&
         delegateInfo.delegate2?.year.trim() !== '' &&
         delegateInfo.delegate2?.course.trim() !== '' &&
-        delegateInfo.delegate2?.experience.trim() !== ''
+        delegateInfo.delegate2?.experience.trim() !== '' &&
+        delegateInfo.delegate2?.dietaryPreference.trim() !== '' // Ensure dietary preference is selected
     }
     return baseValidation
   }
 
-  const calculatePrice = () => {
-    return isDoubleDel ?  2 : 1 // Example prices
-  }
-
-  const getAverageExperience = () => {
-    const exp1 = parseInt(delegateInfo.delegate1.experience) || 0
-    if (!isDoubleDel || !delegateInfo.delegate2) return exp1
-    const exp2 = parseInt(delegateInfo.delegate2.experience) || 0
-    return Math.round((exp1 + exp2) / 2)
-  }
-
+  // Save registration to Firebase
   const saveRegistration = async (paymentId: string) => {
     if (!selectedCommittee || !selectedPortfolio) {
       throw new Error('Committee or portfolio not selected')
@@ -165,41 +161,46 @@ export default function RegistrationPage() {
     try {
       const registrationRef = ref(db, 'registrations')
       const newRegistration = await push(registrationRef, {
-        delegateInfo,
+        delegateInfo: {
+          ...delegateInfo,
+          delegate1: {
+            ...delegateInfo.delegate1,
+            dietaryPreference: delegateInfo.delegate1.dietaryPreference, // Include dietary preference
+          },
+          delegate2: delegateInfo.delegate2
+            ? {
+                ...delegateInfo.delegate2,
+                dietaryPreference: delegateInfo.delegate2.dietaryPreference, // Include dietary preference
+              }
+            : undefined,
+        },
         committeeId: selectedCommittee.id,
         portfolioId: selectedPortfolio.id,
         paymentId,
         timestamp: Date.now(),
         isDoubleDel,
-        averageExperience: getAverageExperience() // Save average experience
+        averageExperience: getAverageExperience(),
       })
 
       const portfolioRef = ref(db, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
       await update(portfolioRef, { isVacant: false })
 
-     // Prepare email data
-const emailData = {
-  email: delegateInfo.delegate1.email, // Primary Delegate Email
-  name: delegateInfo.delegate1.name, // Primary Delegate Name
-  registrationId: newRegistration?.key, // Ensure it's defined
-  committee: selectedCommittee?.name, // Send committee name
-  portfolio: selectedPortfolio?.country, // Send portfolio (country name)
-};
-
-
-// Send Confirmation Email
-await fetch('/api/sendEmail', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(emailData)
-})
-    return newRegistration.key
-  } catch (err) {
-    console.error('Registration failed:', err)
-    throw new Error('Failed to save registration')
+      return newRegistration.key
+    } catch (err) {
+      console.error('Registration failed:', err)
+      throw new Error('Failed to save registration')
+    }
   }
-}
 
+  // Calculate average experience
+  const getAverageExperience = () => {
+    const exp1 = parseInt(delegateInfo.delegate1.experience) || 0
+    if (!isDoubleDel || !delegateInfo.delegate2) return exp1
+    const exp2 = parseInt(delegateInfo.delegate2.experience) || 0
+    return Math.round((exp1 + exp2) / 2)
+  }
+
+  // Initiate payment
   const initiatePayment = async () => {
     const amount = calculatePrice() * 100 // Convert to paise
     if (!validateStep()) {
@@ -247,6 +248,11 @@ await fetch('/api/sendEmail', {
 
     script.onerror = () => setError('Failed to load payment gateway')
     document.body.appendChild(script)
+  }
+
+  // Calculate price
+  const calculatePrice = () => {
+    return isDoubleDel ? 2 : 1 // Example prices
   }
 
   if (loading) return <div className="text-center p-8">Loading committees...</div>
@@ -316,110 +322,111 @@ await fetch('/api/sendEmail', {
             </motion.div>
           )}
 
+          {/* Step 2: Delegate Details */}
           {step === 2 && (
-  <motion.div
-    key="step2"
-    initial={{ opacity: 0, x: 20 }}
-    animate={{ opacity: 1, x: 0 }}
-    exit={{ opacity: 0, x: -20 }}
-    className="space-y-6"
-  >
-    <h1 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-      <Sparkles className="text-yellow-500" /> Delegate Details
-    </h1>
-    <div className="space-y-8">
-      {/* Primary Delegate */}
-      <div className="space-y-4">
-        <h3 className="text-xl font-semibold">Primary Delegate</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {['name', 'email', 'phone', 'institution', 'year', 'course'].map((field) => (
-            <div key={field} className="bg-gray-100 rounded-xl p-4">
-              <input
-                placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
-                value={delegateInfo.delegate1[field as keyof typeof delegateInfo.delegate1]}
-                onChange={(e) => handleInputChange('delegate1', field, e.target.value)}
-                required
-              />
-            </div>
-          ))}
-          <div className="bg-gray-100 rounded-xl p-4">
-            <input
-              type="number"
-              min="0"
-              placeholder="Enter No of MUNs Attended"
-              className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
-              value={delegateInfo.delegate1.experience}
-              onChange={(e) => handleInputChange('delegate1', 'experience', e.target.value)}
-              required
-            />
-          </div>
-          <div className="bg-gray-100 rounded-xl p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Dietary Preference</label>
-            <select
-              className="w-full bg-transparent text-gray-700 focus:outline-none"
-              value={delegateInfo.delegate1.dietaryPreference}
-              onChange={(e) => handleInputChange('delegate1', 'dietaryPreference', e.target.value)}
-              required
+            <motion.div
+              key="step2"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-6"
             >
-              <option value="Veg">Veg</option>
-              <option value="Non-Veg">Non-Veg</option>
-            </select>
-          </div>
-        </div>
-      </div>
+              <h1 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <Sparkles className="text-yellow-500" /> Delegate Details
+              </h1>
+              <div className="space-y-8">
+                {/* Primary Delegate */}
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold">Primary Delegate</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {['name', 'email', 'phone', 'institution', 'year', 'course'].map((field) => (
+                      <div key={field} className="bg-gray-100 rounded-xl p-4">
+                        <input
+                          placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                          className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
+                          value={delegateInfo.delegate1[field as keyof typeof delegateInfo.delegate1]}
+                          onChange={(e) => handleInputChange('delegate1', field, e.target.value)}
+                          required
+                        />
+                      </div>
+                    ))}
+                    <div className="bg-gray-100 rounded-xl p-4">
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Enter No of MUNs Attended"
+                        className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
+                        value={delegateInfo.delegate1.experience}
+                        onChange={(e) => handleInputChange('delegate1', 'experience', e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="bg-gray-100 rounded-xl p-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Dietary Preference</label>
+                      <select
+                        className="w-full bg-transparent text-gray-700 focus:outline-none"
+                        value={delegateInfo.delegate1.dietaryPreference}
+                        onChange={(e) => handleInputChange('delegate1', 'dietaryPreference', e.target.value)}
+                        required
+                      >
+                        <option value="Veg">Veg</option>
+                        <option value="Non-Veg">Non-Veg</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
 
-      {/* Secondary Delegate */}
-      {isDoubleDel && (
-        <div className="space-y-4">
-          <h3 className="text-xl font-semibold">Secondary Delegate</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {['name', 'email', 'phone', 'institution', 'year', 'course'].map((field) => (
-              <div key={field} className="bg-gray-100 rounded-xl p-4">
-                <input
-                  placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                  className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
-                  value={delegateInfo.delegate2?.[field as keyof typeof delegateInfo.delegate1] || ''}
-                  onChange={(e) => handleInputChange('delegate2', field, e.target.value)}
-                  required={isDoubleDel}
-                />
+                {/* Secondary Delegate */}
+                {isDoubleDel && (
+                  <div className="space-y-4">
+                    <h3 className="text-xl font-semibold">Secondary Delegate</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {['name', 'email', 'phone', 'institution', 'year', 'course'].map((field) => (
+                        <div key={field} className="bg-gray-100 rounded-xl p-4">
+                          <input
+                            placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                            className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
+                            value={delegateInfo.delegate2?.[field as keyof typeof delegateInfo.delegate1] || ''}
+                            onChange={(e) => handleInputChange('delegate2', field, e.target.value)}
+                            required={isDoubleDel}
+                          />
+                        </div>
+                      ))}
+                      <div className="bg-gray-100 rounded-xl p-4">
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="Enter No of MUNs Attended"
+                          className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
+                          value={delegateInfo.delegate2?.experience || ''}
+                          onChange={(e) => handleInputChange('delegate2', 'experience', e.target.value)}
+                          required={isDoubleDel}
+                        />
+                      </div>
+                      <div className="bg-gray-100 rounded-xl p-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Dietary Preference</label>
+                        <select
+                          className="w-full bg-transparent text-gray-700 focus:outline-none"
+                          value={delegateInfo.delegate2?.dietaryPreference || 'Veg'}
+                          onChange={(e) => handleInputChange('delegate2', 'dietaryPreference', e.target.value)}
+                          required
+                        >
+                          <option value="Veg">Veg</option>
+                          <option value="Non-Veg">Non-Veg</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            ))}
-            <div className="bg-gray-100 rounded-xl p-4">
-              <input
-                type="number"
-                min="0"
-                placeholder="Enter No of MUNs Attended"
-                className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
-                value={delegateInfo.delegate2?.experience || ''}
-                onChange={(e) => handleInputChange('delegate2', 'experience', e.target.value)}
-                required={isDoubleDel}
-              />
-            </div>
-            <div className="bg-gray-100 rounded-xl p-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Dietary Preference</label>
-              <select
-                className="w-full bg-transparent text-gray-700 focus:outline-none"
-                value={delegateInfo.delegate2?.dietaryPreference || 'Veg'}
-                onChange={(e) => handleInputChange('delegate2', 'dietaryPreference', e.target.value)}
-                required
+              <Button
+                onClick={() => validateStep() ? setStep(3) : setError('Please fill all fields')}
+                className="w-full bg-blue-600 text-white py-3 rounded-xl text-lg"
               >
-                <option value="Veg">Veg</option>
-                <option value="Non-Veg">Non-Veg</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-    <Button
-      onClick={() => validateStep() ? setStep(3) : setError('Please fill all fields')}
-      className="w-full bg-blue-600 text-white py-3 rounded-xl text-lg"
-    >
-      Next → Committee Selection
-    </Button>
-  </motion.div>
-)}
+                Next → Committee Selection
+              </Button>
+            </motion.div>
+          )}
 
           {/* Step 3: Committee Selection */}
           {step === 3 && (
@@ -522,57 +529,58 @@ await fetch('/api/sendEmail', {
             </motion.div>
           )}
 
+          {/* Step 5: Confirmation */}
           {step === 5 && (
-  <motion.div
-    key="step5"
-    initial={{ opacity: 0, x: -20 }}
-    animate={{ opacity: 1, x: 0 }}
-    exit={{ opacity: 0, x: 20 }}
-    className="space-y-6"
-  >
-    <h1 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-      <CheckCircle className="text-green-500" /> Confirmation
-    </h1>
-    <div className="bg-gray-100 rounded-xl p-6 space-y-4">
-      <p className="font-semibold text-lg">Total Fee: ₹{calculatePrice()}</p>
-      <div className="space-y-2">
-        <h4 className="font-medium text-gray-800">Primary Delegate:</h4>
-        <p>Name: {delegateInfo.delegate1.name}</p>
-        <p>Email: {delegateInfo.delegate1.email}</p>
-        <p>Phone: {delegateInfo.delegate1.phone}</p>
-        <p>Experience: {delegateInfo.delegate1.experience || '0'} MUNs</p>
-        <p>Dietary Preference: {delegateInfo.delegate1.dietaryPreference}</p>
-      </div>
-      
-      {isDoubleDel && delegateInfo.delegate2 && (
-        <div className="space-y-2">
-          <h4 className="font-medium text-gray-800">Secondary Delegate:</h4>
-          <p>Name: {delegateInfo.delegate2.name}</p>
-          <p>Email: {delegateInfo.delegate2.email}</p>
-          <p>Phone: {delegateInfo.delegate2.phone}</p>
-          <p>Experience: {delegateInfo.delegate2.experience || '0'} MUNs</p>
-          <p>Dietary Preference: {delegateInfo.delegate2.dietaryPreference}</p>
-        </div>
-      )}
+            <motion.div
+              key="step5"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="space-y-6"
+            >
+              <h1 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <CheckCircle className="text-green-500" /> Confirmation
+              </h1>
+              <div className="bg-gray-100 rounded-xl p-6 space-y-4">
+                <p className="font-semibold text-lg">Total Fee: ₹{calculatePrice()}</p>
+                <div className="space-y-2">
+                  <h4 className="font-medium text-gray-800">Primary Delegate:</h4>
+                  <p>Name: {delegateInfo.delegate1.name}</p>
+                  <p>Email: {delegateInfo.delegate1.email}</p>
+                  <p>Phone: {delegateInfo.delegate1.phone}</p>
+                  <p>Experience: {delegateInfo.delegate1.experience || '0'} MUNs</p>
+                  <p>Dietary Preference: {delegateInfo.delegate1.dietaryPreference}</p>
+                </div>
+                
+                {isDoubleDel && delegateInfo.delegate2 && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-gray-800">Secondary Delegate:</h4>
+                    <p>Name: {delegateInfo.delegate2.name}</p>
+                    <p>Email: {delegateInfo.delegate2.email}</p>
+                    <p>Phone: {delegateInfo.delegate2.phone}</p>
+                    <p>Experience: {delegateInfo.delegate2.experience || '0'} MUNs</p>
+                    <p>Dietary Preference: {delegateInfo.delegate2.dietaryPreference}</p>
+                  </div>
+                )}
 
-      {isDoubleDel && (
-        <p className="font-semibold">Average Experience: {getAverageExperience()} MUNs</p>
-      )}
+                {isDoubleDel && (
+                  <p className="font-semibold">Average Experience: {getAverageExperience()} MUNs</p>
+                )}
 
-      <p>Institution: {delegateInfo.delegate1.institution}</p>
-      <p>Year: {delegateInfo.delegate1.year}</p>
-      <p>Course: {delegateInfo.delegate1.course}</p>
-      <p>Committee: {selectedCommittee?.name}</p>
-      <p>Portfolio: {selectedPortfolio?.country}</p>
-    </div>
-    <Button
-      onClick={initiatePayment}
-      className="w-full bg-green-600 text-white py-3 rounded-xl text-lg"
-    >
-      Pay & Confirm Registration
-    </Button>
-  </motion.div>
-)}
+                <p>Institution: {delegateInfo.delegate1.institution}</p>
+                <p>Year: {delegateInfo.delegate1.year}</p>
+                <p>Course: {delegateInfo.delegate1.course}</p>
+                <p>Committee: {selectedCommittee?.name}</p>
+                <p>Portfolio: {selectedPortfolio?.country}</p>
+              </div>
+              <Button
+                onClick={initiatePayment}
+                className="w-full bg-green-600 text-white py-3 rounded-xl text-lg"
+              >
+                Pay & Confirm Registration
+              </Button>
+            </motion.div>
+          )}
         </motion.div>
       </div>
     </div>
