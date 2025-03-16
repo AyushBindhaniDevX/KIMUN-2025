@@ -33,7 +33,8 @@ type DelegateInfo = {
     institution: string
     year: string
     course: string
-    experience: string // Changed to string for placeholder handling
+    experience: string
+    dietaryPreference: 'Veg' | 'Non-Veg' // Add dietary preference
   }
   delegate2?: {
     name: string
@@ -42,7 +43,8 @@ type DelegateInfo = {
     institution: string
     year: string
     course: string
-    experience: string // Changed to string for placeholder handling
+    experience: string
+    dietaryPreference: 'Veg' | 'Non-Veg' // Add dietary preference
   }
 }
 
@@ -314,87 +316,110 @@ await fetch('/api/sendEmail', {
             </motion.div>
           )}
 
-          {/* Step 2: Delegate Details */}
           {step === 2 && (
-            <motion.div
-              key="step2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
+  <motion.div
+    key="step2"
+    initial={{ opacity: 0, x: 20 }}
+    animate={{ opacity: 1, x: 0 }}
+    exit={{ opacity: 0, x: -20 }}
+    className="space-y-6"
+  >
+    <h1 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+      <Sparkles className="text-yellow-500" /> Delegate Details
+    </h1>
+    <div className="space-y-8">
+      {/* Primary Delegate */}
+      <div className="space-y-4">
+        <h3 className="text-xl font-semibold">Primary Delegate</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {['name', 'email', 'phone', 'institution', 'year', 'course'].map((field) => (
+            <div key={field} className="bg-gray-100 rounded-xl p-4">
+              <input
+                placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
+                value={delegateInfo.delegate1[field as keyof typeof delegateInfo.delegate1]}
+                onChange={(e) => handleInputChange('delegate1', field, e.target.value)}
+                required
+              />
+            </div>
+          ))}
+          <div className="bg-gray-100 rounded-xl p-4">
+            <input
+              type="number"
+              min="0"
+              placeholder="Enter No of MUNs Attended"
+              className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
+              value={delegateInfo.delegate1.experience}
+              onChange={(e) => handleInputChange('delegate1', 'experience', e.target.value)}
+              required
+            />
+          </div>
+          <div className="bg-gray-100 rounded-xl p-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Dietary Preference</label>
+            <select
+              className="w-full bg-transparent text-gray-700 focus:outline-none"
+              value={delegateInfo.delegate1.dietaryPreference}
+              onChange={(e) => handleInputChange('delegate1', 'dietaryPreference', e.target.value)}
+              required
             >
-              <h1 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <Sparkles className="text-yellow-500" /> Delegate Details
-              </h1>
-              <div className="space-y-8">
-                {/* Primary Delegate */}
-                <div className="space-y-4">
-                  <h3 className="text-xl font-semibold">Primary Delegate</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {['name', 'email', 'phone', 'institution', 'year', 'course'].map((field) => (
-                      <div key={field} className="bg-gray-100 rounded-xl p-4">
-                        <input
-                          placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                          className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
-                          value={delegateInfo.delegate1[field as keyof typeof delegateInfo.delegate1]}
-                          onChange={(e) => handleInputChange('delegate1', field, e.target.value)}
-                          required
-                        />
-                      </div>
-                    ))}
-                    <div className="bg-gray-100 rounded-xl p-4">
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="Enter No of MUNs Attended"
-                        className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
-                        value={delegateInfo.delegate1.experience}
-                        onChange={(e) => handleInputChange('delegate1', 'experience', e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
+              <option value="Veg">Veg</option>
+              <option value="Non-Veg">Non-Veg</option>
+            </select>
+          </div>
+        </div>
+      </div>
 
-                {/* Secondary Delegate */}
-                {isDoubleDel && (
-                  <div className="space-y-4">
-                    <h3 className="text-xl font-semibold">Secondary Delegate</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {['name', 'email', 'phone', 'institution', 'year', 'course'].map((field) => (
-                        <div key={field} className="bg-gray-100 rounded-xl p-4">
-                          <input
-                            placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                            className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
-                            value={delegateInfo.delegate2?.[field as keyof typeof delegateInfo.delegate1] || ''}
-                            onChange={(e) => handleInputChange('delegate2', field, e.target.value)}
-                            required={isDoubleDel}
-                          />
-                        </div>
-                      ))}
-                      <div className="bg-gray-100 rounded-xl p-4">
-                        <input
-                          type="number"
-                          min="0"
-                          placeholder="Enter No of MUNs Attended"
-                          className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
-                          value={delegateInfo.delegate2?.experience || ''}
-                          onChange={(e) => handleInputChange('delegate2', 'experience', e.target.value)}
-                          required={isDoubleDel}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
+      {/* Secondary Delegate */}
+      {isDoubleDel && (
+        <div className="space-y-4">
+          <h3 className="text-xl font-semibold">Secondary Delegate</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {['name', 'email', 'phone', 'institution', 'year', 'course'].map((field) => (
+              <div key={field} className="bg-gray-100 rounded-xl p-4">
+                <input
+                  placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                  className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
+                  value={delegateInfo.delegate2?.[field as keyof typeof delegateInfo.delegate1] || ''}
+                  onChange={(e) => handleInputChange('delegate2', field, e.target.value)}
+                  required={isDoubleDel}
+                />
               </div>
-              <Button
-                onClick={() => validateStep() ? setStep(3) : setError('Please fill all fields')}
-                className="w-full bg-blue-600 text-white py-3 rounded-xl text-lg"
+            ))}
+            <div className="bg-gray-100 rounded-xl p-4">
+              <input
+                type="number"
+                min="0"
+                placeholder="Enter No of MUNs Attended"
+                className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
+                value={delegateInfo.delegate2?.experience || ''}
+                onChange={(e) => handleInputChange('delegate2', 'experience', e.target.value)}
+                required={isDoubleDel}
+              />
+            </div>
+            <div className="bg-gray-100 rounded-xl p-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Dietary Preference</label>
+              <select
+                className="w-full bg-transparent text-gray-700 focus:outline-none"
+                value={delegateInfo.delegate2?.dietaryPreference || 'Veg'}
+                onChange={(e) => handleInputChange('delegate2', 'dietaryPreference', e.target.value)}
+                required
               >
-                Next → Committee Selection
-              </Button>
-            </motion.div>
-          )}
+                <option value="Veg">Veg</option>
+                <option value="Non-Veg">Non-Veg</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+    <Button
+      onClick={() => validateStep() ? setStep(3) : setError('Please fill all fields')}
+      className="w-full bg-blue-600 text-white py-3 rounded-xl text-lg"
+    >
+      Next → Committee Selection
+    </Button>
+  </motion.div>
+)}
 
           {/* Step 3: Committee Selection */}
           {step === 3 && (
@@ -497,56 +522,57 @@ await fetch('/api/sendEmail', {
             </motion.div>
           )}
 
-          {/* Step 5: Confirmation */}
           {step === 5 && (
-            <motion.div
-              key="step5"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="space-y-6"
-            >
-              <h1 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <CheckCircle className="text-green-500" /> Confirmation
-              </h1>
-              <div className="bg-gray-100 rounded-xl p-6 space-y-4">
-                <p className="font-semibold text-lg">Total Fee: ₹{calculatePrice()}</p>
-                <div className="space-y-2">
-                  <h4 className="font-medium text-gray-800">Primary Delegate:</h4>
-                  <p>Name: {delegateInfo.delegate1.name}</p>
-                  <p>Email: {delegateInfo.delegate1.email}</p>
-                  <p>Phone: {delegateInfo.delegate1.phone}</p>
-                  <p>Experience: {delegateInfo.delegate1.experience || '0'} MUNs</p>
-                </div>
-                
-                {isDoubleDel && delegateInfo.delegate2 && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-gray-800">Secondary Delegate:</h4>
-                    <p>Name: {delegateInfo.delegate2.name}</p>
-                    <p>Email: {delegateInfo.delegate2.email}</p>
-                    <p>Phone: {delegateInfo.delegate2.phone}</p>
-                    <p>Experience: {delegateInfo.delegate2.experience || '0'} MUNs</p>
-                  </div>
-                )}
+  <motion.div
+    key="step5"
+    initial={{ opacity: 0, x: -20 }}
+    animate={{ opacity: 1, x: 0 }}
+    exit={{ opacity: 0, x: 20 }}
+    className="space-y-6"
+  >
+    <h1 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+      <CheckCircle className="text-green-500" /> Confirmation
+    </h1>
+    <div className="bg-gray-100 rounded-xl p-6 space-y-4">
+      <p className="font-semibold text-lg">Total Fee: ₹{calculatePrice()}</p>
+      <div className="space-y-2">
+        <h4 className="font-medium text-gray-800">Primary Delegate:</h4>
+        <p>Name: {delegateInfo.delegate1.name}</p>
+        <p>Email: {delegateInfo.delegate1.email}</p>
+        <p>Phone: {delegateInfo.delegate1.phone}</p>
+        <p>Experience: {delegateInfo.delegate1.experience || '0'} MUNs</p>
+        <p>Dietary Preference: {delegateInfo.delegate1.dietaryPreference}</p>
+      </div>
+      
+      {isDoubleDel && delegateInfo.delegate2 && (
+        <div className="space-y-2">
+          <h4 className="font-medium text-gray-800">Secondary Delegate:</h4>
+          <p>Name: {delegateInfo.delegate2.name}</p>
+          <p>Email: {delegateInfo.delegate2.email}</p>
+          <p>Phone: {delegateInfo.delegate2.phone}</p>
+          <p>Experience: {delegateInfo.delegate2.experience || '0'} MUNs</p>
+          <p>Dietary Preference: {delegateInfo.delegate2.dietaryPreference}</p>
+        </div>
+      )}
 
-                {isDoubleDel && (
-                  <p className="font-semibold">Average Experience: {getAverageExperience()} MUNs</p>
-                )}
+      {isDoubleDel && (
+        <p className="font-semibold">Average Experience: {getAverageExperience()} MUNs</p>
+      )}
 
-                <p>Institution: {delegateInfo.delegate1.institution}</p>
-                <p>Year: {delegateInfo.delegate1.year}</p>
-                <p>Course: {delegateInfo.delegate1.course}</p>
-                <p>Committee: {selectedCommittee?.name}</p>
-                <p>Portfolio: {selectedPortfolio?.country}</p>
-              </div>
-              <Button
-                onClick={initiatePayment}
-                className="w-full bg-green-600 text-white py-3 rounded-xl text-lg"
-              >
-                Pay & Confirm Registration
-              </Button>
-            </motion.div>
-          )}
+      <p>Institution: {delegateInfo.delegate1.institution}</p>
+      <p>Year: {delegateInfo.delegate1.year}</p>
+      <p>Course: {delegateInfo.delegate1.course}</p>
+      <p>Committee: {selectedCommittee?.name}</p>
+      <p>Portfolio: {selectedPortfolio?.country}</p>
+    </div>
+    <Button
+      onClick={initiatePayment}
+      className="w-full bg-green-600 text-white py-3 rounded-xl text-lg"
+    >
+      Pay & Confirm Registration
+    </Button>
+  </motion.div>
+)}
         </motion.div>
       </div>
     </div>
