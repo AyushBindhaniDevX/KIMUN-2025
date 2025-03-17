@@ -318,7 +318,7 @@ export default function AdminDashboard() {
       <nav className="bg-white shadow-sm fixed w-full top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <span className="text-2xl font-bold text-orange-600">MUN Admin</span>
+            <span className="text-2xl font-bold text-orange-600">KIMUN 2025</span>
             <div className="flex space-x-8">
               <button onClick={() => setActiveTab('dashboard')} className={`tab-button ${activeTab === 'dashboard' ? 'active' : ''}`}>
                 <ChartBar size={18} className="mr-2" /> Dashboard
