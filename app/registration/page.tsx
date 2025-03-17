@@ -33,8 +33,7 @@ type DelegateInfo = {
     institution: string
     year: string
     course: string
-    experience: string
-    dietaryPreference: 'Veg' | 'Non-Veg'
+    experience: string // Changed to string for placeholder handling
   }
   delegate2?: {
     name: string
@@ -43,8 +42,7 @@ type DelegateInfo = {
     institution: string
     year: string
     course: string
-    experience: string
-    dietaryPreference: 'Veg' | 'Non-Veg'
+    experience: string // Changed to string for placeholder handling
   }
 }
 
@@ -77,8 +75,7 @@ export default function RegistrationPage() {
       institution: '',
       year: '',
       course: '',
-      experience: '',
-      dietaryPreference: 'Veg'
+      experience: '' // Default experience set to empty string
     }
   })
   const [selectedCommittee, setSelectedCommittee] = useState<Committee | null>(null)
@@ -131,8 +128,7 @@ export default function RegistrationPage() {
       delegateInfo.delegate1.institution.trim() !== '' &&
       delegateInfo.delegate1.year.trim() !== '' &&
       delegateInfo.delegate1.course.trim() !== '' &&
-      delegateInfo.delegate1.experience.trim() !== '' &&
-      delegateInfo.delegate1.dietaryPreference.trim() !== ''
+      delegateInfo.delegate1.experience.trim() !== ''
     )
 
     if (isDoubleDel) {
@@ -143,51 +139,13 @@ export default function RegistrationPage() {
         delegateInfo.delegate2?.institution.trim() !== '' &&
         delegateInfo.delegate2?.year.trim() !== '' &&
         delegateInfo.delegate2?.course.trim() !== '' &&
-        delegateInfo.delegate2?.experience.trim() !== '' &&
-        delegateInfo.delegate2?.dietaryPreference.trim() !== ''
+        delegateInfo.delegate2?.experience.trim() !== ''
     }
     return baseValidation
   }
 
-  const saveRegistration = async (paymentId: string) => {
-    if (!selectedCommittee || !selectedPortfolio) {
-      throw new Error('Committee or portfolio not selected')
-    }
-    
-    try {
-      const registrationRef = ref(db, 'registrations')
-      const registrationData = {
-        delegateInfo: {
-          delegate1: {
-            ...delegateInfo.delegate1,
-            dietaryPreference: delegateInfo.delegate1.dietaryPreference,
-          },
-          ...(isDoubleDel && delegateInfo.delegate2
-            ? {
-                delegate2: {
-                  ...delegateInfo.delegate2,
-                  dietaryPreference: delegateInfo.delegate2.dietaryPreference,
-                },
-              }
-            : {}), // Only include delegate2 if isDoubleDel is true
-        },
-        committeeId: selectedCommittee.id,
-        portfolioId: selectedPortfolio.id,
-        paymentId,
-        timestamp: Date.now(),
-        isDoubleDel,
-        averageExperience: getAverageExperience(),
-      }
-
-      const newRegistration = await push(registrationRef, registrationData)
-      const portfolioRef = ref(db, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
-      await update(portfolioRef, { isVacant: false })
-
-      return newRegistration.key
-    } catch (err) {
-      console.error('Registration failed:', err)
-      throw new Error('Failed to save registration')
-    }
+  const calculatePrice = () => {
+    return isDoubleDel ?  2 : 1 // Example prices
   }
 
   const getAverageExperience = () => {
@@ -197,65 +155,96 @@ export default function RegistrationPage() {
     return Math.round((exp1 + exp2) / 2)
   }
 
-  const initiatePayment = async () => {
-    try {
-      const amount = calculatePrice() * 100 // Convert to paise
-      if (!validateStep()) {
-        setError('Please fill all required fields')
-        return
-      }
-
-      const script = document.createElement('script')
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-      script.async = true
-
-      script.onload = () => {
-        const options = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-          amount: amount,
-          currency: 'INR',
-          name: 'MUN Registration',
-          description: `Registration Fee for ${isDoubleDel ? 'Double Delegation' : 'Single Delegation'}`,
-          image: '/logo.png',
-          handler: async (response: any) => {
-            try {
-              const registrationKey = await saveRegistration(response.razorpay_payment_id)
-              router.push(`/registration-success?paymentId=${response.razorpay_payment_id}&registrationId=${registrationKey}`)
-            } catch (err) {
-              console.error('Registration error:', err)
-              setError('Failed to complete registration. Please contact support.')
-            }
-          },
-          prefill: {
-            name: delegateInfo.delegate1.name,
-            email: delegateInfo.delegate1.email,
-            contact: delegateInfo.delegate1.phone
-          },
-          theme: { color: '#3399cc' },
-          modal: { ondismiss: () => setError('Payment cancelled') }
-        }
-
-        const rzp = new (window as any).Razorpay(options)
-        rzp.open()
-
-        rzp.on('payment.failed', (response: any) => {
-          setError(`Payment failed: ${response.error.description}`)
-        })
-      }
-
-      script.onerror = () => {
-        setError('Failed to load payment gateway. Please disable ad blockers and try again.')
-      }
-
-      document.body.appendChild(script)
-    } catch (err) {
-      console.error('Payment initialization failed:', err)
-      setError('Failed to initialize payment. Please try again.')
+  const saveRegistration = async (paymentId: string) => {
+    if (!selectedCommittee || !selectedPortfolio) {
+      throw new Error('Committee or portfolio not selected')
     }
-  }
+    
+    try {
+      const registrationRef = ref(db, 'registrations')
+      const newRegistration = await push(registrationRef, {
+        delegateInfo,
+        committeeId: selectedCommittee.id,
+        portfolioId: selectedPortfolio.id,
+        paymentId,
+        timestamp: Date.now(),
+        isDoubleDel,
+        averageExperience: getAverageExperience() // Save average experience
+      })
 
-  const calculatePrice = () => {
-    return isDoubleDel ? 2 : 1 // Example prices
+      const portfolioRef = ref(db, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
+      await update(portfolioRef, { isVacant: false })
+
+     // Prepare email data
+const emailData = {
+  email: delegateInfo.delegate1.email, // Primary Delegate Email
+  name: delegateInfo.delegate1.name, // Primary Delegate Name
+  registrationId: newRegistration?.key, // Ensure it's defined
+  committee: selectedCommittee?.name, // Send committee name
+  portfolio: selectedPortfolio?.country, // Send portfolio (country name)
+};
+
+
+// Send Confirmation Email
+await fetch('/api/sendEmail', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(emailData)
+})
+    return newRegistration.key
+  } catch (err) {
+    console.error('Registration failed:', err)
+    throw new Error('Failed to save registration')
+  }
+}
+
+  const initiatePayment = async () => {
+    const amount = calculatePrice() * 100 // Convert to paise
+    if (!validateStep()) {
+      setError('Please fill all required fields')
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.async = true
+
+    script.onload = () => {
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: amount,
+        currency: 'INR',
+        name: 'MUN Registration',
+        description: `Registration Fee for ${isDoubleDel ? 'Double Delegation' : 'Single Delegation'}`,
+        image: '/logo.png',
+        handler: async (response: any) => {
+          try {
+            const registrationKey = await saveRegistration(response.razorpay_payment_id)
+            router.push(`/registration-success?paymentId=${response.razorpay_payment_id}&registrationId=${registrationKey}`)
+          } catch (err) {
+            console.error('Registration error:', err)
+            setError('Failed to complete registration. Please contact support.')
+          }
+        },
+        prefill: {
+          name: delegateInfo.delegate1.name,
+          email: delegateInfo.delegate1.email,
+          contact: delegateInfo.delegate1.phone
+        },
+        theme: { color: '#3399cc' },
+        modal: { ondismiss: () => setError('Payment cancelled') }
+      }
+
+      const rzp = new (window as any).Razorpay(options)
+      rzp.open()
+
+      rzp.on('payment.failed', (response: any) => {
+        setError(`Payment failed: ${response.error.description}`)
+      })
+    }
+
+    script.onerror = () => setError('Failed to load payment gateway')
+    document.body.appendChild(script)
   }
 
   if (loading) return <div className="text-center p-8">Loading committees...</div>
@@ -364,18 +353,6 @@ export default function RegistrationPage() {
                         required
                       />
                     </div>
-                    <div className="bg-gray-100 rounded-xl p-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Dietary Preference</label>
-                      <select
-                        className="w-full bg-transparent text-gray-700 focus:outline-none"
-                        value={delegateInfo.delegate1.dietaryPreference}
-                        onChange={(e) => handleInputChange('delegate1', 'dietaryPreference', e.target.value)}
-                        required
-                      >
-                        <option value="Veg">Veg</option>
-                        <option value="Non-Veg">Non-Veg</option>
-                      </select>
-                    </div>
                   </div>
                 </div>
 
@@ -405,18 +382,6 @@ export default function RegistrationPage() {
                           onChange={(e) => handleInputChange('delegate2', 'experience', e.target.value)}
                           required={isDoubleDel}
                         />
-                      </div>
-                      <div className="bg-gray-100 rounded-xl p-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Dietary Preference</label>
-                        <select
-                          className="w-full bg-transparent text-gray-700 focus:outline-none"
-                          value={delegateInfo.delegate2?.dietaryPreference || 'Veg'}
-                          onChange={(e) => handleInputChange('delegate2', 'dietaryPreference', e.target.value)}
-                          required
-                        >
-                          <option value="Veg">Veg</option>
-                          <option value="Non-Veg">Non-Veg</option>
-                        </select>
                       </div>
                     </div>
                   </div>
@@ -552,7 +517,6 @@ export default function RegistrationPage() {
                   <p>Email: {delegateInfo.delegate1.email}</p>
                   <p>Phone: {delegateInfo.delegate1.phone}</p>
                   <p>Experience: {delegateInfo.delegate1.experience || '0'} MUNs</p>
-                  <p>Dietary Preference: {delegateInfo.delegate1.dietaryPreference}</p>
                 </div>
                 
                 {isDoubleDel && delegateInfo.delegate2 && (
@@ -562,7 +526,6 @@ export default function RegistrationPage() {
                     <p>Email: {delegateInfo.delegate2.email}</p>
                     <p>Phone: {delegateInfo.delegate2.phone}</p>
                     <p>Experience: {delegateInfo.delegate2.experience || '0'} MUNs</p>
-                    <p>Dietary Preference: {delegateInfo.delegate2.dietaryPreference}</p>
                   </div>
                 )}
 
@@ -589,3 +552,4 @@ export default function RegistrationPage() {
     </div>
   )
 }
+
