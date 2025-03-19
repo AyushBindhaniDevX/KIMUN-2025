@@ -82,6 +82,35 @@ export default function RegistrationPage() {
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [isDoubleDel, setIsDoubleDel] = useState(false)
 
+  // Add Queue-Fair script and meta tag
+  useEffect(() => {
+    const script = document.createElement('script')
+    script.src = 'https://queue-fair.com/queue-fair.js'
+    script.async = true
+    document.body.appendChild(script)
+
+    const meta = document.createElement('meta')
+    meta.name = 'queue-fair'
+    meta.content = 'YOUR_QUEUE_FAIR_ACCOUNT_ID' // Replace with your Queue-Fair account ID
+    document.head.appendChild(meta)
+
+    // Listen for Queue-Fair events
+    window.addEventListener('QueueFairPassed', () => {
+      console.log('User has passed the queue and can proceed with registration.')
+    })
+
+    window.addEventListener('QueueFairRedirect', () => {
+      console.log('User is being redirected to the queue.')
+    })
+
+    return () => {
+      document.body.removeChild(script)
+      document.head.removeChild(meta)
+      window.removeEventListener('QueueFairPassed', () => {})
+      window.removeEventListener('QueueFairRedirect', () => {})
+    }
+  }, [])
+
   // Generate unique session ID on mount
   useEffect(() => {
     const sessionId = sessionStorage.getItem('sessionId') || 
