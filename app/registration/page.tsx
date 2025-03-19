@@ -1,14 +1,13 @@
 'use client'
 import React, { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import Confetti from 'react-confetti'
-import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle } from 'lucide-react'
-import Flags from 'country-flag-icons/react/3x2'
+import { Sparkles, Globe, Users, CheckCircle, AlertCircle } from 'lucide-react'
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, push, update, onValue } from 'firebase/database'
 
+// Types
 type Committee = {
   id: string
   name: string
@@ -46,7 +45,7 @@ type DelegateInfo = {
   }
 }
 
-// Firebase configuration
+// Firebase Config
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -63,10 +62,11 @@ const db = getDatabase(app)
 export default function RegistrationPage() {
   const router = useRouter()
   const [step, setStep] = useState(1)
-  const [showConfetti, setShowConfetti] = useState(false)
   const [committees, setCommittees] = useState<Committee[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [userId, setUserId] = useState<string>('')
+  const [queuePosition, setQueuePosition] = useState<number | null>(null)
   const [delegateInfo, setDelegateInfo] = useState<DelegateInfo>({
     delegate1: {
       name: '',
@@ -81,18 +81,68 @@ export default function RegistrationPage() {
   const [selectedCommittee, setSelectedCommittee] = useState<Committee | null>(null)
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [isDoubleDel, setIsDoubleDel] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
-  const [queuePosition, setQueuePosition] = useState<number | null>(null)
 
-  // Generate a unique user ID for the queue
+  // Generate unique session ID on mount
   useEffect(() => {
-    let uniqueId = localStorage.getItem('userId')
-    if (!uniqueId) {
-      uniqueId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      localStorage.setItem('userId', uniqueId)
-    }
-    setUserId(uniqueId)
+    const sessionId = sessionStorage.getItem('sessionId') || 
+                     `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
+    sessionStorage.setItem('sessionId', sessionId)
+    setUserId(sessionId)
   }, [])
+
+  // Queue Management
+  useEffect(() => {
+    if (!userId) return
+
+    const queueRef = ref(db, 'queue')
+    const unsubscribe = onValue(queueRef, async (snapshot) => {
+      try {
+        if (!snapshot.exists()) {
+          await update(queueRef, { activeUser: userId, waitingUsers: [] })
+          return
+        }
+
+        const queueData = snapshot.val()
+        if (queueData.activeUser === userId) {
+          setQueuePosition(0)
+          setStep(1) // Allow registration
+        } else if (queueData.waitingUsers?.includes(userId)) {
+          setQueuePosition(queueData.waitingUsers.indexOf(userId) + 1)
+        } else {
+          await update(queueRef, (currentData) => {
+            const waitingUsers = currentData?.waitingUsers || []
+            waitingUsers.push(userId)
+            return { ...currentData, waitingUsers }
+          })
+        }
+      } catch (err) {
+        console.error('Queue error:', err)
+        setError('Failed to join queue. Please refresh.')
+      }
+    })
+
+    return () => unsubscribe()
+  }, [userId])
+
+  // Remove from queue on unmount
+  useEffect(() => {
+    return () => {
+      if (userId) {
+        update(ref(db, 'queue'), (currentData) => {
+          if (!currentData) return null
+          if (currentData.activeUser === userId) {
+            const waitingUsers = currentData.waitingUsers || []
+            const nextUser = waitingUsers.shift() || null
+            return { activeUser: nextUser, waitingUsers }
+          }
+          return {
+            ...currentData,
+            waitingUsers: currentData.waitingUsers.filter((id: string) => id !== userId)
+          }
+        })
+      }
+    }
+  }, [userId])
 
   // Fetch committees from Firebase
   useEffect(() => {
@@ -122,77 +172,6 @@ export default function RegistrationPage() {
 
     fetchCommittees()
   }, [])
-
-  // Add user to queue when registration starts
-  useEffect(() => {
-    if (!userId) return
-
-    const queueRef = ref(db, 'queue')
-    const unsubscribe = onValue(queueRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const queueData = snapshot.val()
-
-        if (queueData.activeUser === userId) {
-          // It's the user's turn to register
-          setQueuePosition(0)
-          setStep(1)
-        } else if (queueData.waitingUsers.includes(userId)) {
-          // User is in the waiting list
-          const position = queueData.waitingUsers.indexOf(userId) + 1
-          setQueuePosition(position)
-        } else {
-          // User is not in the queue yet
-          addUserToQueue(userId)
-        }
-      }
-    })
-
-    return () => unsubscribe()
-  }, [userId])
-
-  // Add user to the queue
-  const addUserToQueue = async (userId: string) => {
-    const queueRef = ref(db, 'queue')
-    const snapshot = await get(queueRef)
-
-    if (!snapshot.exists()) {
-      // Initialize queue if it doesn't exist
-      await update(queueRef, { activeUser: userId, waitingUsers: [] })
-      return
-    }
-
-    const queueData = snapshot.val()
-
-    if (!queueData.activeUser) {
-      // No active user, assign this user as active
-      await update(queueRef, { activeUser: userId })
-    } else {
-      // Add user to waiting list
-      const waitingUsers = queueData.waitingUsers || []
-      waitingUsers.push(userId)
-      await update(queueRef, { waitingUsers })
-    }
-  }
-
-  // Remove user from the queue
-  const removeUserFromQueue = async (userId: string) => {
-    const queueRef = ref(db, 'queue')
-    const snapshot = await get(queueRef)
-
-    if (!snapshot.exists()) return
-
-    const queueData = snapshot.val()
-
-    if (queueData.activeUser === userId) {
-      const waitingUsers = queueData.waitingUsers || []
-      const nextUser = waitingUsers.shift() || null
-      await update(queueRef, { activeUser: nextUser, waitingUsers })
-    } else {
-      // Remove user from waiting list if they are in it
-      const waitingUsers = queueData.waitingUsers.filter((id: string) => id !== userId)
-      await update(queueRef, { waitingUsers })
-    }
-  }
 
   // Handle input changes
   const handleInputChange = (delegate: 'delegate1' | 'delegate2', field: string, value: string) => {
@@ -266,7 +245,18 @@ export default function RegistrationPage() {
 
       // Remove user from queue after successful registration
       if (userId) {
-        await removeUserFromQueue(userId)
+        await update(ref(db, 'queue'), (currentData) => {
+          if (!currentData) return null
+          if (currentData.activeUser === userId) {
+            const waitingUsers = currentData.waitingUsers || []
+            const nextUser = waitingUsers.shift() || null
+            return { activeUser: nextUser, waitingUsers }
+          }
+          return {
+            ...currentData,
+            waitingUsers: currentData.waitingUsers.filter((id: string) => id !== userId)
+          }
+        })
       }
 
       // Send confirmation email (optional)
@@ -291,54 +281,26 @@ export default function RegistrationPage() {
     }
   }
 
-  // Initiate payment
-  const initiatePayment = async () => {
-    const amount = calculatePrice() * 100 // Convert to paise
-    if (!validateStep()) {
-      setError('Please fill all required fields')
-      return
-    }
-
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-    script.async = true
-
-    script.onload = () => {
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: amount,
-        currency: 'INR',
-        name: 'MUN Registration',
-        description: `Registration Fee for ${isDoubleDel ? 'Double Delegation' : 'Single Delegation'}`,
-        image: '/logo.png',
-        handler: async (response: any) => {
-          try {
-            const registrationKey = await saveRegistration(response.razorpay_payment_id)
-            router.push(`/registration-success?paymentId=${response.razorpay_payment_id}&registrationId=${registrationKey}`)
-          } catch (err) {
-            console.error('Registration error:', err)
-            setError('Failed to complete registration. Please contact support.')
-          }
-        },
-        prefill: {
-          name: delegateInfo.delegate1.name,
-          email: delegateInfo.delegate1.email,
-          contact: delegateInfo.delegate1.phone
-        },
-        theme: { color: '#3399cc' },
-        modal: { ondismiss: () => setError('Payment cancelled') }
-      }
-
-      const rzp = new (window as any).Razorpay(options)
-      rzp.open()
-
-      rzp.on('payment.failed', (response: any) => {
-        setError(`Payment failed: ${response.error.description}`)
-      })
-    }
-
-    script.onerror = () => setError('Failed to load payment gateway')
-    document.body.appendChild(script)
+  // Show queue status
+  if (queuePosition !== null && queuePosition > 0) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
+        <div className="animate-pulse">
+          <Users className="w-12 h-12 text-blue-500 mb-4 mx-auto" />
+        </div>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          Your Position in Queue: #{queuePosition}
+        </h2>
+        <p className="text-gray-600 max-w-md mb-4">
+          Please keep this tab open. You'll automatically proceed when it's your turn.
+        </p>
+        <div className="flex space-x-2 justify-center">
+          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
+        </div>
+      </div>
+    )
   }
 
   // Show loading or error states
@@ -354,25 +316,9 @@ export default function RegistrationPage() {
     </div>
   )
 
-  // Show queue position if user is in the queue
-  if (queuePosition !== null && queuePosition > 0) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
-        <h2 className="text-xl font-semibold text-gray-800 mb-2">
-          You are in position {queuePosition} in the queue.
-        </h2>
-        <p className="text-gray-600 max-w-md mb-4">
-          Please wait for your turn to register.
-        </p>
-      </div>
-    )
-  }
-
   // Render the registration form
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 relative overflow-hidden">
-      {showConfetti && <Confetti recycle={false} numberOfPieces={400} />}
-
       <div className="max-w-2xl mx-auto p-6 relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
