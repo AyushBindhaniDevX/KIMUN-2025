@@ -33,7 +33,7 @@ type DelegateInfo = {
     institution: string
     year: string
     course: string
-    experience: string // Changed to string for placeholder handling
+    experience: string
   }
   delegate2?: {
     name: string
@@ -42,7 +42,7 @@ type DelegateInfo = {
     institution: string
     year: string
     course: string
-    experience: string // Changed to string for placeholder handling
+    experience: string
   }
 }
 
@@ -75,21 +75,32 @@ export default function RegistrationPage() {
       institution: '',
       year: '',
       course: '',
-      experience: '' // Default experience set to empty string
+      experience: ''
     }
   })
   const [selectedCommittee, setSelectedCommittee] = useState<Committee | null>(null)
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [isDoubleDel, setIsDoubleDel] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null) // Unique user ID for queue
-  const [queuePosition, setQueuePosition] = useState<number | null>(null) // User's position in the queue
+  const [userId, setUserId] = useState<string | null>(null)
+  const [queuePosition, setQueuePosition] = useState<number | null>(null)
 
+  // Generate a unique user ID for the queue
+  useEffect(() => {
+    let uniqueId = localStorage.getItem('userId')
+    if (!uniqueId) {
+      uniqueId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      localStorage.setItem('userId', uniqueId)
+    }
+    setUserId(uniqueId)
+  }, [])
+
+  // Fetch committees from Firebase
   useEffect(() => {
     const fetchCommittees = async () => {
       try {
         const committeesRef = ref(db, 'committees')
         const snapshot = await get(committeesRef)
-        
+
         if (snapshot.exists()) {
           const committeesData = snapshot.val()
           const committeesArray = Object.keys(committeesData).map(key => ({
@@ -112,36 +123,31 @@ export default function RegistrationPage() {
     fetchCommittees()
   }, [])
 
-  // Generate a unique user ID for the queue
-  useEffect(() => {
-    const uniqueId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    setUserId(uniqueId)
-  }, [])
-
   // Add user to queue when registration starts
   useEffect(() => {
-    if (userId) {
-      const queueRef = ref(db, 'queue')
-      const unsubscribe = onValue(queueRef, (snapshot) => {
-        if (snapshot.exists()) {
-          const queueData = snapshot.val()
-          if (queueData.activeUser === userId) {
-            // It's the user's turn to register
-            setQueuePosition(0)
-            setStep(1)
-          } else if (queueData.waitingUsers.includes(userId)) {
-            // User is in the waiting list
-            const position = queueData.waitingUsers.indexOf(userId) + 1
-            setQueuePosition(position)
-          } else {
-            // User is not in the queue yet
-            addUserToQueue(userId)
-          }
-        }
-      })
+    if (!userId) return
 
-      return () => unsubscribe()
-    }
+    const queueRef = ref(db, 'queue')
+    const unsubscribe = onValue(queueRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const queueData = snapshot.val()
+
+        if (queueData.activeUser === userId) {
+          // It's the user's turn to register
+          setQueuePosition(0)
+          setStep(1)
+        } else if (queueData.waitingUsers.includes(userId)) {
+          // User is in the waiting list
+          const position = queueData.waitingUsers.indexOf(userId) + 1
+          setQueuePosition(position)
+        } else {
+          // User is not in the queue yet
+          addUserToQueue(userId)
+        }
+      }
+    })
+
+    return () => unsubscribe()
   }, [userId])
 
   // Add user to the queue
@@ -188,6 +194,7 @@ export default function RegistrationPage() {
     }
   }
 
+  // Handle input changes
   const handleInputChange = (delegate: 'delegate1' | 'delegate2', field: string, value: string) => {
     setDelegateInfo(prev => ({
       ...prev,
@@ -198,6 +205,7 @@ export default function RegistrationPage() {
     }))
   }
 
+  // Validate step
   const validateStep = () => {
     const baseValidation = (
       delegateInfo.delegate1.name.trim() !== '' &&
@@ -222,10 +230,12 @@ export default function RegistrationPage() {
     return baseValidation
   }
 
+  // Calculate registration fee
   const calculatePrice = () => {
-    return isDoubleDel ?  2 : 1 // Example prices
+    return isDoubleDel ? 2 : 1 // Example prices
   }
 
+  // Get average experience
   const getAverageExperience = () => {
     const exp1 = parseInt(delegateInfo.delegate1.experience) || 0
     if (!isDoubleDel || !delegateInfo.delegate2) return exp1
@@ -233,11 +243,12 @@ export default function RegistrationPage() {
     return Math.round((exp1 + exp2) / 2)
   }
 
+  // Save registration to Firebase
   const saveRegistration = async (paymentId: string) => {
     if (!selectedCommittee || !selectedPortfolio) {
       throw new Error('Committee or portfolio not selected')
     }
-    
+
     try {
       const registrationRef = ref(db, 'registrations')
       const newRegistration = await push(registrationRef, {
@@ -247,7 +258,7 @@ export default function RegistrationPage() {
         paymentId,
         timestamp: Date.now(),
         isDoubleDel,
-        averageExperience: getAverageExperience() // Save average experience
+        averageExperience: getAverageExperience()
       })
 
       const portfolioRef = ref(db, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
@@ -258,20 +269,19 @@ export default function RegistrationPage() {
         await removeUserFromQueue(userId)
       }
 
-      // Prepare email data
+      // Send confirmation email (optional)
       const emailData = {
-        email: delegateInfo.delegate1.email, // Primary Delegate Email
-        name: delegateInfo.delegate1.name, // Primary Delegate Name
-        registrationId: newRegistration?.key, // Ensure it's defined
-        committee: selectedCommittee?.name, // Send committee name
-        portfolio: selectedPortfolio?.country, // Send portfolio (country name)
+        email: delegateInfo.delegate1.email,
+        name: delegateInfo.delegate1.name,
+        registrationId: newRegistration?.key,
+        committee: selectedCommittee?.name,
+        portfolio: selectedPortfolio?.country,
       }
 
-      // Send Confirmation Email
       await fetch('/api/sendEmail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(emailData)
+        body: JSON.stringify(emailData),
       })
 
       return newRegistration.key
@@ -281,6 +291,7 @@ export default function RegistrationPage() {
     }
   }
 
+  // Initiate payment
   const initiatePayment = async () => {
     const amount = calculatePrice() * 100 // Convert to paise
     if (!validateStep()) {
@@ -330,6 +341,7 @@ export default function RegistrationPage() {
     document.body.appendChild(script)
   }
 
+  // Show loading or error states
   if (loading) return <div className="text-center p-8">Loading committees...</div>
   if (error) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
@@ -342,15 +354,21 @@ export default function RegistrationPage() {
     </div>
   )
 
+  // Show queue position if user is in the queue
   if (queuePosition !== null && queuePosition > 0) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
-        <h2 className="text-xl font-semibold text-gray-800 mb-2">You are in position {queuePosition} in the queue.</h2>
-        <p className="text-gray-600 max-w-md mb-4">Please wait for your turn to register.</p>
+        <h2 className="text-xl font-semibold text-gray-800 mb-2">
+          You are in position {queuePosition} in the queue.
+        </h2>
+        <p className="text-gray-600 max-w-md mb-4">
+          Please wait for your turn to register.
+        </p>
       </div>
     )
   }
 
+  // Render the registration form
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 relative overflow-hidden">
       {showConfetti && <Confetti recycle={false} numberOfPieces={400} />}
