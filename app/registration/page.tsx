@@ -91,7 +91,7 @@ export default function RegistrationPage() {
 
     const meta = document.createElement('meta')
     meta.name = 'queue-fair'
-    meta.content = 'YOUR_QUEUE_FAIR_ACCOUNT_ID' // Replace with your Queue-Fair account ID
+    meta.content = 'd2pt4jpb677qx0my' // Replace with your Queue-Fair Account ID
     document.head.appendChild(meta)
 
     // Listen for Queue-Fair events
