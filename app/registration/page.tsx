@@ -7,7 +7,7 @@ import Confetti from 'react-confetti'
 import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle } from 'lucide-react'
 import Flags from 'country-flag-icons/react/3x2'
 import { initializeApp } from 'firebase/app'
-import { getDatabase, ref, get, push, update } from 'firebase/database'
+import { getDatabase, ref, get, push, update, onValue } from 'firebase/database'
 
 type Committee = {
   id: string
@@ -81,6 +81,8 @@ export default function RegistrationPage() {
   const [selectedCommittee, setSelectedCommittee] = useState<Committee | null>(null)
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [isDoubleDel, setIsDoubleDel] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null) // Unique user ID for queue
+  const [queuePosition, setQueuePosition] = useState<number | null>(null) // User's position in the queue
 
   useEffect(() => {
     const fetchCommittees = async () => {
@@ -109,6 +111,82 @@ export default function RegistrationPage() {
 
     fetchCommittees()
   }, [])
+
+  // Generate a unique user ID for the queue
+  useEffect(() => {
+    const uniqueId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    setUserId(uniqueId)
+  }, [])
+
+  // Add user to queue when registration starts
+  useEffect(() => {
+    if (userId) {
+      const queueRef = ref(db, 'queue')
+      const unsubscribe = onValue(queueRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const queueData = snapshot.val()
+          if (queueData.activeUser === userId) {
+            // It's the user's turn to register
+            setQueuePosition(0)
+            setStep(1)
+          } else if (queueData.waitingUsers.includes(userId)) {
+            // User is in the waiting list
+            const position = queueData.waitingUsers.indexOf(userId) + 1
+            setQueuePosition(position)
+          } else {
+            // User is not in the queue yet
+            addUserToQueue(userId)
+          }
+        }
+      })
+
+      return () => unsubscribe()
+    }
+  }, [userId])
+
+  // Add user to the queue
+  const addUserToQueue = async (userId: string) => {
+    const queueRef = ref(db, 'queue')
+    const snapshot = await get(queueRef)
+
+    if (!snapshot.exists()) {
+      // Initialize queue if it doesn't exist
+      await update(queueRef, { activeUser: userId, waitingUsers: [] })
+      return
+    }
+
+    const queueData = snapshot.val()
+
+    if (!queueData.activeUser) {
+      // No active user, assign this user as active
+      await update(queueRef, { activeUser: userId })
+    } else {
+      // Add user to waiting list
+      const waitingUsers = queueData.waitingUsers || []
+      waitingUsers.push(userId)
+      await update(queueRef, { waitingUsers })
+    }
+  }
+
+  // Remove user from the queue
+  const removeUserFromQueue = async (userId: string) => {
+    const queueRef = ref(db, 'queue')
+    const snapshot = await get(queueRef)
+
+    if (!snapshot.exists()) return
+
+    const queueData = snapshot.val()
+
+    if (queueData.activeUser === userId) {
+      const waitingUsers = queueData.waitingUsers || []
+      const nextUser = waitingUsers.shift() || null
+      await update(queueRef, { activeUser: nextUser, waitingUsers })
+    } else {
+      // Remove user from waiting list if they are in it
+      const waitingUsers = queueData.waitingUsers.filter((id: string) => id !== userId)
+      await update(queueRef, { waitingUsers })
+    }
+  }
 
   const handleInputChange = (delegate: 'delegate1' | 'delegate2', field: string, value: string) => {
     setDelegateInfo(prev => ({
@@ -175,28 +253,33 @@ export default function RegistrationPage() {
       const portfolioRef = ref(db, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
       await update(portfolioRef, { isVacant: false })
 
-     // Prepare email data
-const emailData = {
-  email: delegateInfo.delegate1.email, // Primary Delegate Email
-  name: delegateInfo.delegate1.name, // Primary Delegate Name
-  registrationId: newRegistration?.key, // Ensure it's defined
-  committee: selectedCommittee?.name, // Send committee name
-  portfolio: selectedPortfolio?.country, // Send portfolio (country name)
-};
+      // Remove user from queue after successful registration
+      if (userId) {
+        await removeUserFromQueue(userId)
+      }
 
+      // Prepare email data
+      const emailData = {
+        email: delegateInfo.delegate1.email, // Primary Delegate Email
+        name: delegateInfo.delegate1.name, // Primary Delegate Name
+        registrationId: newRegistration?.key, // Ensure it's defined
+        committee: selectedCommittee?.name, // Send committee name
+        portfolio: selectedPortfolio?.country, // Send portfolio (country name)
+      }
 
-// Send Confirmation Email
-await fetch('/api/sendEmail', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(emailData)
-})
-    return newRegistration.key
-  } catch (err) {
-    console.error('Registration failed:', err)
-    throw new Error('Failed to save registration')
+      // Send Confirmation Email
+      await fetch('/api/sendEmail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailData)
+      })
+
+      return newRegistration.key
+    } catch (err) {
+      console.error('Registration failed:', err)
+      throw new Error('Failed to save registration')
+    }
   }
-}
 
   const initiatePayment = async () => {
     const amount = calculatePrice() * 100 // Convert to paise
@@ -258,6 +341,15 @@ await fetch('/api/sendEmail', {
       </Button>
     </div>
   )
+
+  if (queuePosition !== null && queuePosition > 0) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
+        <h2 className="text-xl font-semibold text-gray-800 mb-2">You are in position {queuePosition} in the queue.</h2>
+        <p className="text-gray-600 max-w-md mb-4">Please wait for your turn to register.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 relative overflow-hidden">
@@ -552,4 +644,3 @@ await fetch('/api/sendEmail', {
     </div>
   )
 }
-
