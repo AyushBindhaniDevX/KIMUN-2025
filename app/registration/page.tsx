@@ -1,13 +1,14 @@
 'use client'
 import React, { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Sparkles, Globe, Users, CheckCircle, AlertCircle } from 'lucide-react'
+import Confetti from 'react-confetti'
+import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle } from 'lucide-react'
+import Flags from 'country-flag-icons/react/3x2'
 import { initializeApp } from 'firebase/app'
-import { getDatabase, ref, get, push, update, onValue } from 'firebase/database'
+import { getDatabase, ref, get, push, update } from 'firebase/database'
 
-// Types
 type Committee = {
   id: string
   name: string
@@ -32,7 +33,7 @@ type DelegateInfo = {
     institution: string
     year: string
     course: string
-    experience: string
+    experience: string // Changed to string for placeholder handling
   }
   delegate2?: {
     name: string
@@ -41,11 +42,11 @@ type DelegateInfo = {
     institution: string
     year: string
     course: string
-    experience: string
+    experience: string // Changed to string for placeholder handling
   }
 }
 
-// Firebase Config
+// Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -62,11 +63,10 @@ const db = getDatabase(app)
 export default function RegistrationPage() {
   const router = useRouter()
   const [step, setStep] = useState(1)
+  const [showConfetti, setShowConfetti] = useState(false)
   const [committees, setCommittees] = useState<Committee[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [userId, setUserId] = useState<string>('')
-  const [queuePosition, setQueuePosition] = useState<number | null>(null)
   const [delegateInfo, setDelegateInfo] = useState<DelegateInfo>({
     delegate1: {
       name: '',
@@ -75,111 +75,19 @@ export default function RegistrationPage() {
       institution: '',
       year: '',
       course: '',
-      experience: ''
+      experience: '' // Default experience set to empty string
     }
   })
   const [selectedCommittee, setSelectedCommittee] = useState<Committee | null>(null)
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [isDoubleDel, setIsDoubleDel] = useState(false)
 
-  // Add Queue-Fair script and meta tag
-  useEffect(() => {
-    const script = document.createElement('script')
-    script.src = 'https://queue-fair.com/queue-fair.js'
-    script.async = true
-    document.body.appendChild(script)
-
-    const meta = document.createElement('meta')
-    meta.name = 'queue-fair'
-    meta.content = 'd2pt4jpb677qx0my' // Replace with your Queue-Fair Account ID
-    document.head.appendChild(meta)
-
-    // Listen for Queue-Fair events
-    window.addEventListener('QueueFairPassed', () => {
-      console.log('User has passed the queue and can proceed with registration.')
-    })
-
-    window.addEventListener('QueueFairRedirect', () => {
-      console.log('User is being redirected to the queue.')
-    })
-
-    return () => {
-      document.body.removeChild(script)
-      document.head.removeChild(meta)
-      window.removeEventListener('QueueFairPassed', () => {})
-      window.removeEventListener('QueueFairRedirect', () => {})
-    }
-  }, [])
-
-  // Generate unique session ID on mount
-  useEffect(() => {
-    const sessionId = sessionStorage.getItem('sessionId') || 
-                     `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
-    sessionStorage.setItem('sessionId', sessionId)
-    setUserId(sessionId)
-  }, [])
-
-  // Queue Management
-  useEffect(() => {
-    if (!userId) return
-
-    const queueRef = ref(db, 'queue')
-    const unsubscribe = onValue(queueRef, async (snapshot) => {
-      try {
-        if (!snapshot.exists()) {
-          await update(queueRef, { activeUser: userId, waitingUsers: [] })
-          return
-        }
-
-        const queueData = snapshot.val()
-        if (queueData.activeUser === userId) {
-          setQueuePosition(0)
-          setStep(1) // Allow registration
-        } else if (queueData.waitingUsers?.includes(userId)) {
-          setQueuePosition(queueData.waitingUsers.indexOf(userId) + 1)
-        } else {
-          await update(queueRef, (currentData) => {
-            const waitingUsers = currentData?.waitingUsers || []
-            waitingUsers.push(userId)
-            return { ...currentData, waitingUsers }
-          })
-        }
-      } catch (err) {
-        console.error('Queue error:', err)
-        setError('Failed to join queue. Please refresh.')
-      }
-    })
-
-    return () => unsubscribe()
-  }, [userId])
-
-  // Remove from queue on unmount
-  useEffect(() => {
-    return () => {
-      if (userId) {
-        update(ref(db, 'queue'), (currentData) => {
-          if (!currentData) return null
-          if (currentData.activeUser === userId) {
-            const waitingUsers = currentData.waitingUsers || []
-            const nextUser = waitingUsers.shift() || null
-            return { activeUser: nextUser, waitingUsers }
-          }
-          return {
-            ...currentData,
-            waitingUsers: currentData.waitingUsers.filter((id: string) => id !== userId)
-          }
-        })
-      }
-    }
-  }, [userId])
-
-  // Fetch committees from Firebase
   useEffect(() => {
     const fetchCommittees = async () => {
       try {
         const committeesRef = ref(db, 'committees')
         const snapshot = await get(committeesRef)
-
+        
         if (snapshot.exists()) {
           const committeesData = snapshot.val()
           const committeesArray = Object.keys(committeesData).map(key => ({
@@ -202,7 +110,6 @@ export default function RegistrationPage() {
     fetchCommittees()
   }, [])
 
-  // Handle input changes
   const handleInputChange = (delegate: 'delegate1' | 'delegate2', field: string, value: string) => {
     setDelegateInfo(prev => ({
       ...prev,
@@ -213,7 +120,6 @@ export default function RegistrationPage() {
     }))
   }
 
-  // Validate step
   const validateStep = () => {
     const baseValidation = (
       delegateInfo.delegate1.name.trim() !== '' &&
@@ -238,12 +144,10 @@ export default function RegistrationPage() {
     return baseValidation
   }
 
-  // Calculate registration fee
   const calculatePrice = () => {
-    return isDoubleDel ? 2 : 1 // Example prices
+    return isDoubleDel ?  2 : 1 // Example prices
   }
 
-  // Get average experience
   const getAverageExperience = () => {
     const exp1 = parseInt(delegateInfo.delegate1.experience) || 0
     if (!isDoubleDel || !delegateInfo.delegate2) return exp1
@@ -251,12 +155,11 @@ export default function RegistrationPage() {
     return Math.round((exp1 + exp2) / 2)
   }
 
-  // Save registration to Firebase
   const saveRegistration = async (paymentId: string) => {
     if (!selectedCommittee || !selectedPortfolio) {
       throw new Error('Committee or portfolio not selected')
     }
-
+    
     try {
       const registrationRef = ref(db, 'registrations')
       const newRegistration = await push(registrationRef, {
@@ -266,73 +169,84 @@ export default function RegistrationPage() {
         paymentId,
         timestamp: Date.now(),
         isDoubleDel,
-        averageExperience: getAverageExperience()
+        averageExperience: getAverageExperience() // Save average experience
       })
 
       const portfolioRef = ref(db, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
       await update(portfolioRef, { isVacant: false })
 
-      // Remove user from queue after successful registration
-      if (userId) {
-        await update(ref(db, 'queue'), (currentData) => {
-          if (!currentData) return null
-          if (currentData.activeUser === userId) {
-            const waitingUsers = currentData.waitingUsers || []
-            const nextUser = waitingUsers.shift() || null
-            return { activeUser: nextUser, waitingUsers }
-          }
-          return {
-            ...currentData,
-            waitingUsers: currentData.waitingUsers.filter((id: string) => id !== userId)
-          }
-        })
-      }
+     // Prepare email data
+const emailData = {
+  email: delegateInfo.delegate1.email, // Primary Delegate Email
+  name: delegateInfo.delegate1.name, // Primary Delegate Name
+  registrationId: newRegistration?.key, // Ensure it's defined
+  committee: selectedCommittee?.name, // Send committee name
+  portfolio: selectedPortfolio?.country, // Send portfolio (country name)
+};
 
-      // Send confirmation email (optional)
-      const emailData = {
-        email: delegateInfo.delegate1.email,
-        name: delegateInfo.delegate1.name,
-        registrationId: newRegistration?.key,
-        committee: selectedCommittee?.name,
-        portfolio: selectedPortfolio?.country,
-      }
 
-      await fetch('/api/sendEmail', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(emailData),
-      })
+// Send Confirmation Email
+await fetch('/api/sendEmail', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(emailData)
+})
+    return newRegistration.key
+  } catch (err) {
+    console.error('Registration failed:', err)
+    throw new Error('Failed to save registration')
+  }
+}
 
-      return newRegistration.key
-    } catch (err) {
-      console.error('Registration failed:', err)
-      throw new Error('Failed to save registration')
+  const initiatePayment = async () => {
+    const amount = calculatePrice() * 100 // Convert to paise
+    if (!validateStep()) {
+      setError('Please fill all required fields')
+      return
     }
+
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.async = true
+
+    script.onload = () => {
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: amount,
+        currency: 'INR',
+        name: 'MUN Registration',
+        description: `Registration Fee for ${isDoubleDel ? 'Double Delegation' : 'Single Delegation'}`,
+        image: '/logo.png',
+        handler: async (response: any) => {
+          try {
+            const registrationKey = await saveRegistration(response.razorpay_payment_id)
+            router.push(`/registration-success?paymentId=${response.razorpay_payment_id}&registrationId=${registrationKey}`)
+          } catch (err) {
+            console.error('Registration error:', err)
+            setError('Failed to complete registration. Please contact support.')
+          }
+        },
+        prefill: {
+          name: delegateInfo.delegate1.name,
+          email: delegateInfo.delegate1.email,
+          contact: delegateInfo.delegate1.phone
+        },
+        theme: { color: '#3399cc' },
+        modal: { ondismiss: () => setError('Payment cancelled') }
+      }
+
+      const rzp = new (window as any).Razorpay(options)
+      rzp.open()
+
+      rzp.on('payment.failed', (response: any) => {
+        setError(`Payment failed: ${response.error.description}`)
+      })
+    }
+
+    script.onerror = () => setError('Failed to load payment gateway')
+    document.body.appendChild(script)
   }
 
-  // Show queue status
-  if (queuePosition !== null && queuePosition > 0) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
-        <div className="animate-pulse">
-          <Users className="w-12 h-12 text-blue-500 mb-4 mx-auto" />
-        </div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">
-          Your Position in Queue: #{queuePosition}
-        </h2>
-        <p className="text-gray-600 max-w-md mb-4">
-          Please keep this tab open. You'll automatically proceed when it's your turn.
-        </p>
-        <div className="flex space-x-2 justify-center">
-          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-          <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
-        </div>
-      </div>
-    )
-  }
-
-  // Show loading or error states
   if (loading) return <div className="text-center p-8">Loading committees...</div>
   if (error) return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
@@ -345,9 +259,10 @@ export default function RegistrationPage() {
     </div>
   )
 
-  // Render the registration form
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 relative overflow-hidden">
+      {showConfetti && <Confetti recycle={false} numberOfPieces={400} />}
+
       <div className="max-w-2xl mx-auto p-6 relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -637,3 +552,4 @@ export default function RegistrationPage() {
     </div>
   )
 }
+
