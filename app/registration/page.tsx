@@ -81,6 +81,9 @@ export default function RegistrationPage() {
   const [selectedCommittee, setSelectedCommittee] = useState<Committee | null>(null)
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [isDoubleDel, setIsDoubleDel] = useState(false)
+  const [isUserInContent, setIsUserInContent] = useState(false)
+  const [currentUser, setCurrentUser] = useState(null)
+  const [waitingQueue, setWaitingQueue] = useState([])
 
   useEffect(() => {
     const fetchCommittees = async () => {
@@ -184,7 +187,6 @@ const emailData = {
   portfolio: selectedPortfolio?.country, // Send portfolio (country name)
 };
 
-
 // Send Confirmation Email
 await fetch('/api/sendEmail', {
   method: 'POST',
@@ -246,6 +248,58 @@ await fetch('/api/sendEmail', {
     script.onerror = () => setError('Failed to load payment gateway')
     document.body.appendChild(script)
   }
+
+  const joinWaitingRoom = () => {
+    if (isUserInContent) {
+      if (!waitingQueue.includes(currentUser)) {
+        setWaitingQueue([...waitingQueue, currentUser])
+      }
+      return waitingRoomPage(currentUser)
+    } else {
+      setIsUserInContent(true)
+      setCurrentUser(currentUser)
+      return mainContentPage(currentUser)
+    }
+  }
+
+  const exitContent = () => {
+    if (currentUser === currentUser) {
+      setIsUserInContent(false)
+      setCurrentUser(null)
+
+      if (waitingQueue.length > 0) {
+        const nextUser = waitingQueue.shift()
+        setIsUserInContent(true)
+        setCurrentUser(nextUser)
+        router.push('/join-waiting-room')
+      } else {
+        console.log("No users are waiting, the content is now free.")
+      }
+    } else {
+      router.push('/')
+    }
+  }
+
+  const waitingRoomPage = (sessionID) => (
+    <div>
+      <h1>You're in the Waiting Room</h1>
+      <p>Your session ID: {sessionID}</p>
+      <p>Users ahead in the queue:</p>
+      <ul>
+        {waitingQueue.map(user => <li key={user}>User {user}</li>)}
+      </ul>
+      <p>Please wait. You will be allowed to proceed shortly.</p>
+    </div>
+  )
+
+  const mainContentPage = (sessionID) => (
+    <div>
+      <h1>Welcome to the Main Content!</h1>
+      <p>Your session ID: <strong>{sessionID}</strong></p>
+      <p>You are the only user here! Congratulations!</p>
+      <button onClick={exitContent}>Exit</button>
+    </div>
+  )
 
   if (loading) return <div className="text-center p-8">Loading committees...</div>
   if (error) return (
@@ -552,4 +606,3 @@ await fetch('/api/sendEmail', {
     </div>
   )
 }
-
