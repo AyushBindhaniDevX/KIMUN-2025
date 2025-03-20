@@ -250,15 +250,18 @@ await fetch('/api/sendEmail', {
   }
 
   const joinWaitingRoom = () => {
+    const sessionID = Math.random().toString(36).substring(7) // Generate a random session ID
+    setCurrentUser(sessionID)
+
     if (isUserInContent) {
-      if (!waitingQueue.includes(currentUser)) {
-        setWaitingQueue([...waitingQueue, currentUser])
+      if (!waitingQueue.includes(sessionID)) {
+        setWaitingQueue([...waitingQueue, sessionID])
       }
-      return waitingRoomPage(currentUser)
+      return waitingRoomPage(sessionID)
     } else {
       setIsUserInContent(true)
-      setCurrentUser(currentUser)
-      return mainContentPage(currentUser)
+      setCurrentUser(sessionID)
+      return mainContentPage(sessionID)
     }
   }
 
