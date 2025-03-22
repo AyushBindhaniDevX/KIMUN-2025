@@ -1,9 +1,9 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button';
-import { Edit, Plus, X, Trash, ChartBar, Users, CheckCircle, Download, UserCheck, QrCode, Cog } from 'lucide-react';
+import { Edit, Plus, X, Trash, ChartBar, Users, CheckCircle, Download, UserCheck, QrCode, Cog, CreditCard, User, UserPlus, Briefcase, Coins } from 'lucide-react';
 import * as Flags from 'country-flag-icons/react/3x2';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, get, push, update, remove, onValue } from 'firebase/database';
@@ -115,12 +115,27 @@ export default function AdminDashboard() {
     fetchData();
   }, []);
 
+  // Calculate statistics
+  const totalDelegates = registrations.reduce((acc, reg) => acc + reg.delegates.length, 0);
+  const singleDelegates = registrations.filter(reg => !reg.isDoubleDel).length;
+  const doubleDelegates = registrations.filter(reg => reg.isDoubleDel).length;
+  const amountReceived = (singleDelegates * 1200) + (doubleDelegates * 2400); // INR calculation
+  const portfoliosVacant = committees.reduce((acc, committee) => acc + committee.portfolios.filter(p => p.isVacant).length, 0);
+  const portfoliosOccupied = committees.reduce((acc, committee) => acc + committee.portfolios.filter(p => !p.isVacant).length, 0);
+
+  // Format currency in INR
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+    }).format(amount);
+  };
+
   // Handle check-in
   const handleCheckIn = async () => {
     if (!barcodeInput) return;
 
     try {
-      // Find delegate by ID, phone, or email
       const registration = registrations.find(r => 
         r.delegates.some(d => d.id === barcodeInput || d.phone === barcodeInput || d.email === barcodeInput)
       );
@@ -130,7 +145,6 @@ export default function AdminDashboard() {
         return;
       }
 
-      // Prevent duplicate check-ins
       const isCheckedIn = checkedIn.some(c => 
         c.delegates?.some(d => d.id === barcodeInput)
       );
@@ -141,7 +155,6 @@ export default function AdminDashboard() {
         return;
       }
 
-      // Create sanitized check-in data
       const checkInData = {
         registrationId: registration.id,
         timestamp: new Date().toISOString(),
@@ -156,7 +169,6 @@ export default function AdminDashboard() {
           ?.portfolios.find(p => p.id === registration.portfolioId)?.country
       };
 
-      // Push to Firebase
       await push(ref(db, 'checkedIn'), checkInData);
       setBarcodeInput('');
       alert('Checked in successfully!');
@@ -217,7 +229,7 @@ export default function AdminDashboard() {
   // Render the table row for each delegate
   const renderDelegateRow = (registration) => {
     return registration.delegates.map(delegate => (
-      <tr key={delegate.id}>
+      <tr key={delegate.id} className="hover:bg-gray-700">
         <td className="px-6 py-4">{delegate.id}</td>
         <td className="px-6 py-4">{delegate.name}</td>
         <td className="px-6 py-4">
@@ -314,11 +326,11 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm fixed w-full top-0 z-10">
+    <div className="min-h-screen bg-gray-900 text-white">
+      <nav className="bg-gray-800 shadow-sm fixed w-full top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <span className="text-2xl font-bold text-orange-600">KIMUN 2025</span>
+            <span className="text-2xl font-bold text-orange-500">MUN Admin</span>
             <div className="flex space-x-8">
               <button onClick={() => setActiveTab('dashboard')} className={`tab-button ${activeTab === 'dashboard' ? 'active' : ''}`}>
                 <ChartBar size={18} className="mr-2" /> Dashboard
@@ -337,58 +349,84 @@ export default function AdminDashboard() {
       <main className="pt-20 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         {activeTab === 'dashboard' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm">
-                <h3 className="text-lg font-semibold mb-4 text-orange-600">Registrations by Committee</h3>
-                <BarChart width={500} height={300} data={committees.map(c => ({
-                  name: c.name,
-                  registrations: c.portfolios?.length || 0
-                }))}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="registrations" fill="#FF6B6B" />
-                </BarChart>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-gray-800 p-6 rounded-xl shadow-sm">
+                <div className="flex items-center space-x-4">
+                  <User className="text-orange-500" size={24} />
+                  <div>
+                    <div className="text-2xl font-bold">{totalDelegates}</div>
+                    <div className="text-sm text-gray-400">Total Delegates</div>
+                  </div>
+                </div>
               </div>
-
-              <div className="bg-white p-6 rounded-xl shadow-sm">
-                <h3 className="text-lg font-semibold mb-4 text-orange-600">Registration Distribution</h3>
-                <PieChart width={500} height={300}>
-                  <Pie
-                    data={committees.map(c => ({
-                      name: c.name,
-                      registrations: c.portfolios?.length || 0
-                    }))}
-                    cx={250}
-                    cy={150}
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={5}
-                    dataKey="registrations"
-                  >
-                    {committees.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#FF9999'][index % 6]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
+              <div className="bg-gray-800 p-6 rounded-xl shadow-sm">
+                <div className="flex items-center space-x-4">
+                  <UserPlus className="text-green-500" size={24} />
+                  <div>
+                    <div className="text-2xl font-bold">{singleDelegates}</div>
+                    <div className="text-sm text-gray-400">Single Delegates</div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-800 p-6 rounded-xl shadow-sm">
+                <div className="flex items-center space-x-4">
+                  <UserPlus className="text-blue-500" size={24} />
+                  <div>
+                    <div className="text-2xl font-bold">{doubleDelegates}</div>
+                    <div className="text-sm text-gray-400">Double Delegates</div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-800 p-6 rounded-xl shadow-sm">
+                <div className="flex items-center space-x-4">
+                  <Coins className="text-yellow-500" size={24} />
+                  <div>
+                    <div className="text-2xl font-bold">{formatCurrency(amountReceived)}</div>
+                    <div className="text-sm text-gray-400">Amount Received</div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm">
-              <h3 className="text-lg font-semibold mb-4 text-orange-600">Quick Stats</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-orange-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-orange-600">{committees.length}</div>
-                  <div className="text-sm text-gray-600">Total Committees</div>
-                </div>
-                <div className="bg-orange-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-orange-600">
-                    {committees.reduce((acc, curr) => acc + (curr.portfolios?.length || 0), 0)}
-                  </div>
-                  <div className="text-sm text-gray-600">Total Portfolios</div>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-gray-800 p-6 rounded-xl shadow-sm">
+                <h3 className="text-lg font-semibold mb-4 text-orange-500">Registrations by Committee</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={committees.map(c => ({
+                    name: c.name,
+                    registrations: c.portfolios?.length || 0
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#4A5568" />
+                    <XAxis dataKey="name" stroke="#CBD5E0" />
+                    <YAxis stroke="#CBD5E0" />
+                    <Tooltip contentStyle={{ backgroundColor: '#2D3748', border: 'none' }} />
+                    <Bar dataKey="registrations" fill="#ED8936" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="bg-gray-800 p-6 rounded-xl shadow-sm">
+                <h3 className="text-lg font-semibold mb-4 text-orange-500">Portfolio Distribution</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Vacant', value: portfoliosVacant },
+                        { name: 'Occupied', value: portfoliosOccupied },
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      <Cell fill="#F56565" />
+                      <Cell fill="#48BB78" />
+                    </Pie>
+                    <Tooltip contentStyle={{ backgroundColor: '#2D3748', border: 'none' }} />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </motion.div>
@@ -396,32 +434,33 @@ export default function AdminDashboard() {
 
         {activeTab === 'delegates' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-            <div className="bg-white p-4 rounded-lg shadow">
+            <div className="bg-gray-800 p-4 rounded-lg shadow">
               <Select
                 options={committees.map(c => ({ value: c.id, label: c.name }))}
                 placeholder="Select Committee"
                 onChange={(selected) => setSelectedCommittee(selected?.value)}
                 isClearable
+                className="text-black"
               />
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm">
+            <div className="bg-gray-800 p-6 rounded-xl shadow-sm">
               <div className="flex items-center space-x-4">
-                <QrCode size={24} className="text-orange-600" />
+                <QrCode size={24} className="text-orange-500" />
                 <input
                   type="text"
                   placeholder="Scan Delegate ID/Phone/Email"
                   value={barcodeInput}
                   onChange={(e) => setBarcodeInput(e.target.value)}
-                  className="flex-1 border p-2 rounded-lg"
+                  className="flex-1 border p-2 rounded-lg bg-gray-700 text-white"
                 />
-                <Button onClick={handleCheckIn} className="bg-orange-600 hover:bg-orange-700 text-white">
+                <Button onClick={handleCheckIn} className="bg-orange-500 hover:bg-orange-600 text-white">
                   <CheckCircle className="mr-2" /> Check In
                 </Button>
               </div>
             </div>
 
-            <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow">
+            <div className="flex justify-between items-center bg-gray-800 p-4 rounded-lg shadow">
               <div className="flex space-x-4">
                 <Button variant={viewMode === 'all' ? 'default' : 'outline'} onClick={() => setViewMode('all')}>
                   All Delegates
@@ -434,18 +473,18 @@ export default function AdminDashboard() {
                 </Button>
               </div>
               <div className="flex space-x-4">
-                <Button onClick={exportExcel} className="bg-green-600 hover:bg-green-700 text-white">
+                <Button onClick={exportExcel} className="bg-green-500 hover:bg-green-600 text-white">
                   <Download className="mr-2" /> Excel
                 </Button>
-                <Button onClick={exportPDF} className="bg-red-600 hover:bg-red-700 text-white">
+                <Button onClick={exportPDF} className="bg-red-500 hover:bg-red-600 text-white">
                   <Download className="mr-2" /> PDF
                 </Button>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="bg-gray-800 rounded-lg shadow overflow-hidden">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-700">
                   <tr>
                     <th className="px-6 py-3 text-left">Delegate ID</th>
                     <th className="px-6 py-3 text-left">Name</th>
@@ -454,7 +493,7 @@ export default function AdminDashboard() {
                     <th className="px-6 py-3 text-left">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-700">
                   {filteredDelegates.flatMap(registration => renderDelegateRow(registration))}
                 </tbody>
               </table>
@@ -465,7 +504,7 @@ export default function AdminDashboard() {
         {activeTab === 'committees' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-orange-600">Committees Management</h2>
+              <h2 className="text-2xl font-bold text-orange-500">Committees Management</h2>
               <Button onClick={() => setIsAddCommitteeModalOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white">
                 <Plus size={16} className="mr-2" /> Add Committee
               </Button>
@@ -473,11 +512,11 @@ export default function AdminDashboard() {
 
             <div className="space-y-4">
               {committees.map((committee) => (
-                <motion.div key={committee.id} className="border p-4 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow" whileHover={{ scale: 1.02 }}>
+                <motion.div key={committee.id} className="border p-4 rounded-lg bg-gray-800 shadow-sm hover:shadow-md transition-shadow" whileHover={{ scale: 1.02 }}>
                   <div className="flex justify-between items-center">
                     <div className="flex items-center">
                       <span className="text-2xl mr-2">{committee.emoji}</span>
-                      <span className="text-xl font-semibold text-orange-600">{committee.name}</span>
+                      <span className="text-xl font-semibold text-orange-500">{committee.name}</span>
                     </div>
                     <div className="flex space-x-2">
                       <button onClick={() => { setEditingCommittee(committee); setIsModalOpen(true); }} className="text-orange-500 hover:text-orange-700">
@@ -494,7 +533,7 @@ export default function AdminDashboard() {
                   <div className="mt-4">
                     <h3 className="text-lg font-semibold mb-2">Portfolios</h3>
                     {committee.portfolios.map((portfolio) => (
-                      <motion.div key={portfolio.id} className="border p-2 rounded-lg bg-gray-50 mb-2 flex justify-between items-center" whileHover={{ scale: 1.01 }}>
+                      <motion.div key={portfolio.id} className="border p-2 rounded-lg bg-gray-700 mb-2 flex justify-between items-center" whileHover={{ scale: 1.01 }}>
                         <div>
                           {portfolio.country} ({portfolio.countryCode})
                         </div>
@@ -519,9 +558,9 @@ export default function AdminDashboard() {
         <AnimatePresence>
           {(isModalOpen || isAddCommitteeModalOpen || isAddPortfolioModalOpen) && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-              <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+              <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold text-orange-600">
+                  <h2 className="text-xl font-semibold text-orange-500">
                     {editingCommittee ? 'Edit Committee' : editingPortfolio ? 'Edit Portfolio' : 'Add Committee'}
                   </h2>
                   <button onClick={() => { setIsModalOpen(false); setIsAddCommitteeModalOpen(false); setIsAddPortfolioModalOpen(false); }} className="text-gray-500 hover:text-gray-700">
@@ -533,14 +572,14 @@ export default function AdminDashboard() {
                   <div>
                     <input
                       type="text"
-                      className="border p-2 w-full mb-4 rounded-lg"
+                      className="border p-2 w-full mb-4 rounded-lg bg-gray-700 text-white"
                       placeholder="Committee Name"
                       value={editingCommittee.name}
                       onChange={(e) => setEditingCommittee({ ...editingCommittee, name: e.target.value })}
                     />
                     <input
                       type="text"
-                      className="border p-2 w-full mb-4 rounded-lg"
+                      className="border p-2 w-full mb-4 rounded-lg bg-gray-700 text-white"
                       placeholder="Emoji"
                       value={editingCommittee.emoji}
                       onChange={(e) => setEditingCommittee({ ...editingCommittee, emoji: e.target.value })}
@@ -555,7 +594,7 @@ export default function AdminDashboard() {
                   <div>
                     <input
                       type="text"
-                      className="border p-2 w-full mb-4 rounded-lg"
+                      className="border p-2 w-full mb-4 rounded-lg bg-gray-700 text-white"
                       placeholder="Country"
                       value={editingPortfolio.country}
                       onChange={(e) => setEditingPortfolio({ ...editingPortfolio, country: e.target.value })}
@@ -565,6 +604,28 @@ export default function AdminDashboard() {
                       value={countryOptions.find((opt) => opt.value === editingPortfolio.countryCode)}
                       onChange={(option) => setEditingPortfolio({ ...editingPortfolio, countryCode: option.value })}
                       className="mb-4"
+                      classNamePrefix="react-select"
+                      styles={{
+                        control: (provided) => ({
+                          ...provided,
+                          backgroundColor: '#4A5568',
+                          borderColor: '#4A5568',
+                          color: '#FFFFFF',
+                        }),
+                        menu: (provided) => ({
+                          ...provided,
+                          backgroundColor: '#4A5568',
+                        }),
+                        option: (provided, state) => ({
+                          ...provided,
+                          backgroundColor: state.isSelected ? '#2D3748' : '#4A5568',
+                          color: '#FFFFFF',
+                        }),
+                        singleValue: (provided) => ({
+                          ...provided,
+                          color: '#FFFFFF',
+                        }),
+                      }}
                     />
                     <div className="flex items-center mb-4">
                       <input
@@ -586,7 +647,7 @@ export default function AdminDashboard() {
                     </div>
                     <input
                       type="number"
-                      className="border p-2 w-full mb-4 rounded-lg"
+                      className="border p-2 w-full mb-4 rounded-lg bg-gray-700 text-white"
                       placeholder="Minimum Experience"
                       value={editingPortfolio.minExperience}
                       onChange={(e) => setEditingPortfolio({ ...editingPortfolio, minExperience: e.target.value })}
@@ -601,14 +662,14 @@ export default function AdminDashboard() {
                   <div>
                     <input
                       type="text"
-                      className="border p-2 w-full mb-4 rounded-lg"
+                      className="border p-2 w-full mb-4 rounded-lg bg-gray-700 text-white"
                       placeholder="Committee Name"
                       value={newCommittee.name}
                       onChange={(e) => setNewCommittee({ ...newCommittee, name: e.target.value })}
                     />
                     <input
                       type="text"
-                      className="border p-2 w-full mb-4 rounded-lg"
+                      className="border p-2 w-full mb-4 rounded-lg bg-gray-700 text-white"
                       placeholder="Emoji"
                       value={newCommittee.emoji}
                       onChange={(e) => setNewCommittee({ ...newCommittee, emoji: e.target.value })}
@@ -623,7 +684,7 @@ export default function AdminDashboard() {
                   <div>
                     <input
                       type="text"
-                      className="border p-2 w-full mb-4 rounded-lg"
+                      className="border p-2 w-full mb-4 rounded-lg bg-gray-700 text-white"
                       placeholder="Country"
                       value={newPortfolio.country}
                       onChange={(e) => setNewPortfolio({ ...newPortfolio, country: e.target.value })}
@@ -633,6 +694,28 @@ export default function AdminDashboard() {
                       value={countryOptions.find((opt) => opt.value === newPortfolio.countryCode)}
                       onChange={(option) => setNewPortfolio({ ...newPortfolio, countryCode: option.value })}
                       className="mb-4"
+                      classNamePrefix="react-select"
+                      styles={{
+                        control: (provided) => ({
+                          ...provided,
+                          backgroundColor: '#4A5568',
+                          borderColor: '#4A5568',
+                          color: '#FFFFFF',
+                        }),
+                        menu: (provided) => ({
+                          ...provided,
+                          backgroundColor: '#4A5568',
+                        }),
+                        option: (provided, state) => ({
+                          ...provided,
+                          backgroundColor: state.isSelected ? '#2D3748' : '#4A5568',
+                          color: '#FFFFFF',
+                        }),
+                        singleValue: (provided) => ({
+                          ...provided,
+                          color: '#FFFFFF',
+                        }),
+                      }}
                     />
                     <div className="flex items-center mb-4">
                       <input
@@ -654,7 +737,7 @@ export default function AdminDashboard() {
                     </div>
                     <input
                       type="number"
-                      className="border p-2 w-full mb-4 rounded-lg"
+                      className="border p-2 w-full mb-4 rounded-lg bg-gray-700 text-white"
                       placeholder="Minimum Experience"
                       value={newPortfolio.minExperience}
                       onChange={(e) => setNewPortfolio({ ...newPortfolio, minExperience: e.target.value })}
