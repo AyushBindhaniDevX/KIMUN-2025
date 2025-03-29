@@ -1356,7 +1356,7 @@ export default function AdminDashboard() {
                       <input
                         type="text"
                         className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        defaultValue="March 15-17, 2025"
+                        defaultValue="August 30, 31, 2025"
                       />
                     </div>
                     <div>
@@ -1364,7 +1364,7 @@ export default function AdminDashboard() {
                       <input
                         type="text"
                         className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        defaultValue="Kalinga University, Naya Raipur"
+                        defaultValue="BMPS"
                       />
                     </div>
                     <div>
