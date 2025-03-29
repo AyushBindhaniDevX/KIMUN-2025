@@ -198,6 +198,8 @@ export default function AdminDashboard() {
     });
 
     // Resources listener
+const fetchData = async () => {
+  try {
     const resourcesRef = ref(db, 'resources');
     const resourcesUnsubscribe = onValue(resourcesRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -217,13 +219,15 @@ export default function AdminDashboard() {
       }
     });
 
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setError('Failed to load data');
-        setLoading(false);
-      }
-    };
+    setLoading(false); // ✅ This should be inside try block
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    setError('Failed to load data');
+  } finally {
+    setLoading(false); // ✅ Ensure setLoading(false) runs no matter what
+  }
+};
+
 
     fetchData();
   }, []);
