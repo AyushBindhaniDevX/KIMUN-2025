@@ -2,42 +2,16 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
-import Link from "next/link"
-import { motion, useScroll, useTransform } from "framer-motion"
-import { useInView } from "react-intersection-observer"
+import Link from 'next/link'
 import { Button } from "@/components/ui/button"
-import { Calendar, ChevronRight, Globe, MapPin, Sparkles, Star, Users, Loader2 } from "lucide-react"
-import MobileNav from "@/components/mobile-nav"
-import ParallaxText from "@/components/parallax-text"
-import { initializeApp } from "firebase/app"
-import { getDatabase, ref, get } from "firebase/database"
 
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-}
+import { motion, useScroll, useTransform } from "framer-motion"
 
-type Committee = {
-  id: string
-  name: string
-  emoji: string
-  portfolios: Portfolio[]
-}
+import { Parallax, ParallaxLayer } from "@react-spring/parallax"
 
-type Portfolio = {
-  id: string
-  country: string
-  countryCode: string
-  isDoubleDelAllowed: boolean
-  isVacant: boolean
-  minExperience: number
-}
+import { Mail, Phone, MapPin, Users, Globe, Calendar, Clock, Gavel, Award, BookOpen, ScrollText } from "lucide-react"
+
+import { useRef } from "react"
 
 export default function Home() {
   const { scrollY } = useScroll()
@@ -139,247 +113,117 @@ export default function Home() {
                     <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-amber-400 transition-all group-hover:w-full"></span>
                   </Link>
                 </motion.div>
-              ),
-            )}
-          </nav>
-          <MobileNav />
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <section className="relative h-screen flex items-center justify-center overflow-hidden">
-        <motion.div className="absolute inset-0 z-0" style={{ y: y1 }}>
-          <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-black opacity-95 z-50"></div>
-          <Image
-            src="https://media.discordapp.net/attachments/1268556254448455713/1355478794244329564/ChatGPT_Image_Mar_29_2025_12_03_59_PM.png?ex=67e91380&is=67e7c200&hm=59e346e38d159dbf58b27969af08fa1f6e7ced5bc7e59483bc5202b4aceaecf5&=&format=webp&quality=lossless&width=1001&height=668"
-            alt="Background"
-            fill
-            className="object-cover"
-            priority
-          />
-        </motion.div>
-
-        <div className="absolute inset-0 bg-[url('/hero-pattern.svg')] opacity-20 z-10"></div>
-
-        <div className="container mx-auto px-4 z-20 mt-16">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1 }}
-            style={{ opacity }}
-            className="absolute top-1/3 right-10 hidden lg:block"
-          >
-          </motion.div>
-
-          <div className="max-w-3xl">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-              <h1 className="text-5xl md:text-7xl font-bold text-amber-300 mb-4 leading-tight">
-                KALINGA <br />
-                <span className="text-white">INTERNATIONAL</span> <br />
-                <span className="relative">
-                  MUN
-                  <motion.span
-                    className="absolute -top-1 -right-12 text-3xl text-amber-400"
-                    initial={{ rotate: -10, scale: 0.8 }}
-                    animate={{ rotate: 0, scale: 1 }}
-                    transition={{ delay: 1, duration: 0.5 }}
-                  >
-                    <Sparkles />
-                  </motion.span>
-                </span>
-              </h1>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.8 }}
-            >
-              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
-                <span className="text-amber-400">30</span> - <span className="text-amber-400">31</span> {" "}
-                AUGUST 2025
-              </h2>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6, duration: 0.8 }}
-            >
-              <div className="flex flex-wrap gap-4">
-                <Link href="/registration" passHref>
-                  <Button className="bg-amber-500 hover:bg-amber-600 text-black font-bold px-8 py-6 text-lg rounded-full group">
-                    Register Now
-                    <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-                  </Button>
-                </Link>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-
-        <div className="absolute bottom-10 left-0 right-0 z-20">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1, duration: 0.8 }}
-            className="flex justify-center"
-          >
-            <motion.div
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY }}
-              className="text-amber-300"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="40"
-                height="40"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 5v14"></path>
-                <path d="m19 12-7 7-7-7"></path>
-              </svg>
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Marquee Section */}
-      <section className="py-8 bg-gradient-to-r from-amber-900/20 via-black to-amber-900/20 overflow-hidden">
-        <ParallaxText baseVelocity={-3}>DIPLOMACY • LEADERSHIP • GLOBAL ISSUES • DEBATE • NETWORKING</ParallaxText>
-      </section>
-
-      {/* Status Banner */}
-      <section className="bg-gradient-to-r from-amber-900 to-black py-8">
-        <div className="container mx-auto px-4 text-center">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-2xl font-bold text-amber-400">KALINGA INTERNATIONAL MUN &apos;25</h2>
-            <h3 className="text-3xl font-bold text-white mt-2 flex items-center justify-center gap-2">
-              <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-              </span>
-              {loading ? "LOADING..." : (
-                committees.some(c => c.portfolios.some(p => p.isVacant)) 
-                ? "REGISTRATION OPEN" 
-                : "REGISTRATION CLOSED"
-              )}
-            </h3>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* About Section */}
-      <section ref={ref1} className="py-20 bg-black relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/hero-pattern.svg')] opacity-5"></div>
-        <div className="container mx-auto px-4 relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={inView1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
-            transition={{ duration: 0.8 }}
-            className="mb-12 text-center"
-          >
-            <span className="text-amber-500 text-lg font-medium">Kalinga International MUN 2025</span>
-            <h2 className="text-4xl md:text-5xl font-bold text-white mt-2">About The Event</h2>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={inView1 ? { opacity: 1, x: 0 } : { opacity: 0, x: -50 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-            >
-              <div className="prose prose-lg text-gray-300 max-w-none">
-                <p className="text-xl leading-relaxed">
-                  A debonair personification of international diplomacy, Kalinga International MUN has been a conduit,
-                  transcending academia into pertinent leadership. An assorted collection of UN committees to pursue, it
-                  proffers an engaging opportunity for delegates vying for meaningful deliberation.
-                </p>
-                <p className="text-xl leading-relaxed">
-                  Kalinga International MUN is back again, with its inaugural installment in 2025 as a two day
-                  conference on the <strong className="text-amber-400">30th and 31st of August</strong>.
-                </p>
-              </div>
-
-              <div className="mt-8 flex flex-wrap gap-4">
-                <div className="flex items-center gap-3 bg-amber-900/20 px-4 py-3 rounded-full">
-                  <Calendar className="text-amber-400 h-5 w-5" />
-                  <span className="text-amber-100">2 Days</span>
-                </div>
-                <div className="flex items-center gap-3 bg-amber-900/20 px-4 py-3 rounded-full">
-                  <Users className="text-amber-400 h-5 w-5" />
-                  <span className="text-amber-100">300+ Delegates</span>
-                </div>
-                <div className="flex items-center gap-3 bg-amber-900/20 px-4 py-3 rounded-full">
-                  <Globe className="text-amber-400 h-5 w-5" />
-                  <span className="text-amber-100">7 Committees</span>
-                </div>
-                <div className="flex items-center gap-3 bg-amber-900/20 px-4 py-3 rounded-full">
-                  <MapPin className="text-amber-400 h-5 w-5" />
-                  <span className="text-amber-100">Bhubaneswar, India</span>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={inView1 ? { opacity: 1, x: 0 } : { opacity: 0, x: 50 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              className="relative"
-            >
-              <div className="absolute -inset-4 bg-amber-500/20 rounded-2xl blur-xl"></div>
-              <div className="relative aspect-video rounded-2xl overflow-hidden border border-amber-500/30">
-                <Image
-                  src="https://media.discordapp.net/attachments/1268556254448455713/1355489191227691169/2.png?ex=67e91d2e&is=67e7cbae&hm=8d08220163a31126559236495d5a9cd920cefbe6f53000d5e24bf583fbaff455&=&format=webp&quality=lossless&width=1240&height=698"
-                  alt="Conference"
-                  width={800}
-                  height={450}
-                  className="object-cover w-full h-full"
-                />
-              </div>
-              <motion.div
-                className="absolute -bottom-6 -right-6 bg-amber-500 rounded-full p-3 shadow-lg"
-                animate={{ rotate: [0, 10, 0] }}
-                transition={{ duration: 5, repeat: Number.POSITIVE_INFINITY }}
-              >
-                <Star className="h-8 w-8 text-black" />
               </motion.div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
+            </div>
+          </section>
+        </ParallaxLayer>
 
-      {/* Committees Preview */}
-      <section ref={ref2} className="py-20 bg-gradient-to-b from-black to-amber-950/20 relative overflow-hidden">
-        <div className="container mx-auto px-4 relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={inView2 ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
-            transition={{ duration: 0.8 }}
-            className="mb-16 text-center"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold text-white">Our Committees</h2>
-            <p className="text-xl text-amber-100/80 mt-4 max-w-2xl mx-auto">
-              {loading ? "Loading committee data..." : ``}
-            </p>
-          </motion.div>
+        {/* Committees Section */}
+        <ParallaxLayer offset={1} speed={0.2} className="py-20 bg-amber-50">
+          <section className="container mx-auto px-6">
+            <h2 className="text-4xl font-bold text-amber-800 mb-16 text-center">Committees</h2>
+            <div className="grid md:grid-cols-3 gap-8">
+              {[
+                { 
+                  name: "UN Security Council",
+                  agenda: ["Cybersecurity Threats", "Arctic Resource Management"],
+                  icon: <Globe className="w-12 h-12 text-amber-600" />,
+                  logo: "https://blog.ipleaders.in/wp-content/uploads/2020/02/906px-UN_emblem_blue.png"
+                },
+                { 
+                  name: "WHO",
+                  agenda: ["Pandemic Response", "Mental Health Crisis"],
+                  icon: <Users className="w-12 h-12 text-amber-600" />,
+                  logo: "https://blog.ipleaders.in/wp-content/uploads/2020/02/906px-UN_emblem_blue.png"
+                },
+                { 
+                  name: "UNHRC 1",
+                  agenda: ["Refugee Rights", "Digital Privacy"],
+                  icon: <Gavel className="w-12 h-12 text-amber-600" />,
+                  logo: "https://blog.ipleaders.in/wp-content/uploads/2020/02/906px-UN_emblem_blue.png"
+                },
+                { 
+                  name: "UNHRC 2",
+                  agenda: ["Refugee Rights", "Digital Privacy"],
+                  icon: <Gavel className="w-12 h-12 text-amber-600" />,
+                  logo: "https://blog.ipleaders.in/wp-content/uploads/2020/02/906px-UN_emblem_blue.png"
+                },
+                { 
+                  name: "UNHRC 3",
+                  agenda: ["Refugee Rights", "Digital Privacy"],
+                  icon: <Gavel className="w-12 h-12 text-amber-600" />,
+                  logo: "https://blog.ipleaders.in/wp-content/uploads/2020/02/906px-UN_emblem_blue.png"
+                },
+                { 
+                  name: "UNHRC 4",
+                  agenda: ["Refugee Rights", "Digital Privacy"],
+                  icon: <Gavel className="w-12 h-12 text-amber-600" />,
+                  logo: "https://blog.ipleaders.in/wp-content/uploads/2020/02/906px-UN_emblem_blue.png"
+                }
+              ].map((committee, index) => (
+                <motion.div
+                  key={index}
+                  className="bg-white p-8 rounded-2xl shadow-lg border border-amber-100 backdrop-blur-md bg-opacity-60"
+                  initial={{ opacity: 0, y: 50 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                >
+                  <div className="flex items-center justify-center mb-6">
+                    <Image
+                      src={committee.logo}
+                      alt={committee.name}
+                      width={100}
+                      height={100}
+                      className="w-24 h-24 object-contain"
+                    />
+                  </div>
+                  <h3 className="text-2xl font-bold text-amber-800 mb-4 text-center">{committee.name}</h3>
+                </motion.div>
+              ))}
+            </div>
+          </section>
+        </ParallaxLayer>
 
-          {loading ? (
-            <div className="flex justify-center">
-              <div className="animate-pulse flex flex-col items-center gap-4">
-                <Loader2 className="h-12 w-12 text-amber-500 animate-spin" />
-                <p className="text-amber-300">Loading committees...</p>
-              </div>
+        {/* Executive Board */}
+        <ParallaxLayer offset={2} speed={0.2} className="py-20">
+          <section className="container mx-auto px-6">
+            <h2 className="text-4xl font-bold text-amber-800 mb-16 text-center">Meet The Team</h2>
+            <div className="grid md:grid-cols-3 gap-8">
+              {[
+                { 
+                  name: "Secretary General Name",
+                  role: "Secretary General",
+                  image: "https://encrypted-tbn1.gstatic.com/licensed-image?q=tbn:ANd9GcQCyzdroOgXf1JRT-59-ejJoIE0a9KVvyVwXUrA5xytU8gCuncLXYXL3DO2b1_-YnaUWD0lgEsd3ddXvZg",
+                },
+                { 
+                  name: "Deputy Secretary General Name",
+                  role: "Deputy Secretary General", 
+                  image: "https://encrypted-tbn1.gstatic.com/licensed-image?q=tbn:ANd9GcQCyzdroOgXf1JRT-59-ejJoIE0a9KVvyVwXUrA5xytU8gCuncLXYXL3DO2b1_-YnaUWD0lgEsd3ddXvZg",
+                },
+                { 
+                  name: "Director General Name",
+                  role: "Director General",
+                  image: "https://encrypted-tbn1.gstatic.com/licensed-image?q=tbn:ANd9GcQCyzdroOgXf1JRT-59-ejJoIE0a9KVvyVwXUrA5xytU8gCuncLXYXL3DO2b1_-YnaUWD0lgEsd3ddXvZg",
+                }
+              ].map((member, index) => (
+                <motion.div
+                  key={index}
+                  className="group relative overflow-hidden rounded-2xl shadow-lg backdrop-blur-md bg-opacity-60"
+                  whileHover={{ scale: 1.03 }}
+                >
+                  <Image
+                    src={member.image}
+                    alt={member.name}
+                    width={600}
+                    height={800}
+                    className="h-96 object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-amber-800/60 via-transparent to-transparent p-6 flex flex-col justify-end">
+                    <h3 className="text-2xl font-bold text-white mb-2">{member.name}</h3>
+                    <p className="text-amber-200">{member.role}</p>
+                  </div>
+                </motion.div>
+              ))}
             </div>
           ) : (
             <>

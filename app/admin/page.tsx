@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button';
-import { Edit, Plus, X, Trash, ChartBar, Users, CheckCircle, Download, UserCheck, QrCode, Cog, CreditCard, User, UserPlus, Briefcase, Coins, BookOpen, FileText, Award, Settings, LogOut } from 'lucide-react';
+import { Edit, Plus, X, Trash, ChartBar, Users, CheckCircle, Download, UserCheck, QrCode, Cog } from 'lucide-react';
 import * as Flags from 'country-flag-icons/react/3x2';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, get, push, update, remove, onValue } from 'firebase/database';
@@ -217,126 +217,60 @@ export default function AdminDashboard() {
       }
     });
 
-    setLoading(false);
-
-    // Cleanup function
-    return () => {
-      committeesUnsubscribe();
-      registrationsUnsubscribe();
-      resourcesUnsubscribe();
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        setError('Failed to load data');
+        setLoading(false);
+      }
     };
-  }, [accessGranted]);
 
-  const handlePinSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pinInput === '515234') {
-      setAccessGranted(true);
-    } else {
-      alert('Incorrect PIN');
-      setPinInput('');
-    }
-  };
+    fetchData();
+  }, []);
 
-  const openCommitteeModal = (committee: Committee | null) => {
-    setEditingCommittee(committee || {
-      id: '',
-      name: '',
-      emoji: '',
-      type: 'general',
-      description: '',
-      topics: [],
-      eb: [],
-      portfolios: [],
-      backgroundGuide: '',
-      rules: ''
-    });
-    setModalType('committee');
-    setIsModalOpen(true);
-  };
-
-  const openEBModal = (eb: EBMember | null, committeeId: string) => {
-    setEditingEB(eb || {
-      id: '',
-      name: '',
-      role: 'chair',
-      email: '',
-      bio: ''
-    });
-    setEditingCommittee(committees.find(c => c.id === committeeId) || null);
-    setModalType('eb');
-    setIsModalOpen(true);
-  };
-
-  const openPortfolioModal = (portfolio: Portfolio | null, committeeId: string) => {
-    setEditingPortfolio(portfolio || {
-      id: '',
-      country: '',
-      countryCode: '',
-      isDoubleDelAllowed: false,
-      isVacant: true,
-      minExperience: 0
-    });
-    setEditingCommittee(committees.find(c => c.id === committeeId) || null);
-    setModalType('portfolio');
-    setIsModalOpen(true);
-  };
-
-  const openResourceModal = (resource: Resource | null) => {
-    setEditingResource(resource || {
-      id: '',
-      title: '',
-      type: 'guide',
-      url: '',
-      committeeId: '',
-      description: '',
-      pages: 0
-    });
-    setModalType('resource');
-    setIsModalOpen(true);
-  };
-
-  const totalDelegates = delegates.length;
-  const checkedInDelegates = delegates.filter(d => d.isCheckedIn).length;
-  const singleDelegates = delegates.filter(d => !d.isDoubleDel).length;
-  const doubleDelegates = delegates.filter(d => d.isDoubleDel).length;
-  const amountReceived = (singleDelegates * 1200) + (doubleDelegates * 2400);
-  const portfoliosVacant = committees.reduce((acc, c) => acc + c.portfolios.filter(p => p.isVacant).length, 0);
-  const portfoliosOccupied = committees.reduce((acc, c) => acc + c.portfolios.filter(p => !p.isVacant).length, 0);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-    }).format(amount);
-  };
-
+  // Handle check-in
   const handleCheckIn = async () => {
     if (!barcodeInput) return;
 
-    const delegate = delegates.find(d => 
-      d.id.includes(barcodeInput) || 
-      d.phone === barcodeInput || 
-      d.email === barcodeInput
-    );
+    try {
+      // Find delegate by ID, phone, or email
+      const registration = registrations.find(r => 
+        r.delegates.some(d => d.id === barcodeInput || d.phone === barcodeInput || d.email === barcodeInput)
+      );
 
     if (!delegate) {
       alert('Delegate not found!');
       return;
     }
 
-    if (delegate.isCheckedIn) {
-      alert('Delegate already checked in!');
-      setBarcodeInput('');
-      return;
-    }
-
-    try {
-      const [regId, delId] = delegate.id.split('_');
-      await update(ref(db, `registrations/${regId}/delegateInfo/${delId}`), {
-        isCheckedIn: true,
-        checkInTime: new Date().toISOString()
-      });
+      // Prevent duplicate check-ins
+      const isCheckedIn = checkedIn.some(c => 
+        c.delegates?.some(d => d.id === barcodeInput)
+      );
       
+      if (isCheckedIn) {
+        alert('Delegate already checked in!');
+        setBarcodeInput('');
+        return;
+      }
+
+      // Create sanitized check-in data
+      const checkInData = {
+        registrationId: registration.id,
+        timestamp: new Date().toISOString(),
+        delegates: registration.delegates.map(d => ({
+          id: d.id,
+          name: d.name,
+          email: d.email,
+          phone: d.phone
+        })),
+        committee: committees.find(c => c.id === registration.committeeId)?.name,
+        portfolio: committees.find(c => c.id === registration.committeeId)
+          ?.portfolios.find(p => p.id === registration.portfolioId)?.country
+      };
+
+      // Push to Firebase
+      await push(ref(db, 'checkedIn'), checkInData);
       setBarcodeInput('');
       alert('Checked in successfully!');
     } catch (error) {
@@ -370,1379 +304,234 @@ export default function AdminDashboard() {
     return committeeMatch;
   });
 
-  const saveCommittee = async (committee: Committee) => {
-    try {
-      const committeeData = {
-        name: committee.name,
-        emoji: committee.emoji,
-        type: committee.type,
-        description: committee.description,
-        topics: committee.topics,
-        backgroundGuide: committee.backgroundGuide || '',
-        rules: committee.rules || '',
-        portfolios: committee.portfolios.reduce((acc, p) => {
-          acc[p.id] = {
-            country: p.country,
-            countryCode: p.countryCode,
-            isDoubleDelAllowed: p.isDoubleDelAllowed,
-            isVacant: p.isVacant,
-            minExperience: p.minExperience
-          };
-          return acc;
-        }, {} as Record<string, any>)
-      };
-
-      if (committee.id) {
-        await update(ref(db, `committees/${committee.id}`), committeeData);
-      } else {
-        const newRef = push(ref(db, 'committees'), committeeData);
-        committee.id = newRef.key!;
-      }
-      
-      setCommittees(prev => 
-        committee.id 
-          ? prev.map(c => c.id === committee.id ? committee : c)
-          : [...prev, committee]
-      );
-      setIsModalOpen(false);
-      return true;
-    } catch (error) {
-      console.error('Error saving committee:', error);
-      return false;
-    }
+  // Render the table row for each delegate
+  const renderDelegateRow = (registration) => {
+    return registration.delegates.map(delegate => (
+      <tr key={delegate.id}>
+        <td className="px-6 py-4">{delegate.id}</td>
+        <td className="px-6 py-4">{delegate.name}</td>
+        <td className="px-6 py-4">
+          {committees.find(c => c.id === registration.committeeId)?.name}
+        </td>
+        <td className="px-6 py-4">
+          {committees.find(c => c.id === registration.committeeId)
+            ?.portfolios.find(p => p.id === registration.portfolioId)?.country}
+        </td>
+        <td className="px-6 py-4">
+          <span className={`px-2 py-1 rounded-full text-xs ${
+            checkedIn.some(c => c.registrationId === registration.id) 
+            ? 'bg-green-100 text-green-800' 
+            : 'bg-red-100 text-red-800'
+          }`}>
+            {checkedIn.some(c => c.registrationId === registration.id) ? 'Checked In' : 'Not Checked In'}
+          </span>
+        </td>
+      </tr>
+    ));
   };
-
-  const saveEB = async (eb: EBMember, committeeId: string) => {
-    try {
-      const ebData = {
-        name: eb.name,
-        role: eb.role,
-        email: eb.email,
-        bio: eb.bio || ''
-      };
-
-      if (eb.id) {
-        await update(ref(db, `committees/${committeeId}/eb/${eb.id}`), ebData);
-      } else {
-        const newRef = push(ref(db, `committees/${committeeId}/eb`), ebData);
-        eb.id = newRef.key!;
-      }
-      
-      setCommittees(prev => 
-        prev.map(c => 
-          c.id === committeeId
-            ? {
-                ...c,
-                eb: eb.id 
-                  ? c.eb.map(e => e.id === eb.id ? eb : e)
-                  : [...c.eb, eb]
-              }
-            : c
-        )
-      );
-      setIsModalOpen(false);
-      return true;
-    } catch (error) {
-      console.error('Error saving EB member:', error);
-      return false;
-    }
-  };
-
-  const savePortfolio = async (portfolio: Portfolio, committeeId: string) => {
-    try {
-      const portfolioData = {
-        country: portfolio.country,
-        countryCode: portfolio.countryCode,
-        isDoubleDelAllowed: portfolio.isDoubleDelAllowed,
-        isVacant: portfolio.isVacant,
-        minExperience: portfolio.minExperience
-      };
-
-      if (portfolio.id) {
-        await update(ref(db, `committees/${committeeId}/portfolios/${portfolio.id}`), portfolioData);
-      } else {
-        const newRef = push(ref(db, `committees/${committeeId}/portfolios`), portfolioData);
-        portfolio.id = newRef.key!;
-      }
-      
-      setCommittees(prev => 
-        prev.map(c => 
-          c.id === committeeId
-            ? {
-                ...c,
-                portfolios: portfolio.id 
-                  ? c.portfolios.map(p => p.id === portfolio.id ? portfolio : p)
-                  : [...c.portfolios, portfolio]
-              }
-            : c
-        )
-      );
-      setIsModalOpen(false);
-      return true;
-    } catch (error) {
-      console.error('Error saving portfolio:', error);
-      return false;
-    }
-  };
-
-  const saveResource = async (resource: Resource) => {
-    try {
-      const resourceData = {
-        title: resource.title,
-        type: resource.type,
-        url: resource.url,
-        committeeId: resource.committeeId || '',
-        description: resource.description || '',
-        pages: resource.pages || 0
-      };
-
-      if (resource.id) {
-        await update(ref(db, `resources/${resource.id}`), resourceData);
-      } else {
-        const newRef = push(ref(db, 'resources'), resourceData);
-        resource.id = newRef.key!;
-      }
-      
-      setResources(prev => 
-        resource.id 
-          ? prev.map(r => r.id === resource.id ? resource : r)
-          : [...prev, resource]
-      );
-      setIsModalOpen(false);
-      return true;
-    } catch (error) {
-      console.error('Error saving resource:', error);
-      return false;
-    }
-  };
-
-  const deleteItem = async (path: string) => {
-    if (!confirm('Are you sure you want to delete this item?')) return false;
-    
-    try {
-      await remove(ref(db, path));
-      return true;
-    } catch (error) {
-      console.error('Error deleting:', error);
-      return false;
-    }
-  };
-
-  if (!accessGranted) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full">
-          <h1 className="text-2xl font-bold text-orange-500 mb-6 text-center">Admin Access</h1>
-          <form onSubmit={handlePinSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="pin" className="block text-sm font-medium text-gray-300 mb-1">
-                Enter Access PIN
-              </label>
-              <input
-                type="password"
-                id="pin"
-                value={pinInput}
-                onChange={(e) => setPinInput(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                placeholder="Enter PIN"
-                required
-              />
-            </div>
-            <Button
-              type="submit"
-              className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-md"
-            >
-              Submit
-            </Button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-orange-400">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="text-center p-6 bg-gray-800 rounded-lg max-w-md">
-          <h2 className="text-xl font-bold text-orange-500 mb-2">Error</h2>
-          <p className="text-gray-300 mb-4">{error}</p>
-          <Button 
-            onClick={() => window.location.reload()} 
-            className="bg-orange-600 hover:bg-orange-700 text-white"
-          >
-            Try Again
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 flex">
-      {/* Sidebar */}
-      <div className="w-64 bg-gray-800 text-white fixed h-full">
-        <div className="p-4 border-b border-gray-700">
-          <h1 className="text-xl font-bold flex items-center">
-            <Award className="mr-2 text-orange-500" /> MUN Admin
-          </h1>
-        </div>
-        <nav className="p-4 space-y-2">
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
-          >
-            <ChartBar className="mr-3" /> Dashboard
-          </button>
-          <button
-            onClick={() => setActiveTab('delegates')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'delegates' ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
-          >
-            <UserCheck className="mr-3" /> Delegates
-          </button>
-          <button
-            onClick={() => setActiveTab('committees')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'committees' ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
-          >
-            <Users className="mr-3" /> Committees
-          </button>
-          <button
-            onClick={() => setActiveTab('eb')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'eb' ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
-          >
-            <Briefcase className="mr-3" /> Executive Board
-          </button>
-          <button
-            onClick={() => setActiveTab('resources')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'resources' ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
-          >
-            <BookOpen className="mr-3" /> Resources
-          </button>
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
-          >
-            <Settings className="mr-3" /> Settings
-          </button>
-        </nav>
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-700">
-          <button 
-            onClick={() => {
-              setAccessGranted(false);
-              setPinInput('');
-            }}
-            className="flex items-center w-full p-3 rounded-lg text-gray-300 hover:bg-gray-700 transition-colors"
-          >
-            <LogOut className="mr-3" /> Logout
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 ml-64">
-        {/* Header */}
-        <header className="bg-white shadow-sm p-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-800 capitalize">
-              {activeTab === 'dashboard' && 'Dashboard'}
-              {activeTab === 'delegates' && 'Delegates Management'}
-              {activeTab === 'committees' && 'Committees Management'}
-              {activeTab === 'eb' && 'Executive Board'}
-              {activeTab === 'resources' && 'Resources'}
-              {activeTab === 'settings' && 'Settings'}
-            </h2>
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-                <svg
-                  className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-orange-500 flex items-center justify-center text-white font-semibold">
-                AD
-              </div>
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white shadow-sm fixed w-full top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16 items-center">
+            <span className="text-2xl font-bold text-orange-600">MUN Admin</span>
+            <div className="flex space-x-8">
+              <button onClick={() => setActiveTab('dashboard')} className={`tab-button ${activeTab === 'dashboard' ? 'active' : ''}`}>
+                <ChartBar size={18} className="mr-2" /> Dashboard
+              </button>
+              <button onClick={() => setActiveTab('delegates')} className={`tab-button ${activeTab === 'delegates' ? 'active' : ''}`}>
+                <UserCheck size={18} className="mr-2" /> Delegates
+              </button>
+              <button onClick={() => setActiveTab('committees')} className={`tab-button ${activeTab === 'committees' ? 'active' : ''}`}>
+                <Users size={18} className="mr-2" /> Committees
+              </button>
             </div>
           </div>
-        </header>
+        </div>
+      </nav>
 
-        {/* Content Area */}
-        <main className="p-6">
-          {/* Dashboard Tab */}
-          {activeTab === 'dashboard' && (
-            <div className="space-y-6">
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 rounded-full bg-orange-100 text-orange-600">
-                      <User className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Total Delegates</p>
-                      <p className="text-2xl font-bold">{totalDelegates}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 rounded-full bg-green-100 text-green-600">
-                      <CheckCircle className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Checked In</p>
-                      <p className="text-2xl font-bold">{checkedInDelegates}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-                      <Coins className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Amount Received</p>
-                      <p className="text-2xl font-bold">{formatCurrency(amountReceived)}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 rounded-full bg-purple-100 text-purple-600">
-                      <Users className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Committees</p>
-                      <p className="text-2xl font-bold">{committees.length}</p>
-                    </div>
-                  </div>
-                </div>
+      <main className="pt-20 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        {activeTab === 'dashboard' && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm">
+                <h3 className="text-lg font-semibold mb-4 text-orange-600">Registrations by Committee</h3>
+                <BarChart width={500} height={300} data={committees.map(c => ({
+                  name: c.name,
+                  registrations: c.portfolios?.length || 0
+                }))}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="registrations" fill="#FF6B6B" />
+                </BarChart>
               </div>
 
-              {/* Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <h3 className="text-lg font-semibold mb-4">Registrations by Committee</h3>
-                  <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={committees.map(c => ({
-                        name: c.name,
-                        registrations: delegates.filter(d => d.committeeId === c.id).length
-                      }))}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="name" stroke="#6b7280" />
-                        <YAxis stroke="#6b7280" />
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb', borderRadius: '0.5rem' }}
-                          itemStyle={{ color: '#1f2937' }}
-                        />
-                        <Bar dataKey="registrations" fill="#f97316" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <h3 className="text-lg font-semibold mb-4">Portfolio Distribution</h3>
-                  <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: 'Vacant', value: portfoliosVacant },
-                            { name: 'Occupied', value: portfoliosOccupied },
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="value"
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        >
-                          <Cell fill="#ef4444" />
-                          <Cell fill="#10b981" />
-                        </Pie>
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb', borderRadius: '0.5rem' }}
-                          formatter={(value, name) => [value, name]}
-                        />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
-
-              {/* Recent Check-ins */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">Recent Check-ins</h3>
-                  <Button 
-                    variant="outline" 
-                    className="border-orange-500 text-orange-500 hover:bg-orange-50"
-                    onClick={() => setActiveTab('delegates')}
+              <div className="bg-white p-6 rounded-xl shadow-sm">
+                <h3 className="text-lg font-semibold mb-4 text-orange-600">Registration Distribution</h3>
+                <PieChart width={500} height={300}>
+                  <Pie
+                    data={committees.map(c => ({
+                      name: c.name,
+                      registrations: c.portfolios?.length || 0
+                    }))}
+                    cx={250}
+                    cy={150}
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={5}
+                    dataKey="registrations"
                   >
-                    View All
-                  </Button>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Delegate</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Committee</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Portfolio</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {delegates
-                        .filter(d => d.isCheckedIn)
-                        .sort((a, b) => (b.checkInTime || '').localeCompare(a.checkInTime || ''))
-                        .slice(0, 5)
-                        .map(delegate => (
-                          <tr key={delegate.id}>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-semibold">
-                                  {delegate.name.charAt(0)}
-                                </div>
-                                <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">{delegate.name}</div>
-                                  <div className="text-sm text-gray-500">{delegate.email}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
-                                {committees.find(c => c.id === delegate.committeeId)?.name || 'N/A'}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
-                                {committees.find(c => c.id === delegate.committeeId)
-                                  ?.portfolios.find(p => p.id === delegate.portfolioId)?.country || 'N/A'}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {delegate.checkInTime ? new Date(delegate.checkInTime).toLocaleString() : 'N/A'}
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Delegates Tab */}
-          {activeTab === 'delegates' && (
-            <div className="space-y-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-                  <div className="flex-1">
-                    <Select
-                      options={committees.map(c => ({ value: c.id, label: c.name }))}
-                      placeholder="Filter by Committee"
-                      onChange={(selected) => setSelectedCommittee(selected?.value || null)}
-                      isClearable
-                      className="react-select-container"
-                      classNamePrefix="react-select"
-                    />
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant={viewMode === 'all' ? 'default' : 'outline'}
-                      onClick={() => setViewMode('all')}
-                      className="border-gray-300"
-                    >
-                      All
-                    </Button>
-                    <Button
-                      variant={viewMode === 'checkedIn' ? 'default' : 'outline'}
-                      onClick={() => setViewMode('checkedIn')}
-                      className="border-gray-300"
-                    >
-                      Checked In
-                    </Button>
-                    <Button
-                      variant={viewMode === 'notCheckedIn' ? 'default' : 'outline'}
-                      onClick={() => setViewMode('notCheckedIn')}
-                      className="border-gray-300"
-                    >
-                      Not Checked In
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6 p-4 bg-orange-50 rounded-lg">
-                  <div className="flex-1">
-                    <div className="relative">
-                      <QrCode className="absolute left-3 top-3 h-5 w-5 text-orange-500" />
-                      <input
-                        type="text"
-                        placeholder="Scan Delegate ID/Phone/Email"
-                        value={barcodeInput}
-                        onChange={(e) => setBarcodeInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleCheckIn()}
-                        className="pl-10 pr-4 py-2 w-full border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
-                  </div>
-                  <Button onClick={handleCheckIn} className="bg-orange-600 hover:bg-orange-700 text-white">
-                    <CheckCircle className="mr-2 h-5 w-5" /> Check In
-                  </Button>
-                </div>
-
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">
-                    {viewMode === 'all' && 'All Delegates'}
-                    {viewMode === 'checkedIn' && 'Checked In Delegates'}
-                    {viewMode === 'notCheckedIn' && 'Not Checked In Delegates'}
-                    {selectedCommittee && ` (${committees.find(c => c.id === selectedCommittee)?.name})`}
-                  </h3>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => exportExcel(
-                        filteredDelegates.map(d => ({
-                          ID: d.id,
-                          Name: d.name,
-                          Email: d.email,
-                          Phone: d.phone,
-                          Committee: committees.find(c => c.id === d.committeeId)?.name,
-                          Portfolio: committees.find(c => c.id === d.committeeId)?.portfolios.find(p => p.id === d.portfolioId)?.country,
-                          Status: d.isCheckedIn ? 'Checked In' : 'Not Checked In',
-                          'Check-in Time': d.checkInTime || 'N/A'
-                        })),
-                        'delegates'
-                      )}
-                      className="border-green-500 text-green-600 hover:bg-green-50"
-                    >
-                      <Download className="mr-2 h-5 w-5" /> Excel
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => exportPDF(
-                        filteredDelegates.map(d => [
-                          d.id,
-                          d.name,
-                          committees.find(c => c.id === d.committeeId)?.name || 'N/A',
-                          committees.find(c => c.id === d.committeeId)?.portfolios.find(p => p.id === d.portfolioId)?.country || 'N/A',
-                          d.isCheckedIn ? 'Yes' : 'No'
-                        ]),
-                        ['ID', 'Name', 'Committee', 'Portfolio', 'Checked In'],
-                        'delegates'
-                      )}
-                      className="border-red-500 text-red-600 hover:bg-red-50"
-                    >
-                      <Download className="mr-2 h-5 w-5" /> PDF
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Committee</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Portfolio</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredDelegates.length > 0 ? (
-                        filteredDelegates.map(delegate => (
-                          <tr key={delegate.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{delegate.id}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{delegate.name}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {committees.find(c => c.id === delegate.committeeId)?.name || 'N/A'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {committees.find(c => c.id === delegate.committeeId)
-                                ?.portfolios.find(p => p.id === delegate.portfolioId)?.country || 'N/A'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                delegate.isCheckedIn 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {delegate.isCheckedIn ? 'Checked In' : 'Not Checked In'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
-                            No delegates found
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Committees Tab */}
-          {activeTab === 'committees' && (
-            <div className="space-y-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold">Committees</h2>
-                  <Button 
-                    onClick={() => openCommitteeModal(null)}
-                    className="bg-orange-600 hover:bg-orange-700 text-white"
-                  >
-                    <Plus className="mr-2 h-5 w-5" /> Add Committee
-                  </Button>
-                </div>
-
-                <div className="space-y-4">
-                  {committees.map(committee => (
-                    <div key={committee.id} className="border rounded-lg overflow-hidden">
-                      <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
-                        <div className="flex items-center">
-                          <span className="text-2xl mr-3">{committee.emoji}</span>
-                          <h3 className="text-lg font-semibold">{committee.name}</h3>
-                          <span className="ml-3 px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 capitalize">
-                            {committee.type}
-                          </span>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openCommitteeModal(committee)}
-                            className="border-gray-300"
-                          >
-                            <Edit className="mr-2 h-4 w-4" /> Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openPortfolioModal(null, committee.id)}
-                            className="border-orange-300 text-orange-600 hover:bg-orange-50"
-                          >
-                            <Plus className="mr-2 h-4 w-4" /> Add Portfolio
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => deleteItem(`committees/${committee.id}`)}
-                            className="border-red-300 text-red-600 hover:bg-red-50"
-                          >
-                            <Trash className="mr-2 h-4 w-4" /> Delete
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="p-6">
-                        <p className="text-gray-600 mb-4">{committee.description}</p>
-                        
-                        <div className="mb-6">
-                          <h4 className="font-medium mb-2">Agenda Items:</h4>
-                          <ul className="list-disc pl-5 space-y-1 text-gray-600">
-                            {committee.topics.map((topic, i) => (
-                              <li key={i}>{topic}</li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        {committee.backgroundGuide && (
-                          <div className="mb-4">
-                            <h4 className="font-medium mb-2">Background Guide:</h4>
-                            <a 
-                              href={committee.backgroundGuide} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-orange-600 hover:underline"
-                            >
-                              View Background Guide
-                            </a>
-                          </div>
-                        )}
-
-                        {committee.rules && (
-                          <div className="mb-6">
-                            <h4 className="font-medium mb-2">Rules of Procedure:</h4>
-                            <a 
-                              href={committee.rules} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-orange-600 hover:underline"
-                            >
-                              View Rules
-                            </a>
-                          </div>
-                        )}
-
-                        <div className="mb-6">
-                          <div className="flex justify-between items-center mb-2">
-                            <h4 className="font-medium">Portfolios ({committee.portfolios.length})</h4>
-                            <span className="text-sm text-gray-500">
-                              {committee.portfolios.filter(p => !p.isVacant).length} assigned •{' '}
-                              {committee.portfolios.filter(p => p.isVacant).length} vacant
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {committee.portfolios.map(portfolio => {
-                              const FlagComponent = Flags[`${portfolio.countryCode}Flag` as keyof typeof Flags];
-                              return (
-                                <div key={portfolio.id} className="border rounded-lg p-3 flex justify-between items-center">
-                                  <div className="flex items-center">
-                                    {FlagComponent && (
-                                      <div className="w-6 h-6 mr-2 overflow-hidden rounded-sm">
-                                        <FlagComponent className="w-full h-full object-cover" />
-                                      </div>
-                                    )}
-                                    <div>
-                                      <p className="font-medium">{portfolio.country}</p>
-                                      <p className="text-xs text-gray-500">
-                                        {portfolio.isVacant ? 'Vacant' : 'Assigned'} •{' '}
-                                        {portfolio.isDoubleDelAllowed ? 'Double Del' : 'Single Del'}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex space-x-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => openPortfolioModal(portfolio, committee.id)}
-                                      className="text-gray-500 hover:text-gray-700"
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => deleteItem(`committees/${committee.id}/portfolios/${portfolio.id}`)}
-                                      className="text-red-500 hover:text-red-700"
-                                    >
-                                      <Trash className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Executive Board Tab */}
-          {activeTab === 'eb' && (
-            <div className="space-y-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold">Executive Board</h2>
-                  <Select
-                    options={committees.map(c => ({ value: c.id, label: c.name }))}
-                    placeholder="Filter by Committee"
-                    onChange={(selected) => setSelectedCommittee(selected?.value || null)}
-                    isClearable
-                    className="react-select-container w-64"
-                    classNamePrefix="react-select"
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  {committees
-                    .filter(c => !selectedCommittee || c.id === selectedCommittee)
-                    .map(committee => (
-                      <div key={committee.id} className="border rounded-lg overflow-hidden">
-                        <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
-                          <div className="flex items-center">
-                            <span className="text-2xl mr-3">{committee.emoji}</span>
-                            <h3 className="text-lg font-semibold">{committee.name}</h3>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEBModal(null, committee.id)}
-                            className="border-orange-300 text-orange-600 hover:bg-orange-50"
-                          >
-                            <Plus className="mr-2 h-4 w-4" /> Add EB Member
-                          </Button>
-                        </div>
-                        <div className="p-6">
-                          {committee.eb.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                              {committee.eb.map(member => (
-                                <div key={member.id} className="border rounded-lg p-4">
-                                  <div className="flex justify-between items-start">
-                                    <div>
-                                      <h4 className="font-medium">{member.name}</h4>
-                                      <p className="text-sm text-gray-500 capitalize">{member.role}</p>
-                                    </div>
-                                    <div className="flex space-x-1">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => openEBModal(member, committee.id)}
-                                        className="text-gray-500 hover:text-gray-700"
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => deleteItem(`committees/${committee.id}/eb/${member.id}`)}
-                                        className="text-red-500 hover:text-red-700"
-                                      >
-                                        <Trash className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                  <div className="mt-3">
-                                    <p className="text-sm text-gray-600">
-                                      <a href={`mailto:${member.email}`} className="text-orange-600 hover:underline">
-                                        {member.email}
-                                      </a>
-                                    </p>
-                                    {member.bio && (
-                                      <p className="mt-2 text-sm text-gray-600">{member.bio}</p>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-gray-500 text-center py-4">No EB members added yet</p>
-                          )}
-                        </div>
-                      </div>
+                    {committees.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#FF9999'][index % 6]} />
                     ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm">
+              <h3 className="text-lg font-semibold mb-4 text-orange-600">Quick Stats</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-orange-600">{committees.length}</div>
+                  <div className="text-sm text-gray-600">Total Committees</div>
+                </div>
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-orange-600">
+                    {committees.reduce((acc, curr) => acc + (curr.portfolios?.length || 0), 0)}
+                  </div>
+                  <div className="text-sm text-gray-600">Total Portfolios</div>
                 </div>
               </div>
             </div>
-          )}
-
-          {/* Resources Tab */}
-          {activeTab === 'resources' && (
-            <div className="space-y-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold">Resources</h2>
-                  <Button 
-                    onClick={() => openResourceModal(null)}
-                    className="bg-orange-600 hover:bg-orange-700 text-white"
-                  >
-                    <Plus className="mr-2 h-5 w-5" /> Add Resource
-                  </Button>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Committee</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {resources.map(resource => (
-                        <tr key={resource.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <a 
-                              href={resource.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-orange-600 hover:underline"
-                            >
-                              {resource.title}
-                            </a>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800 capitalize">
-                              {resource.type}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {resource.committeeId 
-                              ? committees.find(c => c.id === resource.committeeId)?.name 
-                              : 'All Committees'}
-                          </td>
-                          <td className="px-6 py-4">
-                            <p className="text-sm text-gray-500 line-clamp-2">{resource.description}</p>
-                            {resource.pages && (
-                              <p className="text-xs text-gray-400 mt-1">{resource.pages} pages</p>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex space-x-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openResourceModal(resource)}
-                                className="text-gray-500 hover:text-gray-700"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => deleteItem(`resources/${resource.id}`)}
-                                className="text-red-500 hover:text-red-700"
-                              >
-                                <Trash className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Settings Tab */}
-          {activeTab === 'settings' && (
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-              <h2 className="text-xl font-semibold mb-6">Settings</h2>
-              <div className="space-y-6">
-                <div className="border rounded-lg p-6">
-                  <h3 className="text-lg font-medium mb-4">Conference Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Conference Name</label>
-                      <input
-                        type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        defaultValue="Kalinga International MUN"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Conference Dates</label>
-                      <input
-                        type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        defaultValue="March 15-17, 2025"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Venue</label>
-                      <input
-                        type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        defaultValue="Kalinga University, Naya Raipur"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Registration Fee (Single)</label>
-                      <input
-                        type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        defaultValue="1200 INR"
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-6">
-                    <Button className="bg-orange-600 hover:bg-orange-700 text-white">
-                      Save Changes
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="border rounded-lg p-6">
-                  <h3 className="text-lg font-medium mb-4">Admin Settings</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Admin Email</label>
-                      <input
-                        type="email"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        defaultValue="admin@kimun.in"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Change Password</label>
-                      <input
-                        type="password"
-                        placeholder="New Password"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 mb-2"
-                      />
-                      <input
-                        type="password"
-                        placeholder="Confirm Password"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
-                    <div className="pt-2">
-                      <Button className="bg-orange-600 hover:bg-orange-700 text-white">
-                        Update Credentials
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </main>
-      </div>
-
-      {/* Modals */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-md"
-            >
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">
-                    {modalType === 'committee' && (editingCommittee?.id ? 'Edit Committee' : 'Add Committee')}
-                    {modalType === 'eb' && (editingEB?.id ? 'Edit EB Member' : 'Add EB Member')}
-                    {modalType === 'portfolio' && (editingPortfolio?.id ? 'Edit Portfolio' : 'Add Portfolio')}
-                    {modalType === 'resource' && (editingResource?.id ? 'Edit Resource' : 'Add Resource')}
-                  </h3>
-                  <button 
-                    onClick={() => setIsModalOpen(false)}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-
-                {/* Committee Form */}
-                {modalType === 'committee' && editingCommittee && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                      <input
-                        type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingCommittee.name}
-                        onChange={(e) => setEditingCommittee({...editingCommittee, name: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Emoji</label>
-                      <input
-                        type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingCommittee.emoji}
-                        onChange={(e) => setEditingCommittee({...editingCommittee, emoji: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                      <select
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingCommittee.type}
-                        onChange={(e) => setEditingCommittee({...editingCommittee, type: e.target.value as any})}
-                      >
-                        <option value="general">General Assembly</option>
-                        <option value="specialized">Specialized Agency</option>
-                        <option value="crisis">Crisis Committee</option>
-                        <option value="regional">Regional Body</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                      <textarea
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        rows={3}
-                        value={editingCommittee.description}
-                        onChange={(e) => setEditingCommittee({...editingCommittee, description: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Topics (comma separated)</label>
-                      <textarea
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        rows={2}
-                        value={editingCommittee.topics.join(', ')}
-                        onChange={(e) => setEditingCommittee({...editingCommittee, topics: e.target.value.split(',').map(t => t.trim())})}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Background Guide URL</label>
-                      <input
-                        type="url"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingCommittee.backgroundGuide || ''}
-                        onChange={(e) => setEditingCommittee({...editingCommittee, backgroundGuide: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Rules of Procedure URL</label>
-                      <input
-                        type="url"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingCommittee.rules || ''}
-                        onChange={(e) => setEditingCommittee({...editingCommittee, rules: e.target.value})}
-                      />
-                    </div>
-                    <div className="pt-4">
-                      <Button 
-                        onClick={async () => {
-                          const success = await saveCommittee(editingCommittee);
-                          if (success) setIsModalOpen(false);
-                        }}
-                        className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-                      >
-                        Save Committee
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* EB Member Form */}
-                {modalType === 'eb' && editingEB && editingCommittee && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                      <input
-                        type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingEB.name}
-                        onChange={(e) => setEditingEB({...editingEB, name: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                      <select
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingEB.role}
-                        onChange={(e) => setEditingEB({...editingEB, role: e.target.value as any})}
-                      >
-                        <option value="chair">Chairperson</option>
-                        <option value="vice-chair">Vice-Chairperson</option>
-                        <option value="rapporteur">Rapporteur</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                      <input
-                        type="email"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingEB.email}
-                        onChange={(e) => setEditingEB({...editingEB, email: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
-                      <textarea
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        rows={3}
-                        value={editingEB.bio || ''}
-                        onChange={(e) => setEditingEB({...editingEB, bio: e.target.value})}
-                      />
-                    </div>
-                    <div className="pt-4">
-                      <Button 
-                        onClick={async () => {
-                          const success = await saveEB(editingEB, editingCommittee.id);
-                          if (success) setIsModalOpen(false);
-                        }}
-                        className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-                      >
-                        Save EB Member
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Portfolio Form */}
-                {modalType === 'portfolio' && editingPortfolio && editingCommittee && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                      <input
-                        type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingPortfolio.country}
-                        onChange={(e) => setEditingPortfolio({...editingPortfolio, country: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Country Code</label>
-                      <Select
-                        options={countryOptions}
-                        value={countryOptions.find(opt => opt.value === editingPortfolio.countryCode)}
-                        onChange={(option) => setEditingPortfolio({...editingPortfolio, countryCode: option?.value || ''})}
-                        className="react-select-container"
-                        classNamePrefix="react-select"
-                      />
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="doubleDel"
-                        className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                        checked={editingPortfolio.isDoubleDelAllowed}
-                        onChange={(e) => setEditingPortfolio({...editingPortfolio, isDoubleDelAllowed: e.target.checked})}
-                      />
-                      <label htmlFor="doubleDel" className="ml-2 block text-sm text-gray-700">
-                        Double Delegation Allowed
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="vacant"
-                        className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                        checked={editingPortfolio.isVacant}
-                        onChange={(e) => setEditingPortfolio({...editingPortfolio, isVacant: e.target.checked})}
-                      />
-                      <label htmlFor="vacant" className="ml-2 block text-sm text-gray-700">
-                        Vacant
-                      </label>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Experience (years)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingPortfolio.minExperience}
-                        onChange={(e) => setEditingPortfolio({...editingPortfolio, minExperience: parseInt(e.target.value) || 0})}
-                      />
-                    </div>
-                    <div className="pt-4">
-                      <Button 
-                        onClick={async () => {
-                          const success = await savePortfolio(editingPortfolio, editingCommittee.id);
-                          if (success) setIsModalOpen(false);
-                        }}
-                        className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-                      >
-                        Save Portfolio
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Resource Form */}
-                {modalType === 'resource' && editingResource && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                      <input
-                        type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingResource.title}
-                        onChange={(e) => setEditingResource({...editingResource, title: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                      <select
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingResource.type}
-                        onChange={(e) => setEditingResource({...editingResource, type: e.target.value as any})}
-                      >
-                        <option value="guide">Background Guide</option>
-                        <option value="rules">Rules of Procedure</option>
-                        <option value="sample">Sample Documents</option>
-                        <option value="other">Other</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
-                      <input
-                        type="url"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingResource.url}
-                        onChange={(e) => setEditingResource({...editingResource, url: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                      <textarea
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        rows={3}
-                        value={editingResource.description || ''}
-                        onChange={(e) => setEditingResource({...editingResource, description: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Pages</label>
-                      <input
-                        type="number"
-                        min="0"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingResource.pages || 0}
-                        onChange={(e) => setEditingResource({...editingResource, pages: parseInt(e.target.value) || 0})}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Committee (leave blank for all)</label>
-                      <Select
-                        options={committees.map(c => ({ value: c.id, label: c.name }))}
-                        value={committees.find(c => c.id === editingResource.committeeId)}
-                        onChange={(option) => setEditingResource({...editingResource, committeeId: option?.value || ''})}
-                        isClearable
-                        className="react-select-container"
-                        classNamePrefix="react-select"
-                      />
-                    </div>
-                    <div className="pt-4">
-                      <Button 
-                        onClick={async () => {
-                          const success = await saveResource(editingResource);
-                          if (success) setIsModalOpen(false);
-                        }}
-                        className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-                      >
-                        Save Resource
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+
+        {activeTab === 'delegates' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <div className="bg-white p-4 rounded-lg shadow">
+              <Select
+                options={committees.map(c => ({ value: c.id, label: c.name }))}
+                placeholder="Select Committee"
+                onChange={(selected) => setSelectedCommittee(selected?.value)}
+                isClearable
+              />
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm">
+              <div className="flex items-center space-x-4">
+                <QrCode size={24} className="text-orange-600" />
+                <input
+                  type="text"
+                  placeholder="Scan Delegate ID/Phone/Email"
+                  value={barcodeInput}
+                  onChange={(e) => setBarcodeInput(e.target.value)}
+                  className="flex-1 border p-2 rounded-lg"
+                />
+                <Button onClick={handleCheckIn} className="bg-orange-600 hover:bg-orange-700 text-white">
+                  <CheckCircle className="mr-2" /> Check In
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow">
+              <div className="flex space-x-4">
+                <Button variant={viewMode === 'all' ? 'default' : 'outline'} onClick={() => setViewMode('all')}>
+                  All Delegates
+                </Button>
+                <Button variant={viewMode === 'checkedIn' ? 'default' : 'outline'} onClick={() => setViewMode('checkedIn')}>
+                  Checked-In
+                </Button>
+                <Button variant={viewMode === 'notCheckedIn' ? 'default' : 'outline'} onClick={() => setViewMode('notCheckedIn')}>
+                  Not Checked-In
+                </Button>
+              </div>
+              <div className="flex space-x-4">
+                <Button onClick={exportExcel} className="bg-green-600 hover:bg-green-700 text-white">
+                  <Download className="mr-2" /> Excel
+                </Button>
+                <Button onClick={exportPDF} className="bg-red-600 hover:bg-red-700 text-white">
+                  <Download className="mr-2" /> PDF
+                </Button>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left">Delegate ID</th>
+                    <th className="px-6 py-3 text-left">Name</th>
+                    <th className="px-6 py-3 text-left">Committee</th>
+                    <th className="px-6 py-3 text-left">Portfolio</th>
+                    <th className="px-6 py-3 text-left">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredDelegates.flatMap(registration => renderDelegateRow(registration))}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'committees' && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-orange-600">Committees Management</h2>
+              <Button onClick={() => setIsAddCommitteeModalOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white">
+                <Plus size={16} className="mr-2" /> Add Committee
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              {committees.map((committee) => (
+                <motion.div key={committee.id} className="border p-4 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow" whileHover={{ scale: 1.02 }}>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center">
+                      <span className="text-2xl mr-2">{committee.emoji}</span>
+                      <span className="text-xl font-semibold text-orange-600">{committee.name}</span>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button onClick={() => { setEditingCommittee(committee); setIsModalOpen(true); }} className="text-orange-500 hover:text-orange-700">
+                        <Edit size={16} />
+                      </button>
+                      <button onClick={() => deleteCommittee(committee.id)} className="text-red-500 hover:text-red-700">
+                        <Trash size={16} />
+                      </button>
+                      <button onClick={() => { setIsAddPortfolioModalOpen(true); setEditingCommittee(committee); }} className="text-green-500 hover:text-green-700">
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <h3 className="text-lg font-semibold mb-2">Portfolios</h3>
+                    {committee.portfolios.map((portfolio) => (
+                      <motion.div key={portfolio.id} className="border p-2 rounded-lg bg-gray-50 mb-2 flex justify-between items-center" whileHover={{ scale: 1.01 }}>
+                        <div>
+                          {portfolio.country} ({portfolio.countryCode})
+                        </div>
+                        <div className="flex space-x-2">
+                          <button onClick={() => { setEditingPortfolio({ ...portfolio, committeeId: committee.id }); setIsModalOpen(true); }} className="text-orange-500 hover:text-orange-700">
+                            <Edit size={16} />
+                          </button>
+                          <button onClick={() => deletePortfolio(committee.id, portfolio.id)} className="text-red-500 hover:text-red-700">
+                            <Trash size={16} />
+                          </button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </main>
     </div>
   );
 }
