@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
-<<<<<<< HEAD
 import Link from "next/link"
 import { motion, useScroll, useTransform } from "framer-motion"
 import { useInView } from "react-intersection-observer"
@@ -39,14 +38,6 @@ type Portfolio = {
   isVacant: boolean
   minExperience: number
 }
-=======
-import Link from 'next/link'
-import { Button } from "@/components/ui/button"
-import { motion, useScroll, useTransform } from "framer-motion"
-import { Parallax, ParallaxLayer } from "@react-spring/parallax"
-import { Mail, Phone, MapPin, Users, Globe, Gavel } from "lucide-react"
-import { useRef } from "react"
->>>>>>> 6b48deba2953bd5c995f2976e52aa15683d757c6
 
 export default function Home() {
   const { scrollY } = useScroll()
@@ -155,7 +146,6 @@ export default function Home() {
         </div>
       </header>
 
-<<<<<<< HEAD
       {/* Hero Section */}
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
         <motion.div className="absolute inset-0 z-0" style={{ y: y1 }}>
@@ -168,60 +158,6 @@ export default function Home() {
             priority
           />
         </motion.div>
-=======
-        {/* Committees Section */}
-        <ParallaxLayer offset={1} speed={0.2} className="py-20 bg-amber-50">
-          <section className="container mx-auto px-6">
-            <h2 className="text-4xl font-bold text-amber-800 mb-16 text-center">Committees</h2>
-            <div className="grid md:grid-cols-3 gap-8">
-              {[
-                { 
-                  name: "UN Security Council",
-                  agenda: ["Cybersecurity Threats", "Arctic Resource Management"],
-                  icon: <Globe className="w-12 h-12 text-amber-600" />,
-                  logo: "https://blog.ipleaders.in/wp-content/uploads/2020/02/906px-UN_emblem_blue.png"
-                },
-                { 
-                  name: "WHO",
-                  agenda: ["Pandemic Response", "Mental Health Crisis"],
-                  icon: <Users className="w-12 h-12 text-amber-600" />,
-                  logo: "https://blog.ipleaders.in/wp-content/uploads/2020/02/906px-UN_emblem_blue.png"
-                },
-                { 
-                  name: "UNHRC",
-                  agenda: ["Refugee Rights", "Digital Privacy"],
-                  icon: <Gavel className="w-12 h-12 text-amber-600" />,
-                  logo: "https://blog.ipleaders.in/wp-content/uploads/2020/02/906px-UN_emblem_blue.png"
-                }
-              ].map((committee, index) => (
-                <motion.div
-                  key={index}
-                  className="bg-white p-8 rounded-2xl shadow-lg border border-amber-100 backdrop-blur-md bg-opacity-60"
-                  initial={{ opacity: 0, y: 50 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                >
-                  <div className="flex items-center justify-center mb-6">
-                    <Image
-                      src={committee.logo}
-                      alt={committee.name}
-                      width={100}
-                      height={100}
-                      className="w-24 h-24 object-contain"
-                    />
-                  </div>
-                  <h3 className="text-2xl font-bold text-amber-800 mb-4 text-center">{committee.name}</h3>
-                  <ul className="text-amber-700 text-center">
-                    {committee.agenda.map((item, i) => (
-                      <li key={i} className="mb-2">{item}</li>
-                    ))}
-                  </ul>
-                </motion.div>
-              ))}
-            </div>
-          </section>
-        </ParallaxLayer>
->>>>>>> 6b48deba2953bd5c995f2976e52aa15683d757c6
 
         <div className="absolute inset-0 bg-[url('/hero-pattern.svg')] opacity-20 z-10"></div>
 
