@@ -4,10 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import Confetti from 'react-confetti'
-import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle } from 'lucide-react'
+import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle, ChevronRight } from 'lucide-react'
 import Flags from 'country-flag-icons/react/3x2'
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, push, update } from 'firebase/database'
+import Image from 'next/image'
+import Link from "next/link"
 
 type Committee = {
   id: string
@@ -33,7 +35,7 @@ type DelegateInfo = {
     institution: string
     year: string
     course: string
-    experience: string // Changed to string for placeholder handling
+    experience: string
   }
   delegate2?: {
     name: string
@@ -42,7 +44,7 @@ type DelegateInfo = {
     institution: string
     year: string
     course: string
-    experience: string // Changed to string for placeholder handling
+    experience: string
   }
 }
 
@@ -75,7 +77,7 @@ export default function RegistrationPage() {
       institution: '',
       year: '',
       course: '',
-      experience: '' // Default experience set to empty string
+      experience: ''
     }
   })
   const [selectedCommittee, setSelectedCommittee] = useState<Committee | null>(null)
@@ -145,7 +147,7 @@ export default function RegistrationPage() {
   }
 
   const calculatePrice = () => {
-    return isDoubleDel ?  2499 : 1299 // Example prices
+    return isDoubleDel ? 2499 : 1299
   }
 
   const getAverageExperience = () => {
@@ -169,37 +171,35 @@ export default function RegistrationPage() {
         paymentId,
         timestamp: Date.now(),
         isDoubleDel,
-        averageExperience: getAverageExperience() // Save average experience
+        averageExperience: getAverageExperience()
       })
 
       const portfolioRef = ref(db, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
       await update(portfolioRef, { isVacant: false })
 
-     // Prepare email data
-const emailData = {
-  email: delegateInfo.delegate1.email, // Primary Delegate Email
-  name: delegateInfo.delegate1.name, // Primary Delegate Name
-  registrationId: newRegistration?.key, // Ensure it's defined
-  committee: selectedCommittee?.name, // Send committee name
-  portfolio: selectedPortfolio?.country, // Send portfolio (country name)
-};
+      const emailData = {
+        email: delegateInfo.delegate1.email,
+        name: delegateInfo.delegate1.name,
+        registrationId: newRegistration?.key,
+        committee: selectedCommittee?.name,
+        portfolio: selectedPortfolio?.country,
+      };
 
-
-// Send Confirmation Email
-await fetch('/api/sendEmail', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(emailData)
-})
-    return newRegistration.key
-  } catch (err) {
-    console.error('Registration failed:', err)
-    throw new Error('Failed to save registration')
+      await fetch('/api/sendEmail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailData)
+      })
+      
+      return newRegistration.key
+    } catch (err) {
+      console.error('Registration failed:', err)
+      throw new Error('Failed to save registration')
+    }
   }
-}
 
   const initiatePayment = async () => {
-    const amount = calculatePrice() * 100 // Convert to paise
+    const amount = calculatePrice() * 100
     if (!validateStep()) {
       setError('Please fill all required fields')
       return
@@ -214,7 +214,7 @@ await fetch('/api/sendEmail', {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: amount,
         currency: 'INR',
-        name: 'MUN Registration',
+        name: 'KIMUN Registration',
         description: `Registration Fee for ${isDoubleDel ? 'Double Delegation' : 'Single Delegation'}`,
         image: '/logo.png',
         handler: async (response: any) => {
@@ -231,7 +231,7 @@ await fetch('/api/sendEmail', {
           email: delegateInfo.delegate1.email,
           contact: delegateInfo.delegate1.phone
         },
-        theme: { color: '#3399cc' },
+        theme: { color: '#d97706' },
         modal: { ondismiss: () => setError('Payment cancelled') }
       }
 
@@ -247,27 +247,68 @@ await fetch('/api/sendEmail', {
     document.body.appendChild(script)
   }
 
-  if (loading) return <div className="text-center p-8">Loading committees...</div>
+  if (loading) return (
+    <div className="min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="text-center p-8">
+        <div className="animate-pulse flex justify-center mb-4">
+          <Image 
+            src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" 
+            alt="Loading" 
+            width={80} 
+            height={80} 
+          />
+        </div>
+        <p className="text-amber-300">Loading committees...</p>
+      </div>
+    </div>
+  )
+
   if (error) return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center">
-      <AlertCircle className="w-12 h-12 text-red-600 mb-4" />
-      <h2 className="text-xl font-semibold text-gray-800 mb-2">Error</h2>
-      <p className="text-gray-600 max-w-md mb-4">{error}</p>
-      <Button onClick={() => window.location.reload()} className="mt-4">
+    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-8 text-center">
+      <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+      <h2 className="text-xl font-semibold text-amber-300 mb-2">Error</h2>
+      <p className="text-gray-300 max-w-md mb-4">{error}</p>
+      <Button 
+        onClick={() => window.location.reload()} 
+        className="mt-4 bg-amber-600 hover:bg-amber-700 text-black"
+      >
         Try Again
       </Button>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 relative overflow-hidden">
+    <div className="min-h-screen bg-black text-white relative overflow-hidden">
       {showConfetti && <Confetti recycle={false} numberOfPieces={400} />}
 
-      <div className="max-w-2xl mx-auto p-6 relative z-10">
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-md border-b border-amber-800/20">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center">
+            <Link href="/" className="flex items-center gap-2">
+              <Image 
+                src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" 
+                alt="KIMUN Logo" 
+                width={40} 
+                height={40} 
+                className="mr-2" 
+              />
+              <span className="text-lg font-bold text-amber-300 hidden sm:inline-block">
+                Kalinga International MUN
+              </span>
+            </Link>
+          </div>
+          <div className="text-amber-300">
+            Step {step} of 5
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-2xl mx-auto p-6 pt-24 relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-3xl shadow-2xl p-8"
+          className="bg-black/50 backdrop-blur-sm border border-amber-800/30 rounded-2xl shadow-lg p-8"
         >
           {/* Step 1: Delegation Type */}
           {step === 1 && (
@@ -278,38 +319,58 @@ await fetch('/api/sendEmail', {
               exit={{ opacity: 0, x: 20 }}
               className="space-y-6"
             >
-              <h1 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <Sparkles className="text-yellow-500" /> Delegation Type
+              <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
+                <Sparkles className="text-amber-400" /> Delegation Type
               </h1>
+              
               <div className="space-y-4">
-                <label className="flex items-center gap-2 p-4 bg-gray-100 rounded-xl cursor-pointer">
-                  <input
-                    type="radio"
-                    name="delegation"
-                    checked={!isDoubleDel}
-                    onChange={() => setIsDoubleDel(false)}
-                    className="form-radio h-5 w-5 text-blue-600"
-                    required
-                  />
-                  <span className="text-gray-700">Single Delegation</span>
-                </label>
-                <label className="flex items-center gap-2 p-4 bg-gray-100 rounded-xl cursor-pointer">
-                  <input
-                    type="radio"
-                    name="delegation"
-                    checked={isDoubleDel}
-                    onChange={() => setIsDoubleDel(true)}
-                    className="form-radio h-5 w-5 text-blue-600"
-                    required
-                  />
-                  <span className="text-gray-700">Double Delegation</span>
-                </label>
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <label className="flex items-center gap-4 p-6 bg-black/30 border border-amber-800/30 rounded-xl cursor-pointer hover:border-amber-500 transition-colors">
+                    <input
+                      type="radio"
+                      name="delegation"
+                      checked={!isDoubleDel}
+                      onChange={() => setIsDoubleDel(false)}
+                      className="form-radio h-5 w-5 text-amber-500"
+                      required
+                    />
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">Single Delegation</h3>
+                      <p className="text-gray-400">₹1299 per delegate</p>
+                    </div>
+                  </label>
+                </motion.div>
+
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <label className="flex items-center gap-4 p-6 bg-black/30 border border-amber-800/30 rounded-xl cursor-pointer hover:border-amber-500 transition-colors">
+                    <input
+                      type="radio"
+                      name="delegation"
+                      checked={isDoubleDel}
+                      onChange={() => setIsDoubleDel(true)}
+                      className="form-radio h-5 w-5 text-amber-500"
+                      required
+                    />
+                    <div>
+                      <h3 className="text-xl font-semibold text-white">Double Delegation</h3>
+                      <p className="text-gray-400">₹2499 for two delegates</p>
+                    </div>
+                  </label>
+                </motion.div>
               </div>
+
               <Button
                 onClick={() => setStep(2)}
-                className="w-full bg-blue-600 text-white py-3 rounded-xl text-lg"
+                className="w-full bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
               >
-                Next → Delegate Details
+                Next: Delegate Details
+                <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
               </Button>
             </motion.div>
           )}
@@ -323,31 +384,32 @@ await fetch('/api/sendEmail', {
               exit={{ opacity: 0, x: -20 }}
               className="space-y-6"
             >
-              <h1 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <Sparkles className="text-yellow-500" /> Delegate Details
+              <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
+                <Users className="text-amber-400" /> Delegate Details
               </h1>
+              
               <div className="space-y-8">
                 {/* Primary Delegate */}
                 <div className="space-y-4">
-                  <h3 className="text-xl font-semibold">Primary Delegate</h3>
+                  <h3 className="text-xl font-semibold text-white">Primary Delegate</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {['name', 'email', 'phone', 'institution', 'year', 'course'].map((field) => (
-                      <div key={field} className="bg-gray-100 rounded-xl p-4">
+                      <div key={field} className="bg-black/30 border border-amber-800/30 rounded-xl p-4 hover:border-amber-500 transition-colors">
                         <input
                           placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                          className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
+                          className="w-full bg-transparent text-white placeholder-gray-400 focus:outline-none"
                           value={delegateInfo.delegate1[field as keyof typeof delegateInfo.delegate1]}
                           onChange={(e) => handleInputChange('delegate1', field, e.target.value)}
                           required
                         />
                       </div>
                     ))}
-                    <div className="bg-gray-100 rounded-xl p-4">
+                    <div className="bg-black/30 border border-amber-800/30 rounded-xl p-4 hover:border-amber-500 transition-colors">
                       <input
                         type="number"
                         min="0"
-                        placeholder="Enter No of MUNs Attended"
-                        className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
+                        placeholder="MUNs Attended"
+                        className="w-full bg-transparent text-white placeholder-gray-400 focus:outline-none"
                         value={delegateInfo.delegate1.experience}
                         onChange={(e) => handleInputChange('delegate1', 'experience', e.target.value)}
                         required
@@ -359,25 +421,25 @@ await fetch('/api/sendEmail', {
                 {/* Secondary Delegate */}
                 {isDoubleDel && (
                   <div className="space-y-4">
-                    <h3 className="text-xl font-semibold">Secondary Delegate</h3>
+                    <h3 className="text-xl font-semibold text-white">Secondary Delegate</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {['name', 'email', 'phone', 'institution', 'year', 'course'].map((field) => (
-                        <div key={field} className="bg-gray-100 rounded-xl p-4">
+                        <div key={field} className="bg-black/30 border border-amber-800/30 rounded-xl p-4 hover:border-amber-500 transition-colors">
                           <input
                             placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                            className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
+                            className="w-full bg-transparent text-white placeholder-gray-400 focus:outline-none"
                             value={delegateInfo.delegate2?.[field as keyof typeof delegateInfo.delegate1] || ''}
                             onChange={(e) => handleInputChange('delegate2', field, e.target.value)}
                             required={isDoubleDel}
                           />
                         </div>
                       ))}
-                      <div className="bg-gray-100 rounded-xl p-4">
+                      <div className="bg-black/30 border border-amber-800/30 rounded-xl p-4 hover:border-amber-500 transition-colors">
                         <input
                           type="number"
                           min="0"
-                          placeholder="Enter No of MUNs Attended"
-                          className="w-full bg-transparent text-gray-700 placeholder-gray-500 focus:outline-none"
+                          placeholder="MUNs Attended"
+                          className="w-full bg-transparent text-white placeholder-gray-400 focus:outline-none"
                           value={delegateInfo.delegate2?.experience || ''}
                           onChange={(e) => handleInputChange('delegate2', 'experience', e.target.value)}
                           required={isDoubleDel}
@@ -387,12 +449,23 @@ await fetch('/api/sendEmail', {
                   </div>
                 )}
               </div>
-              <Button
-                onClick={() => validateStep() ? setStep(3) : setError('Please fill all fields')}
-                className="w-full bg-blue-600 text-white py-3 rounded-xl text-lg"
-              >
-                Next → Committee Selection
-              </Button>
+
+              <div className="flex gap-4">
+                <Button
+                  onClick={() => setStep(1)}
+                  variant="outline"
+                  className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
+                >
+                  Back
+                </Button>
+                <Button
+                  onClick={() => validateStep() ? setStep(3) : setError('Please fill all fields')}
+                  className="flex-1 bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
+                >
+                  Next: Committee Selection
+                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </div>
             </motion.div>
           )}
 
@@ -405,32 +478,50 @@ await fetch('/api/sendEmail', {
               exit={{ opacity: 0, x: 20 }}
               className="space-y-6"
             >
-              <h1 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <Globe className="text-blue-500" /> Committee Selection
+              <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
+                <Globe className="text-amber-400" /> Committee Selection
               </h1>
+              
               <div className="grid grid-cols-1 gap-4">
                 {committees.map(committee => (
                   <motion.div
                     key={committee.id}
                     whileHover={{ scale: 1.02 }}
-                    className={`bg-gray-100 rounded-xl p-6 cursor-pointer ${
-                      selectedCommittee?.id === committee.id ? 'ring-2 ring-blue-400' : ''
+                    whileTap={{ scale: 0.98 }}
+                    className={`bg-black/30 border border-amber-800/30 rounded-xl p-6 cursor-pointer hover:border-amber-500 transition-colors ${
+                      selectedCommittee?.id === committee.id ? 'ring-2 ring-amber-500' : ''
                     }`}
                     onClick={() => setSelectedCommittee(committee)}
                   >
                     <div className="flex items-center gap-4">
                       <span className="text-3xl">{committee.emoji}</span>
-                      <h2 className="text-xl font-bold text-gray-800">{committee.name}</h2>
+                      <div>
+                        <h2 className="text-xl font-bold text-white">{committee.name}</h2>
+                        <p className="text-gray-400">
+                          {committee.portfolios.filter(p => p.isVacant).length} portfolios available
+                        </p>
+                      </div>
                     </div>
                   </motion.div>
                 ))}
               </div>
-              <Button
-                onClick={() => selectedCommittee ? setStep(4) : setError('Please select a committee')}
-                className="w-full bg-blue-600 text-white py-3 rounded-xl text-lg"
-              >
-                Next → Portfolio Selection
-              </Button>
+
+              <div className="flex gap-4">
+                <Button
+                  onClick={() => setStep(2)}
+                  variant="outline"
+                  className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
+                >
+                  Back
+                </Button>
+                <Button
+                  onClick={() => selectedCommittee ? setStep(4) : setError('Please select a committee')}
+                  className="flex-1 bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
+                >
+                  Next: Portfolio Selection
+                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </div>
             </motion.div>
           )}
 
@@ -443,17 +534,18 @@ await fetch('/api/sendEmail', {
               exit={{ opacity: 0, x: -20 }}
               className="space-y-6"
             >
-              <h1 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <Users className="text-blue-500" /> Portfolio Selection
+              <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
+                <Users className="text-amber-400" /> Portfolio Selection
               </h1>
+              
               {selectedCommittee?.portfolios.filter(p => 
                 p.isVacant && 
                 (isDoubleDel ? p.isDoubleDelAllowed : true) &&
                 getAverageExperience() >= p.minExperience
               ).length === 0 ? (
-                <div className="flex flex-col items-center justify-center space-y-4">
-                  <AlertCircle className="w-12 h-12 text-red-600" />
-                  <p className="text-xl text-gray-800">No available portfolios matching your criteria</p>
+                <div className="flex flex-col items-center justify-center space-y-4 p-8 bg-black/30 border border-amber-800/30 rounded-xl">
+                  <AlertCircle className="w-12 h-12 text-red-500" />
+                  <p className="text-xl text-white">No available portfolios matching your criteria</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4">
@@ -467,18 +559,19 @@ await fetch('/api/sendEmail', {
                       <motion.div
                         key={portfolio.id}
                         whileHover={{ scale: 1.02 }}
-                        className={`bg-gray-100 rounded-xl p-4 cursor-pointer ${
-                          selectedPortfolio?.id === portfolio.id ? 'ring-2 ring-blue-400' : ''
+                        whileTap={{ scale: 0.98 }}
+                        className={`bg-black/30 border border-amber-800/30 rounded-xl p-4 cursor-pointer hover:border-amber-500 transition-colors ${
+                          selectedPortfolio?.id === portfolio.id ? 'ring-2 ring-amber-500' : ''
                         }`}
                         onClick={() => setSelectedPortfolio(portfolio)}
                       >
                         <div className="flex items-center justify-between">
-                          <div>
+                          <div className="flex items-center gap-3">
                             {Flags[portfolio.countryCode] && React.createElement(
                               Flags[portfolio.countryCode], 
-                              { className: 'w-6 h-6' }
+                              { className: 'w-6 h-6 rounded-sm' }
                             )}
-                            <h4 className="text-lg font-bold text-gray-800">{portfolio.country}</h4>
+                            <h4 className="text-lg font-bold text-white">{portfolio.country}</h4>
                           </div>
                           {selectedPortfolio?.id === portfolio.id && (
                             <CheckCircle className="text-green-500" />
@@ -488,12 +581,23 @@ await fetch('/api/sendEmail', {
                     ))}
                 </div>
               )}
-              <Button
-                onClick={() => selectedPortfolio ? setStep(5) : setError('Please select a portfolio')}
-                className="w-full bg-blue-600 text-white py-3 rounded-xl text-lg"
-              >
-                Next → Confirmation
-              </Button>
+
+              <div className="flex gap-4">
+                <Button
+                  onClick={() => setStep(3)}
+                  variant="outline"
+                  className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
+                >
+                  Back
+                </Button>
+                <Button
+                  onClick={() => selectedPortfolio ? setStep(5) : setError('Please select a portfolio')}
+                  className="flex-1 bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
+                >
+                  Next: Confirmation
+                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </div>
             </motion.div>
           )}
 
@@ -506,45 +610,114 @@ await fetch('/api/sendEmail', {
               exit={{ opacity: 0, x: 20 }}
               className="space-y-6"
             >
-              <h1 className="text-3xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+              <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
                 <CheckCircle className="text-green-500" /> Confirmation
               </h1>
-              <div className="bg-gray-100 rounded-xl p-6 space-y-4">
-                <p className="font-semibold text-lg">Total Fee: ₹{calculatePrice()}</p>
-                <div className="space-y-2">
-                  <h4 className="font-medium text-gray-800">Primary Delegate:</h4>
-                  <p>Name: {delegateInfo.delegate1.name}</p>
-                  <p>Email: {delegateInfo.delegate1.email}</p>
-                  <p>Phone: {delegateInfo.delegate1.phone}</p>
-                  <p>Experience: {delegateInfo.delegate1.experience || '0'} MUNs</p>
+              
+              <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-semibold text-white">Total Fee:</h3>
+                  <p className="text-2xl font-bold text-amber-300">₹{calculatePrice()}</p>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Primary Delegate:</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-gray-400">Name</p>
+                      <p className="text-white">{delegateInfo.delegate1.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Email</p>
+                      <p className="text-white">{delegateInfo.delegate1.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Phone</p>
+                      <p className="text-white">{delegateInfo.delegate1.phone}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Experience</p>
+                      <p className="text-white">{delegateInfo.delegate1.experience || '0'} MUNs</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Institution</p>
+                      <p className="text-white">{delegateInfo.delegate1.institution}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Year</p>
+                      <p className="text-white">{delegateInfo.delegate1.year}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Course</p>
+                      <p className="text-white">{delegateInfo.delegate1.course}</p>
+                    </div>
+                  </div>
                 </div>
                 
                 {isDoubleDel && delegateInfo.delegate2 && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-gray-800">Secondary Delegate:</h4>
-                    <p>Name: {delegateInfo.delegate2.name}</p>
-                    <p>Email: {delegateInfo.delegate2.email}</p>
-                    <p>Phone: {delegateInfo.delegate2.phone}</p>
-                    <p>Experience: {delegateInfo.delegate2.experience || '0'} MUNs</p>
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Secondary Delegate:</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-gray-400">Name</p>
+                        <p className="text-white">{delegateInfo.delegate2.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Email</p>
+                        <p className="text-white">{delegateInfo.delegate2.email}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Phone</p>
+                        <p className="text-white">{delegateInfo.delegate2.phone}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Experience</p>
+                        <p className="text-white">{delegateInfo.delegate2.experience || '0'} MUNs</p>
+                      </div>
+                    </div>
                   </div>
                 )}
 
                 {isDoubleDel && (
-                  <p className="font-semibold">Average Experience: {getAverageExperience()} MUNs</p>
+                  <div className="pt-4">
+                    <p className="text-gray-400">Average Experience</p>
+                    <p className="text-white">{getAverageExperience()} MUNs</p>
+                  </div>
                 )}
 
-                <p>Institution: {delegateInfo.delegate1.institution}</p>
-                <p>Year: {delegateInfo.delegate1.year}</p>
-                <p>Course: {delegateInfo.delegate1.course}</p>
-                <p>Committee: {selectedCommittee?.name}</p>
-                <p>Portfolio: {selectedPortfolio?.country}</p>
+                <div className="pt-4 border-t border-amber-800/30">
+                  <p className="text-gray-400">Committee</p>
+                  <p className="text-white">{selectedCommittee?.name}</p>
+                </div>
+
+                <div>
+                  <p className="text-gray-400">Portfolio</p>
+                  <div className="flex items-center gap-2">
+                    {selectedPortfolio?.countryCode && Flags[selectedPortfolio.countryCode] && React.createElement(
+                      Flags[selectedPortfolio.countryCode], 
+                      { className: 'w-6 h-6 rounded-sm' }
+                    )}
+                    <p className="text-white">{selectedPortfolio?.country}</p>
+                  </div>
+                </div>
               </div>
-              <Button
-                onClick={initiatePayment}
-                className="w-full bg-green-600 text-white py-3 rounded-xl text-lg"
-              >
-                Pay & Confirm Registration
-              </Button>
+
+              <div className="flex gap-4">
+                <Button
+                  onClick={() => setStep(4)}
+                  variant="outline"
+                  className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
+                >
+                  Back
+                </Button>
+                <Button
+                  onClick={initiatePayment}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 rounded-xl text-lg group"
+                >
+                  Pay & Confirm Registration
+                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </div>
             </motion.div>
           )}
         </motion.div>

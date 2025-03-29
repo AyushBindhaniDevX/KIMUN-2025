@@ -1,94 +1,270 @@
+/* globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Base styles */
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Arial', sans-serif;
+  @apply bg-gray-50 text-gray-900;
 }
 
+/* Text balance utility */
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
 }
 
+/* Color variables */
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --foreground: 0 0% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 0 0% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 24.6 95% 53.1%;
     --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
+    --secondary-foreground: 0 0% 15%;
     --muted: 0 0% 96.1%;
     --muted-foreground: 0 0% 45.1%;
     --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    --accent-foreground: 0 0% 15%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --ring: 24.6 95% 53.1%;
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-background: 240 5% 96%;
+    --sidebar-foreground: 240 5% 25%;
+    --sidebar-primary: 240 6% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-accent: 240 5% 96%;
+    --sidebar-accent-foreground: 240 6% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
+    --background: 240 10% 4%;
+    --foreground: 0 0% 95%;
+    --card: 240 10% 4%;
+    --card-foreground: 0 0% 95%;
+    --popover: 240 10% 4%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 47.9 95.8% 53.1%;
+    --primary-foreground: 26 83.3% 14.1%;
+    --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 35.5 91.7% 32.9%;
+    --sidebar-background: 240 5% 15%;
+    --sidebar-foreground: 240 5% 85%;
+    --sidebar-primary: 240 5% 90%;
+    --sidebar-primary-foreground: 240 5% 10%;
+    --sidebar-accent: 240 5% 20%;
+    --sidebar-accent-foreground: 240 5% 90%;
+    --sidebar-border: 240 5% 25%;
+    --sidebar-ring: 47.9 95.8% 53.1%;
   }
 }
 
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.8);
+}
+
+/* Animations */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px 2px hsla(var(--primary) / 0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px 5px hsla(var(--primary) / 0.4);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Base element styles */
 @layer base {
   * {
     @apply border-border;
   }
+  
   body {
     @apply bg-background text-foreground;
   }
+
+  h1 {
+    @apply text-3xl font-bold;
+  }
+
+  h2 {
+    @apply text-2xl font-semibold;
+  }
+
+  h3 {
+    @apply text-xl font-medium;
+  }
+
+  input, textarea, select {
+    @apply bg-background text-foreground border-border rounded-md p-2 border focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition-colors;
+  }
+
+  input[type="checkbox"] {
+    @apply h-4 w-4 rounded border-border bg-background text-primary focus:ring-primary;
+  }
+}
+
+/* Custom components */
+@layer components {
+  .sidebar-item {
+    @apply bg-sidebar-background text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground;
+  }
+
+  .card {
+    @apply bg-card text-card-foreground rounded-lg shadow-sm border border-border;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90;
+  }
+
+  .btn-outline {
+    @apply border-border hover:bg-accent hover:text-accent-foreground;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .badge-primary {
+    @apply bg-primary/10 text-primary;
+  }
+
+  .badge-secondary {
+    @apply bg-secondary/10 text-secondary-foreground;
+  }
+}
+
+/* React Select overrides */
+.react-select-container {
+  @apply w-full text-sm;
+}
+
+.react-select__control {
+  @apply bg-background border-border hover:border-border !important;
+}
+
+.react-select__control--is-focused {
+  @apply border-primary ring-2 ring-primary !important;
+}
+
+.react-select__menu {
+  @apply bg-background border-border !important;
+}
+
+.react-select__option {
+  @apply hover:bg-accent hover:text-accent-foreground !important;
+}
+
+.react-select__option--is-focused {
+  @apply bg-accent text-accent-foreground !important;
+}
+
+.react-select__option--is-selected {
+  @apply bg-primary text-primary-foreground !important;
+}
+
+/* Table styles */
+.table-container {
+  @apply overflow-x-auto;
+}
+
+.table {
+  @apply min-w-full divide-y divide-border;
+}
+
+.table th {
+  @apply px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider;
+}
+
+.table td {
+  @apply px-6 py-4 whitespace-nowrap text-sm text-foreground;
+}
+
+.table tr {
+  @apply hover:bg-accent/50;
+}
+
+/* Form styles */
+.form-label {
+  @apply block text-sm font-medium text-foreground mb-1;
+}
+
+.form-input {
+  @apply w-full bg-background text-foreground border-border rounded-md p-2 border focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  @apply fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50;
+}
+
+/* Modal content */
+.modal-content {
+  @apply bg-background rounded-xl shadow-xl w-full max-w-md p-6;
+}
+
+/* Utility classes */
+.high-contrast {
+  @apply bg-background text-foreground;
+}
+
+.text-muted {
+  @apply text-muted-foreground;
 }

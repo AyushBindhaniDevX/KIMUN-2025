@@ -1,0 +1,56 @@
+{
+  "committees": {
+    "-Nv2Kjlsd98asd8": {
+      "emoji": "",
+      "name": "UN Security Council",
+      "portfolios": {
+        "-Nv2Lkjsd76sdf9": {
+          "country": "USA",
+          "countryCode": "US",
+          "isDoubleDelAllowed": true,
+          "isVacant": false,
+          "minExperience": 2
+        },
+        "-Nv2Mkjsd76sdf0": {
+          "country": "China",
+          "countryCode": "CN",
+          "isDoubleDelAllowed": true,
+          "isVacant": true,
+          "minExperience": 3
+        }
+      }
+    }
+  },
+  "registrations": {
+    "-OIrAH55kB-Tq2LbWJgW": {
+      "committeeId": "-Nv2Kjlsd98asd8",
+      "delegateInfo": {
+        "course": "1",
+        "email": "1",
+        "experience": "03",
+        "institution": "1",
+        "name": "1",
+        "phone": "1",
+        "year": "1"
+      },
+      "paymentId": "pay_PuZWLXW6IPLklm",
+      "portfolioId": "-Nv2Mkjsd76sdf0",
+      "timestamp": 1739313638639
+    },
+    "-OIrBdf8d_w5ejXLeqvB": {
+      "committeeId": "-Nv2Kjlsd98asd8",
+      "delegateInfo": {
+        "course": "4",
+        "email": "4",
+        "experience": "02",
+        "institution": "4",
+        "name": "4",
+        "phone": "4",
+        "year": "4"
+      },
+      "paymentId": "pay_PuZcg8nCPfzEyo",
+      "portfolioId": "-Nv2Lkjsd76sdf9",
+      "timestamp": 1739313997358
+    }
+  }
+}
