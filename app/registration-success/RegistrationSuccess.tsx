@@ -5,7 +5,7 @@ import { getDatabase, ref, get, query, orderByChild, equalTo } from 'firebase/da
 import { initializeApp, getApps } from 'firebase/app'
 import Barcode from 'react-barcode'
 import html2canvas from 'html2canvas'
-import { Download, Loader2, AlertCircle, ChevronRight } from 'lucide-react'
+import { Download, Loader2, AlertCircle, ChevronRight, Sparkles } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import Link from "next/link"
@@ -105,9 +105,9 @@ export default function RegistrationSuccess() {
   if (!registration) return <NoData />
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-hidden">
+    <div className="min-h-screen bg-zinc-900 text-amber-50 overflow-hidden">
       {/* Navigation */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-md border-b border-amber-800/20">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-zinc-900/90 backdrop-blur-md border-b border-amber-800/30">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2">
@@ -116,7 +116,13 @@ export default function RegistrationSuccess() {
                 animate={{ rotate: 0, scale: 1 }}
                 transition={{ duration: 0.5 }}
               >
-                <Image src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" alt="Kalinga International MUN Logo" width={40} height={40} className="mr-2" />
+                <Image 
+                  src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" 
+                  alt="Kalinga International MUN Logo" 
+                  width={40} 
+                  height={40} 
+                  className="mr-2"
+                />
               </motion.div>
               <motion.span
                 initial={{ opacity: 0, x: -10 }}
@@ -139,10 +145,10 @@ export default function RegistrationSuccess() {
                 >
                   <Link
                     href={item === "Home" ? "/" : `/${item.toLowerCase()}`}
-                    className="text-amber-100 hover:text-amber-400 transition-colors relative group"
+                    className="text-amber-200 hover:text-amber-400 transition-colors relative group"
                   >
                     {item}
-                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-amber-400 transition-all group-hover:w-full"></span>
+                    <span className="absolute -bottom-1 left-0 w-0 h-px bg-gradient-to-r from-amber-400 to-amber-600 transition-all group-hover:w-full"></span>
                   </Link>
                 </motion.div>
               ),
@@ -153,9 +159,14 @@ export default function RegistrationSuccess() {
       </header>
 
       {/* Main Content */}
-      <section className="relative pt-32 pb-20 min-h-screen flex items-center justify-center bg-gradient-to-b from-black via-amber-950/10 to-black">
-        <div className="absolute inset-0 bg-[url('/hero-pattern.svg')] opacity-20 z-0"></div>
-        
+      <section className="relative pt-32 pb-20 min-h-screen flex items-center justify-center bg-gradient-to-b from-zinc-900 via-zinc-900/80 to-zinc-900">
+        {/* Gold decorative elements */}
+        <div className="absolute inset-0 overflow-hidden opacity-10">
+          <div className="absolute top-0 left-0 w-64 h-64 bg-amber-500 rounded-full mix-blend-overlay filter blur-3xl opacity-20 animate-blob"></div>
+          <div className="absolute top-0 right-0 w-96 h-96 bg-amber-600 rounded-full mix-blend-overlay filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+          <div className="absolute bottom-0 left-1/2 w-80 h-80 bg-amber-400 rounded-full mix-blend-overlay filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+        </div>
+
         <div className="container mx-auto px-4 relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -163,10 +174,13 @@ export default function RegistrationSuccess() {
             transition={{ duration: 0.8 }}
             className="mb-12 text-center"
           >
-            <span className="text-amber-500 text-lg font-medium">Registration Successful</span>
-            <h1 className="text-4xl md:text-5xl font-bold text-white mt-2">
-              Your KIMUN 2025 Delegate ID
+            <span className="text-amber-400 text-lg font-medium tracking-widest">REGISTRATION CONFIRMED</span>
+            <h1 className="text-4xl md:text-5xl font-bold text-amber-100 mt-4 bg-clip-text text-transparent bg-gradient-to-r from-amber-300 to-amber-500">
+              Your Exclusive Delegate ID
             </h1>
+            <div className="flex justify-center mt-4">
+              <Sparkles className="text-amber-400 animate-pulse" />
+            </div>
           </motion.div>
 
           <motion.div
@@ -176,85 +190,112 @@ export default function RegistrationSuccess() {
             className="max-w-3xl mx-auto"
           >
             <div 
-              className="bg-black/50 backdrop-blur-sm border border-amber-800/30 rounded-2xl overflow-hidden p-8"
+              className="bg-zinc-800/70 backdrop-blur-sm border border-amber-800/50 rounded-2xl overflow-hidden p-8 shadow-2xl shadow-amber-900/20"
               ref={idCardRef}
             >
-              <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-amber-300">KIMUN 2025</h2>
-                <p className="text-amber-100/80">Delegate Digital ID</p>
+              {/* ID Card Header */}
+              <div className="text-center mb-8 relative">
+                <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 w-16 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent"></div>
+                <h2 className="text-2xl font-bold text-amber-300 tracking-wider">KIMUN 2025</h2>
+                <p className="text-amber-200/80 text-sm mt-1">PREMIER DELEGATE CREDENTIALS</p>
               </div>
 
+              {/* ID Card Content */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <InfoBox title="Delegate ID" value={registration.id.slice(0).toUpperCase()} />
                 <InfoBox title="Name" value={registration.name} />
                 <InfoBox title="Committee" value={committee} />
                 <InfoBox title="Portfolio" value={portfolio} />
                 <InfoBox title="Venue" value="BMPS Takshila School Patia" />
-                <InfoBox title="Gate" value={`Zone ${zone}`} />
+                <InfoBox title="Access Zone" value={`GOLD ${zone}`} />
               </div>
 
+              {/* Barcode Section */}
               <div className="text-center">
-                <div className="bg-black/50 p-4 rounded-lg inline-block">
+                <div className="bg-zinc-900/50 p-4 rounded-lg inline-block border border-amber-800/30">
                   <Barcode 
                     value={registration.id.slice(0).toUpperCase()} 
                     background="transparent"
-                    lineColor="#f59e0b"
+                    lineColor="#fbbf24"
+                    width={1.5}
+                    height={60}
                   />
                 </div>
               </div>
+
+              {/* Decorative Elements */}
+              <div className="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-amber-500"></div>
+              <div className="absolute bottom-4 left-4 w-8 h-8 border-b-2 border-l-2 border-amber-500"></div>
             </div>
 
-            <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
-              <Button 
-                onClick={downloadIDCard}
-                className="bg-amber-500 hover:bg-amber-600 text-black font-bold px-8 py-6 text-lg rounded-full group"
+            {/* Action Buttons */}
+            <div className="mt-12 flex flex-col sm:flex-row justify-center gap-4">
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                Download ID Card
-                <Download className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </Button>
-              
-              <Link href="/" passHref>
-                <Button variant="outline" className="border-amber-500 text-amber-300 hover:bg-amber-900/30 font-bold px-8 py-6 text-lg rounded-full">
-                  Back to Home
-                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                <Button 
+                  onClick={downloadIDCard}
+                  className="bg-gradient-to-r from-amber-600 to-amber-800 hover:from-amber-700 hover:to-amber-900 text-amber-50 font-bold px-8 py-6 text-lg rounded-lg group shadow-lg shadow-amber-900/30"
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  Download ID Card
                 </Button>
-              </Link>
+              </motion.div>
+              
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Link href="/" passHref>
+                  <Button variant="outline" className="border-amber-600 text-amber-300 hover:bg-amber-900/20 hover:text-amber-200 font-bold px-8 py-6 text-lg rounded-lg group shadow-lg shadow-amber-900/10">
+                    Back to Home
+                    <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  </Button>
+                </Link>
+              </motion.div>
             </div>
           </motion.div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-black border-t border-amber-800/20 py-12">
+      <footer className="bg-zinc-900 border-t border-amber-800/20 py-12">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <h3 className="text-xl font-bold text-amber-300 mb-4 flex items-center gap-2">
-                <Image src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" alt="Kalinga International MUN Logo" width={30} height={30} className="mr-2" />
+                <Image 
+                  src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" 
+                  alt="Kalinga International MUN Logo" 
+                  width={30} 
+                  height={30} 
+                  className="mr-2"
+                />
                 Kalinga International MUN
               </h3>
-              <p className="text-gray-400">The premier Model United Nations conference in the region.</p>
+              <p className="text-amber-100/70">The premier Model United Nations conference in the region.</p>
             </div>
             <div>
               <h3 className="text-lg font-bold text-amber-300 mb-4">Quick Links</h3>
               <ul className="space-y-2">
                 <li>
-                  <Link href="/" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <Link href="/" className="text-amber-100/70 hover:text-amber-400 transition-colors">
                     Home
                   </Link>
                 </li>
                 <li>
-                  <Link href="/about" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <Link href="/about" className="text-amber-100/70 hover:text-amber-400 transition-colors">
                     About Us
                   </Link>
                 </li>
                 <li>
-                  <Link href="/registration" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <Link href="/registration" className="text-amber-100/70 hover:text-amber-400 transition-colors">
                     Register
                   </Link>
                 </li>
                 <li>
-                  <Link href="/committees" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <Link href="/committees" className="text-amber-100/70 hover:text-amber-400 transition-colors">
                     Committees
                   </Link>
                 </li>
@@ -264,22 +305,22 @@ export default function RegistrationSuccess() {
               <h3 className="text-lg font-bold text-amber-300 mb-4">Resources</h3>
               <ul className="space-y-2">
                 <li>
-                  <Link href="/resources" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <Link href="/resources" className="text-amber-100/70 hover:text-amber-400 transition-colors">
                     Study Guides
                   </Link>
                 </li>
                 <li>
-                  <Link href="/resources" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <Link href="/resources" className="text-amber-100/70 hover:text-amber-400 transition-colors">
                     Rules of Procedure
                   </Link>
                 </li>
                 <li>
-                  <Link href="/resources" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <Link href="/resources" className="text-amber-100/70 hover:text-amber-400 transition-colors">
                     Position Papers
                   </Link>
                 </li>
                 <li>
-                  <Link href="/resources" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <Link href="/resources" className="text-amber-100/70 hover:text-amber-400 transition-colors">
                     FAQs
                   </Link>
                 </li>
@@ -288,10 +329,10 @@ export default function RegistrationSuccess() {
             <div>
               <h3 className="text-lg font-bold text-amber-300 mb-4">Contact</h3>
               <ul className="space-y-2">
-                <li className="text-gray-400">Email: info@kimun.in.co</li>
-                <li className="text-gray-400">Phone: +918249979557</li>
+                <li className="text-amber-100/70">Email: info@kimun.in.co</li>
+                <li className="text-amber-100/70">Phone: +918249979557</li>
                 <li className="flex space-x-4 mt-4">
-                  <a href="#" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <a href="#" className="text-amber-100/70 hover:text-amber-400 transition-colors">
                     <span className="sr-only">Facebook</span>
                     <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path
@@ -301,7 +342,7 @@ export default function RegistrationSuccess() {
                       />
                     </svg>
                   </a>
-                  <a href="#" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <a href="#" className="text-amber-100/70 hover:text-amber-400 transition-colors">
                     <span className="sr-only">Instagram</span>
                     <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path
@@ -311,7 +352,7 @@ export default function RegistrationSuccess() {
                       />
                     </svg>
                   </a>
-                  <a href="#" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <a href="#" className="text-amber-100/70 hover:text-amber-400 transition-colors">
                     <span className="sr-only">Twitter</span>
                     <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
@@ -321,7 +362,7 @@ export default function RegistrationSuccess() {
               </ul>
             </div>
           </div>
-          <div className="mt-12 pt-8 border-t border-amber-800/20 text-center text-gray-400">
+          <div className="mt-12 pt-8 border-t border-amber-800/20 text-center text-amber-100/50">
             <p>© 2025 Kalinga International MUN. All rights reserved.</p>
           </div>
         </div>
@@ -331,29 +372,29 @@ export default function RegistrationSuccess() {
 }
 
 const LoadingSpinner = () => (
-  <div className="min-h-screen bg-black flex items-center justify-center">
+  <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
     <Loader2 className="animate-spin w-8 h-8 text-amber-500" />
   </div>
 )
 
 const ErrorDisplay = ({ message, paymentId }: { message: string; paymentId: string | null }) => (
-  <div className="min-h-screen bg-black flex flex-col items-center justify-center text-center p-8">
-    <AlertCircle className="w-12 h-12 text-red-600 mb-4" />
-    <h2 className="text-xl font-semibold text-white">Error</h2>
-    <p className="text-amber-100">{message}</p>
-    {paymentId && <p className="text-sm text-amber-900">Payment ID: {paymentId}</p>}
+  <div className="min-h-screen bg-zinc-900 flex flex-col items-center justify-center text-center p-8">
+    <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+    <h2 className="text-xl font-semibold text-amber-100">Error</h2>
+    <p className="text-amber-200">{message}</p>
+    {paymentId && <p className="text-sm text-amber-400/70">Payment ID: {paymentId}</p>}
   </div>
 )
 
 const NoData = () => (
-  <div className="min-h-screen bg-black flex items-center justify-center">
-    <span className="text-amber-100">No registration data available</span>
+  <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
+    <span className="text-amber-200">No registration data available</span>
   </div>
 )
 
 const InfoBox = ({ title, value }: { title: string; value: string }) => (
-  <div className="bg-amber-900/10 rounded-xl p-4 border border-amber-800/30">
-    <p className="text-xs text-amber-400 uppercase tracking-wider">{title}</p>
-    <p className="text-lg font-bold text-amber-100">{value}</p>
+  <div className="bg-zinc-900/50 rounded-xl p-4 border border-amber-800/30">
+    <p className="text-xs text-amber-400 uppercase tracking-wider font-medium">{title}</p>
+    <p className="text-lg font-bold text-amber-100 mt-1">{value}</p>
   </div>
 )
