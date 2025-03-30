@@ -151,7 +151,7 @@ export default function Home() {
         <motion.div className="absolute inset-0 z-0" style={{ y: y1 }}>
           <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-black opacity-95 z-50"></div>
           <Image
-            src="https://media.discordapp.net/attachments/1268556254448455713/1355478794244329564/ChatGPT_Image_Mar_29_2025_12_03_59_PM.png?ex=67e91380&is=67e7c200&hm=59e346e38d159dbf58b27969af08fa1f6e7ced5bc7e59483bc5202b4aceaecf5&=&format=webp&quality=lossless&width=1001&height=668"
+            src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/chatgpt-image-mar-29-2025-12_03_59-pm.png"
             alt="Background"
             fill
             className="object-cover"
@@ -340,7 +340,7 @@ export default function Home() {
               <div className="absolute -inset-4 bg-amber-500/20 rounded-2xl blur-xl"></div>
               <div className="relative aspect-video rounded-2xl overflow-hidden border border-amber-500/30">
                 <Image
-                  src="https://media.discordapp.net/attachments/1268556254448455713/1355489191227691169/2.png?ex=67e91d2e&is=67e7cbae&hm=8d08220163a31126559236495d5a9cd920cefbe6f53000d5e24bf583fbaff455&=&format=webp&quality=lossless&width=1240&height=698"
+                  src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/chatgpt-image-mar-29-2025-08_39_55-pm.png"
                   alt="Conference"
                   width={800}
                   height={450}
@@ -399,7 +399,7 @@ export default function Home() {
                     >
                       <div className="h-48 overflow-hidden relative">
                         <Image
-                          src={`https://media.discordapp.net/attachments/1268556254448455713/1355493344490291442/Bone_White_Blue_Groovy_You_Matter_Desktop_Wallpaper_1.png?ex=67e9210d&is=67e7cf8d&hm=b0aa8ff1c668335ab1af98fca3640a31cdb912e9990935e9fdcb66c0c38f597f&=&format=webp&quality=lossless&width=750&height=500`}
+                          src={`https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/bone-white-blue-groovy-you-matter-desktop-wallpaper.png`}
                           alt={committee.name}
                           width={600}
                           height={400}
@@ -470,7 +470,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <h3 className="text-xl font-bold text-amber-300 mb-4 flex items-center gap-2">
-                <Image src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" alt="Kalinga International MUN Logo" width={30} height={30} className="mr-2" />
+                <Image src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Kalinga International MUN Logo" width={30} height={30} className="mr-2" />
                 Kalinga International MUN
               </h3>
               <p className="text-gray-400">The premier Model United Nations conference in the region.</p>
