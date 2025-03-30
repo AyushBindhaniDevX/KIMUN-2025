@@ -144,7 +144,7 @@ export default function AboutPage() {
               <div className="absolute -inset-4 bg-amber-500/20 rounded-2xl blur-xl"></div>
               <div className="relative aspect-video rounded-2xl overflow-hidden border border-amber-500/30">
                 <Image
-                  src="https://media.discordapp.net/attachments/1268556254448455713/1355490881406505070/Bone_White_Blue_Groovy_You_Matter_Desktop_Wallpaper.png?ex=67e91ec1&is=67e7cd41&hm=89db0820e4e2b2a8b2387fb952984476e696383687afd28c1e4b1e9bd04ec7a5&=&format=webp&quality=lossless&width=1240&height=698"
+                  src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/bone-white-blue-groovy-you-matter-desktop-wallpaper.png"
                   alt="Conference"
                   width={800}
                   height={450}
@@ -212,7 +212,7 @@ export default function AboutPage() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                   <div>
                     <h3 className="text-xl font-bold text-amber-300 mb-4 flex items-center gap-2">
-                      <Image src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" alt="Kalinga International MUN Logo" width={30} height={30} className="mr-2" />
+                      <Image src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Kalinga International MUN Logo" width={30} height={30} className="mr-2" />
                       Kalinga International MUN
                     </h3>
                     <p className="text-gray-400">The premier Model United Nations conference in the region.</p>
