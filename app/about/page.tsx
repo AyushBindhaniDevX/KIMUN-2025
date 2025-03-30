@@ -40,29 +40,40 @@ export default function AboutPage() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2">
-              <Image 
-                src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" 
-                alt="Kalinga International MUN Logo" 
-                width={40} 
-                height={40} 
-                className="mr-2" 
-              />
-              <span className="text-lg font-bold text-amber-300 hidden sm:inline-block">
+              <motion.div
+                initial={{ rotate: -10, scale: 0.9 }}
+                animate={{ rotate: 0, scale: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                <Image src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Kalinga International MUN Logo" width={40} height={40} className="mr-2" />
+              </motion.div>
+              <motion.span
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+                className="text-lg font-bold text-amber-300 hidden sm:inline-block"
+              >
                 Kalinga International Model United Nations
-              </span>
+              </motion.span>
             </Link>
           </div>
           <nav className="hidden md:flex space-x-8">
             {["Home", "About", "Registration", "Matrix", "Resources", "Committees"].map(
-              (item) => (
-                <Link
+              (item, i) => (
+                <motion.div
                   key={item}
-                  href={item === "Home" ? "/" : `/${item.toLowerCase()}`}
-                  className={`${item === "About" ? "text-amber-400" : "text-amber-100"} hover:text-amber-400 transition-colors relative group`}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 * i, duration: 0.5 }}
                 >
-                  {item}
-                  <span className={`absolute -bottom-1 left-0 w-${item === "About" ? "full" : "0"} h-0.5 bg-amber-400 transition-all group-hover:w-full`}></span>
-                </Link>
+                  <Link
+                    href={item === "Home" ? "/" : `/${item.toLowerCase()}`}
+                    className="text-amber-100 hover:text-amber-400 transition-colors relative group"
+                  >
+                    {item}
+                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-amber-400 transition-all group-hover:w-full"></span>
+                  </Link>
+                </motion.div>
               ),
             )}
           </nav>
