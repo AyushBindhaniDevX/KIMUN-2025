@@ -16,11 +16,9 @@ export default function MobileNav() {
   const menuItems = [
     { name: "Home", path: "/" },
     { name: "About", path: "/about" },
-    { name: "Schedule", path: "/schedule" },
-    { name: "Secretariat", path: "/secretariat" },
-    { name: "Sponsors", path: "/sponsors" },
-    { name: "Register", path: "/register" },
+    { name: "Register", path: "/registration" },
     { name: "Resources", path: "/resources" },
+    { name: "Matrix", path: "/Matrix" },
     { name: "Committees", path: "/committees" },
   ]
 
