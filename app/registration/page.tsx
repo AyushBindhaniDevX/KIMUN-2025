@@ -216,7 +216,7 @@ export default function RegistrationPage() {
         currency: 'INR',
         name: 'KIMUN Registration',
         description: `Registration Fee for ${isDoubleDel ? 'Double Delegation' : 'Single Delegation'}`,
-        image: '/logo.png',
+        image: 'https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png',
         handler: async (response: any) => {
           try {
             const registrationKey = await saveRegistration(response.razorpay_payment_id)
