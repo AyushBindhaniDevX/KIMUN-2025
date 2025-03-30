@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button';
-import { Edit, Plus, X, Trash, ChartBar, Users, CheckCircle, Download, UserCheck, QrCode, Cog, CreditCard, User, UserPlus, Briefcase, Coins, BookOpen, FileText, Award, Settings, LogOut } from 'lucide-react';
+import { Edit, Plus, X, Trash, ChartBar, Users, CheckCircle, Download, UserCheck, QrCode, Cog, CreditCard, User, UserPlus, Briefcase, Coins, BookOpen, FileText, Award, Settings, LogOut, Ban } from 'lucide-react';
 import * as Flags from 'country-flag-icons/react/3x2';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, get, push, update, remove, onValue } from 'firebase/database';
@@ -12,6 +12,7 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { Legend } from 'recharts';
+import emailjs from '@emailjs/browser';
 
 // Updated Committee Type
 type Committee = {
@@ -73,6 +74,14 @@ type Resource = {
   pages?: number;
 };
 
+type BlacklistedDelegate = {
+  id: string;
+  name: string;
+  email: string;
+  reason: string;
+  timestamp: number;
+};
+
 const countryOptions = Object.entries(Flags)
   .filter(([key]) => key.endsWith('Flag'))
   .map(([key]) => ({
@@ -87,6 +96,7 @@ export default function AdminDashboard() {
   const [committees, setCommittees] = useState<Committee[]>([]);
   const [delegates, setDelegates] = useState<Delegate[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
+  const [blacklistedDelegates, setBlacklistedDelegates] = useState<BlacklistedDelegate[]>([]);
   const [barcodeInput, setBarcodeInput] = useState('');
   const [selectedCommittee, setSelectedCommittee] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'all' | 'checkedIn' | 'notCheckedIn'>('all');
@@ -98,6 +108,9 @@ export default function AdminDashboard() {
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<'committee' | 'eb' | 'portfolio' | 'resource'>('committee');
+  const [showBlacklistModal, setShowBlacklistModal] = useState(false);
+  const [blacklistReason, setBlacklistReason] = useState('');
+  const [currentDelegateToBlacklist, setCurrentDelegateToBlacklist] = useState<Delegate | null>(null);
 
   // Initialize Firebase
   const firebaseConfig = {
@@ -112,6 +125,11 @@ export default function AdminDashboard() {
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
+
+  // Initialize EmailJS
+  useEffect(() => {
+    emailjs.init(process.env.NEXT_PUBLIC_EMAILJS_USER_ID || '');
+  }, []);
 
   // Fetch all data with real-time updates
   useEffect(() => {
@@ -217,6 +235,24 @@ export default function AdminDashboard() {
       }
     });
 
+    // Blacklisted delegates listener
+    const blacklistedRef = ref(db, 'blacklisted');
+    const blacklistedUnsubscribe = onValue(blacklistedRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const blacklistedData = snapshot.val();
+        const blacklistedList = Object.entries(blacklistedData).map(([id, data]: [string, any]) => ({
+          id,
+          name: data.name || '',
+          email: data.email || '',
+          reason: data.reason || '',
+          timestamp: data.timestamp || 0
+        }));
+        setBlacklistedDelegates(blacklistedList);
+      } else {
+        setBlacklistedDelegates([]);
+      }
+    });
+
     setLoading(false);
 
     // Cleanup function
@@ -224,6 +260,7 @@ export default function AdminDashboard() {
       committeesUnsubscribe();
       registrationsUnsubscribe();
       resourcesUnsubscribe();
+      blacklistedUnsubscribe();
     };
   }, [accessGranted]);
 
@@ -237,6 +274,114 @@ export default function AdminDashboard() {
     }
   };
 
+      // Email functions (modified slightly)
+      const sendWelcomeEmail = async (delegate: Delegate) => {
+        try {
+          const templateParams = {
+            to_name: delegate.name,
+            to_email: delegate.email,
+            conference_name: "KIMUN 2025",
+            feedback_link: "https://kimun.in/feedback",
+            email_type: "welcome", // <-- Add this
+            message: `Welcome to KIMUN 2025! We're excited to have you as part of ${committees.find(c => c.id === delegate.committeeId)?.name || 'our conference. Please Take some time to fill in Check In Feedback Form: kimun.in.net'}.`
+          };
+
+          await emailjs.send(
+            process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '',
+            process.env.NEXT_PUBLIC_EMAILJS_WELCOME_TEMPLATE_ID || '', // Same template for both
+            templateParams
+          );
+          console.log('Welcome email sent successfully');
+        } catch (error) {
+          console.error('Failed to send welcome email:', error);
+        }
+      };
+
+      const sendDebarredEmail = async (delegate: Delegate, reason: string) => {
+        try {
+          const templateParams = {
+            to_name: delegate.name,
+            to_email: delegate.email,
+            conference_name: "KIMUN 2025",
+            reason: reason,
+            email_type: "debarred", // <-- Add this
+            message: `We regret to inform you that you have been debarred from KIMUN 2025 due to: ${reason}. Please contact the organizing committee if you believe this is a mistake.`
+          };
+
+          await emailjs.send(
+            process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '',
+            process.env.NEXT_PUBLIC_EMAILJS_WELCOME_TEMPLATE_ID || '', // Same template for both
+            templateParams
+          );
+          console.log('Debarred email sent successfully');
+        } catch (error) {
+          console.error('Failed to send debarred email:', error);
+        }
+      };
+
+  const blacklistDelegate = async (delegate: Delegate, reason: string) => {
+    try {
+      // Add to blacklist in database
+      const newBlacklisted = {
+        id: delegate.id,
+        name: delegate.name,
+        email: delegate.email,
+        reason: reason,
+        timestamp: Date.now()
+      };
+      
+      await push(ref(db, 'blacklisted'), newBlacklisted);
+      
+      // Send debarred email
+      await sendDebarredEmail(delegate, reason);
+      
+      alert('Delegate has been blacklisted and notified');
+      setShowBlacklistModal(false);
+      setBlacklistReason('');
+      setCurrentDelegateToBlacklist(null);
+    } catch (error) {
+      console.error('Error blacklisting delegate:', error);
+      alert('Failed to blacklist delegate');
+    }
+  };
+
+  const handleCheckIn = async () => {
+    if (!barcodeInput) return;
+
+    const delegate = delegates.find(d => 
+      d.id.includes(barcodeInput) || 
+      d.phone === barcodeInput || 
+      d.email === barcodeInput
+    );
+
+    if (!delegate) {
+      alert('Delegate not found!');
+      return;
+    }
+
+    if (delegate.isCheckedIn) {
+      alert('Delegate already checked in!');
+      setBarcodeInput('');
+      return;
+    }
+
+    try {
+      const [regId, delId] = delegate.id.split('_');
+      await update(ref(db, `registrations/${regId}/delegateInfo/${delId}`), {
+        isCheckedIn: true,
+        checkInTime: new Date().toISOString()
+      });
+      
+      // Send welcome email
+      await sendWelcomeEmail(delegate);
+      
+      setBarcodeInput('');
+      alert('Checked in successfully! Welcome email sent.');
+    } catch (error) {
+      console.error('Check-in failed:', error);
+      alert('Check-in failed!');
+    }
+  };
   const openCommitteeModal = (committee: Committee | null) => {
     setEditingCommittee(committee || {
       id: '',
@@ -310,40 +455,7 @@ export default function AdminDashboard() {
     }).format(amount);
   };
 
-  const handleCheckIn = async () => {
-    if (!barcodeInput) return;
 
-    const delegate = delegates.find(d => 
-      d.id.includes(barcodeInput) || 
-      d.phone === barcodeInput || 
-      d.email === barcodeInput
-    );
-
-    if (!delegate) {
-      alert('Delegate not found!');
-      return;
-    }
-
-    if (delegate.isCheckedIn) {
-      alert('Delegate already checked in!');
-      setBarcodeInput('');
-      return;
-    }
-
-    try {
-      const [regId, delId] = delegate.id.split('_');
-      await update(ref(db, `registrations/${regId}/delegateInfo/${delId}`), {
-        isCheckedIn: true,
-        checkInTime: new Date().toISOString()
-      });
-      
-      setBarcodeInput('');
-      alert('Checked in successfully!');
-    } catch (error) {
-      console.error('Check-in failed:', error);
-      alert('Check-in failed!');
-    }
-  };
 
   const exportExcel = (data: any[], fileName: string) => {
     const worksheet = XLSX.utils.json_to_sheet(data);
@@ -977,36 +1089,54 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredDelegates.length > 0 ? (
-                        filteredDelegates.map(delegate => (
-                          <tr key={delegate.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{delegate.id}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{delegate.name}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {committees.find(c => c.id === delegate.committeeId)?.name || 'N/A'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {committees.find(c => c.id === delegate.committeeId)
-                                ?.portfolios.find(p => p.id === delegate.portfolioId)?.country || 'N/A'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                delegate.isCheckedIn 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {delegate.isCheckedIn ? 'Checked In' : 'Not Checked In'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
-                            No delegates found
-                          </td>
-                        </tr>
-                      )}
+                    {filteredDelegates.length > 0 ? (
+    filteredDelegates.map(delegate => (
+      <tr key={delegate.id} className="hover:bg-gray-50">
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{delegate.id}</td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{delegate.name}</td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+          {committees.find(c => c.id === delegate.committeeId)?.name || 'N/A'}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+          {committees.find(c => c.id === delegate.committeeId)
+            ?.portfolios.find(p => p.id === delegate.portfolioId)?.country || 'N/A'}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+            delegate.isCheckedIn 
+              ? 'bg-green-100 text-green-800' 
+              : 'bg-red-100 text-red-800'
+          }`}>
+            {delegate.isCheckedIn ? 'Checked In' : 'Not Checked In'}
+          </span>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
+          <div className="flex space-x-2">
+            {!delegate.isCheckedIn && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setCurrentDelegateToBlacklist(delegate);
+                  setShowBlacklistModal(true);
+                }}
+                className="text-red-500 hover:text-red-700"
+              >
+                <Ban className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </td>
+      </tr>
+    ))
+  ) : (
+    <tr>
+      <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+        No delegates found
+      </td>
+    </tr>
+  )}
+
                     </tbody>
                   </table>
                 </div>
@@ -1742,7 +1872,68 @@ export default function AdminDashboard() {
             </motion.div>
           </motion.div>
         )}
+
+{showBlacklistModal && currentDelegateToBlacklist && (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      >
+        <motion.div
+          initial={{ scale: 0.95, y: 20 }}
+          animate={{ scale: 1, y: 0 }}
+          exit={{ scale: 0.95, y: 20 }}
+          className="bg-white rounded-xl shadow-xl w-full max-w-md"
+        >
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Blacklist Delegate</h3>
+              <button 
+                onClick={() => {
+                  setShowBlacklistModal(false);
+                  setBlacklistReason('');
+                  setCurrentDelegateToBlacklist(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-600 mb-2">
+                  You are about to blacklist <span className="font-semibold">{currentDelegateToBlacklist.name}</span> ({currentDelegateToBlacklist.email}).
+                  This will prevent them from participating in the conference.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reason for blacklisting</label>
+                <textarea
+                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  rows={3}
+                  value={blacklistReason}
+                  onChange={(e) => setBlacklistReason(e.target.value)}
+                  placeholder="Enter reason for blacklisting..."
+                />
+              </div>
+              <div className="pt-4">
+                <Button 
+                  onClick={() => blacklistDelegate(currentDelegateToBlacklist, blacklistReason)}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white"
+                  disabled={!blacklistReason.trim()}
+                >
+                  Confirm Blacklist
+                </Button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    )}
       </AnimatePresence>
+      
     </div>
   );
 }
