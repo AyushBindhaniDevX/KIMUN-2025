@@ -110,7 +110,7 @@ export default function Home() {
                 animate={{ rotate: 0, scale: 1 }}
                 transition={{ duration: 0.5 }}
               >
-                <Image src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" alt="Kalinga International MUN Logo" width={40} height={40} className="mr-2" />
+                <Image src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Kalinga International MUN Logo" width={40} height={40} className="mr-2" />
               </motion.div>
               <motion.span
                 initial={{ opacity: 0, x: -10 }}
