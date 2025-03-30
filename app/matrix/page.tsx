@@ -106,7 +106,7 @@ export default function MatrixPage() {
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2">
               <Image 
-                src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" 
+                src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" 
                 alt="KIMUN Logo" 
                 width={40} 
                 height={40} 
