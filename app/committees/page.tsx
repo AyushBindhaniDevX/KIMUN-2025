@@ -233,12 +233,10 @@ export default function CommitteesPage() {
                     { value: "regional", label: "Regional" },
                   ].map((tab) => (
                     <TabsTrigger
-                      key={tab.value}
-                      value={tab.value}
-                      className="text-amber-100 data-[state=active]:bg-amber-900/50 data-[state=active]:text-amber-300 hover:text-amber-400 transition-all"
-                    >
-                      {tab.label}
-                    </TabsTrigger>
+  key={tab.value}
+  value={tab.value}
+  className="flex-1 text-amber-100 data-[state=active]:bg-amber-900/50 data-[state=active]:text-amber-300 hover:text-amber-400 transition-all py-2 px-4 rounded-md"
+>
                   ))}
                 </TabsList>
               </motion.div>
