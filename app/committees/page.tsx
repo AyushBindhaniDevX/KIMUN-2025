@@ -228,10 +228,9 @@ export default function CommitteesPage() {
               >
                 <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-12 bg-black border border-amber-800/30">
                   {[
-                    { value: "general", label: "General Assembly" },
-                    { value: "specialized", label: "Specialized Agencies" },
-                    { value: "crisis", label: "Crisis Committees" },
-                    { value: "regional", label: "Regional Bodies" },
+                    { value: "general", label: "General" },
+                    { value: "specialized", label: "Specialized" },
+                    { value: "regional", label: "Regional" },
                   ].map((tab) => (
                     <TabsTrigger
                       key={tab.value}
@@ -464,8 +463,13 @@ export default function CommitteesPage() {
                             </div>
                             <div>
                               <h4 className="font-semibold text-white mb-2">Executive Board:</h4>
-                              <p className="text-gray-300">{committee.eb.join(", ")}</p>
-                            </div>
+                              <p className="text-gray-300">
+  {committee.eb && typeof committee.eb === "object"
+    ? Object.values(committee.eb)
+        .map((member: any) => member.name)
+        .join(", ")
+    : "N/A"}
+</p>                            </div>
                           </CardContent>
                          
                         </Card>
@@ -536,8 +540,13 @@ export default function CommitteesPage() {
                             </div>
                             <div>
                               <h4 className="font-semibold text-white mb-2">Executive Board:</h4>
-                              <p className="text-gray-300">{committee.eb.join(", ")}</p>
-                            </div>
+                              <p className="text-gray-300">
+  {committee.eb && typeof committee.eb === "object"
+    ? Object.values(committee.eb)
+        .map((member: any) => member.name)
+        .join(", ")
+    : "N/A"}
+</p>                            </div>
                           </CardContent>
                           
                         </Card>
