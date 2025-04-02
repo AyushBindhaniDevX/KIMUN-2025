@@ -147,7 +147,7 @@ export default function RegistrationPage() {
   }
 
   const calculatePrice = () => {
-    return isDoubleDel ?  2575 : 1340 // Example prices
+    return isDoubleDel ?  2499 : 1299 // Example prices
   }
 
   const getAverageExperience = () => {
@@ -339,7 +339,7 @@ export default function RegistrationPage() {
                     />
                     <div>
                       <h3 className="text-xl font-semibold text-white">Single Delegation</h3>
-                      <p className="text-gray-400">₹1299 + 3% Tax per delegate</p>
+                      <p className="text-gray-400">₹1299 per delegate</p>
                     </div>
                   </label>
                 </motion.div>
@@ -359,7 +359,7 @@ export default function RegistrationPage() {
                     />
                     <div>
                       <h3 className="text-xl font-semibold text-white">Double Delegation</h3>
-                      <p className="text-gray-400">₹2499 + 3% Tax for two delegates</p>
+                      <p className="text-gray-400">₹2499 for two delegates</p>
                     </div>
                   </label>
                 </motion.div>
