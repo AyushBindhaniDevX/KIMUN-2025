@@ -505,12 +505,7 @@ export default function ResourcesPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <h3 className="text-xl font-bold text-amber-300 mb-4 flex items-center gap-2">
-                <Image 
-                  src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" 
-                  alt="Kalinga International MUN Logo" 
-                  width={30} 
-                  height={30} 
-                />
+                <Image src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Kalinga International MUN Logo" width={30} height={30} className="mr-2" />
                 Kalinga International MUN
               </h3>
               <p className="text-gray-400">The premier Model United Nations conference in the region.</p>
@@ -544,7 +539,7 @@ export default function ResourcesPage() {
               <h3 className="text-lg font-bold text-amber-300 mb-4">Resources</h3>
               <ul className="space-y-2">
                 <li>
-                  <Link href="/resources" className="text-amber-400 hover:text-amber-300 transition-colors">
+                  <Link href="/resources" className="text-gray-400 hover:text-amber-400 transition-colors">
                     Study Guides
                   </Link>
                 </li>
@@ -568,10 +563,10 @@ export default function ResourcesPage() {
             <div>
               <h3 className="text-lg font-bold text-amber-300 mb-4">Contact</h3>
               <ul className="space-y-2">
-                <li className="text-gray-400">Email: info@kimun.in.co</li>
+                <li className="text-gray-400">Email: info@kimun.in.net</li>
                 <li className="text-gray-400">Phone: +918249979557</li>
                 <li className="flex space-x-4 mt-4">
-                  <a href="#" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <a href="https://www.facebook.com/kimun24" className="text-gray-400 hover:text-amber-400 transition-colors">
                     <span className="sr-only">Facebook</span>
                     <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path
@@ -581,7 +576,7 @@ export default function ResourcesPage() {
                       />
                     </svg>
                   </a>
-                  <a href="#" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <a href="https://www.instagram.com/kalingainternationalmun" className="text-gray-400 hover:text-amber-400 transition-colors">
                     <span className="sr-only">Instagram</span>
                     <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path
@@ -591,7 +586,7 @@ export default function ResourcesPage() {
                       />
                     </svg>
                   </a>
-                  <a href="#" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <a href="https://x.com/kimun2025" className="text-gray-400 hover:text-amber-400 transition-colors">
                     <span className="sr-only">Twitter</span>
                     <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
