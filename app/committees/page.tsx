@@ -214,22 +214,21 @@ export default function CommitteesPage() {
                 animate={inView1 ? { opacity: 1 } : { opacity: 0 }}
                 transition={{ duration: 0.5 }}
               >
-                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-12 bg-black border border-amber-800/30">
-                  {[
-                    { value: "general", label: "General Assembly" },
-                    { value: "specialized", label: "Specialized Agencies" },
-                    { value: "crisis", label: "Crisis Committees" },
-                    { value: "regional", label: "Regional Bodies" },
-                  ].map((tab) => (
-                    <TabsTrigger
-                      key={tab.value}
-                      value={tab.value}
-                      className="text-amber-100 data-[state=active]:bg-amber-900/50 data-[state=active]:text-amber-300 hover:text-amber-400 transition-all"
-                    >
-                      {tab.label}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+                <TabsList className="grid w-full grid-cols-3 gap-0.5 mb-12 bg-black border border-amber-800/30 rounded-lg p-0.5">
+  {[
+    { value: "general", label: "General" },
+    { value: "specialized", label: "Specialized" },
+    { value: "regional", label: "Regional" },
+  ].map((tab) => (
+    <TabsTrigger
+      key={tab.value}
+      value={tab.value}
+      className="text-amber-100 data-[state=active]:bg-amber-900/50 data-[state=active]:text-amber-300 hover:text-amber-400 transition-all py-2 px-4 rounded-md"
+    >
+      {tab.label}
+    </TabsTrigger>
+  ))}
+</TabsList>
               </motion.div>
 
               {/* General Assemblies */}
@@ -452,8 +451,13 @@ export default function CommitteesPage() {
                             </div>
                             <div>
                               <h4 className="font-semibold text-white mb-2">Executive Board:</h4>
-                              <p className="text-gray-300">{committee.eb.join(", ")}</p>
-                            </div>
+                              <p className="text-gray-300">
+  {committee.eb && typeof committee.eb === "object"
+    ? Object.values(committee.eb)
+        .map((member: any) => member.name)
+        .join(", ")
+    : "N/A"}
+</p>                            </div>
                           </CardContent>
                          
                         </Card>
@@ -524,8 +528,13 @@ export default function CommitteesPage() {
                             </div>
                             <div>
                               <h4 className="font-semibold text-white mb-2">Executive Board:</h4>
-                              <p className="text-gray-300">{committee.eb.join(", ")}</p>
-                            </div>
+                              <p className="text-gray-300">
+  {committee.eb && typeof committee.eb === "object"
+    ? Object.values(committee.eb)
+        .map((member: any) => member.name)
+        .join(", ")
+    : "N/A"}
+</p>                            </div>
                           </CardContent>
                           
                         </Card>

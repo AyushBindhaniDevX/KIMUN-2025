@@ -277,94 +277,105 @@ export default function AdminDashboard() {
       // Email functions (modified slightly)
       const sendWelcomeEmail = async (delegate: Delegate) => {
         try {
-          const templateParams = {
-            to_name: delegate.name,
-            to_email: delegate.email,
-            conference_name: "KIMUN 2025",
-            feedback_link: "https://kimun.in/feedback",
-            email_type: "welcome", // <-- Add this
-            message: `Welcome to KIMUN 2025! We're excited to have you as part of ${committees.find(c => c.id === delegate.committeeId)?.name || 'our conference. Please Take some time to fill in Check In Feedback Form: kimun.in.net'}.`
-          };
-
-          await emailjs.send(
-            process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '',
-            process.env.NEXT_PUBLIC_EMAILJS_WELCOME_TEMPLATE_ID || '', // Same template for both
-            templateParams
-          );
+          const response = await fetch('/api/send-checkin', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              toEmail: delegate.email,
+              toName: delegate.name,
+              committeeName: committees.find(c => c.id === delegate.committeeId)?.name
+            }),
+          });
+      
+          const data = await response.json();
+          
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to send welcome email');
+          }
+          
           console.log('Welcome email sent successfully');
         } catch (error) {
           console.error('Failed to send welcome email:', error);
+          throw error;
         }
       };
+
 
       const sendDebarredEmail = async (delegate: Delegate, reason: string) => {
         try {
-          const templateParams = {
-            to_name: delegate.name,
-            to_email: delegate.email,
-            conference_name: "KIMUN 2025",
-            reason: reason,
-            email_type: "debarred", // <-- Add this
-            message: `We regret to inform you that you have been debarred from KIMUN 2025 due to: ${reason}. Please contact the organizing committee if you believe this is a mistake.`
-          };
-
-          await emailjs.send(
-            process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '',
-            process.env.NEXT_PUBLIC_EMAILJS_WELCOME_TEMPLATE_ID || '', // Same template for both
-            templateParams
-          );
+          const response = await fetch('/api/send-ban', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              toEmail: delegate.email,
+              toName: delegate.name,
+              reason: reason
+            }),
+          });
+      
+          const data = await response.json();
+          
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to send debarred email');
+          }
+          
           console.log('Debarred email sent successfully');
         } catch (error) {
           console.error('Failed to send debarred email:', error);
+          throw error;
         }
       };
 
-  const blacklistDelegate = async (delegate: Delegate, reason: string) => {
-    try {
-      // Add to blacklist in database
-      const newBlacklisted = {
-        id: delegate.id,
-        name: delegate.name,
-        email: delegate.email,
-        reason: reason,
-        timestamp: Date.now()
+      const blacklistDelegate = async (delegate: Delegate, reason: string) => {
+        try {
+          // Add to blacklist in database
+          const newBlacklisted = {
+            id: delegate.id,
+            name: delegate.name,
+            email: delegate.email,
+            reason: reason,
+            timestamp: Date.now()
+          };
+          
+          await push(ref(db, 'blacklisted'), newBlacklisted);
+          
+          // Send debarred email
+          await sendDebarredEmail(delegate, reason);
+          
+          alert('Delegate has been blacklisted and notified');
+          setShowBlacklistModal(false);
+          setBlacklistReason('');
+          setCurrentDelegateToBlacklist(null);
+        } catch (error) {
+          console.error('Error blacklisting delegate:', error);
+          alert(`Failed to blacklist delegate: ${error instanceof Error ? error.message : ''}`);
+        }
       };
-      
-      await push(ref(db, 'blacklisted'), newBlacklisted);
-      
-      // Send debarred email
-      await sendDebarredEmail(delegate, reason);
-      
-      alert('Delegate has been blacklisted and notified');
-      setShowBlacklistModal(false);
-      setBlacklistReason('');
-      setCurrentDelegateToBlacklist(null);
-    } catch (error) {
-      console.error('Error blacklisting delegate:', error);
-      alert('Failed to blacklist delegate');
-    }
-  };
 
   const handleCheckIn = async () => {
     if (!barcodeInput) return;
-
+  
     const delegate = delegates.find(d => 
       d.id.includes(barcodeInput) || 
       d.phone === barcodeInput || 
       d.email === barcodeInput
     );
-
+  
     if (!delegate) {
       alert('Delegate not found!');
       return;
     }
-
+  
     if (delegate.isCheckedIn) {
       alert('Delegate already checked in!');
       setBarcodeInput('');
       return;
     }
-
+  
     try {
       const [regId, delId] = delegate.id.split('_');
       await update(ref(db, `registrations/${regId}/delegateInfo/${delId}`), {
@@ -379,7 +390,7 @@ export default function AdminDashboard() {
       alert('Checked in successfully! Welcome email sent.');
     } catch (error) {
       console.error('Check-in failed:', error);
-      alert('Check-in failed!');
+      alert(`Check-in failed! ${error instanceof Error ? error.message : ''}`);
     }
   };
   const openCommitteeModal = (committee: Committee | null) => {
