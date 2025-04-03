@@ -1,11 +1,11 @@
 // app/delegate/page.tsx
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, query, orderByChild, equalTo } from 'firebase/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Mail, Lock, User, FileText, Award, Download, QrCode, ChevronDown, ChevronUp,Loader2  } from 'lucide-react'
+import { Mail, Lock, User, FileText, Award, Download, QrCode, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -80,7 +80,18 @@ type Resource = {
   format?: string
 }
 
-export default function DelegateDashboard() {
+function LoadingSkeleton() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-black to-amber-950/20 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="h-12 w-12 animate-spin text-amber-500" />
+        <p className="text-amber-300">Loading dashboard...</p>
+      </div>
+    </div>
+  )
+}
+
+function DelegateDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const step = searchParams.get('step')
@@ -95,88 +106,94 @@ export default function DelegateDashboard() {
   const [loading, setLoading] = useState({
     login: false,
     verify: false,
-    data: false,
-    resources: false
+    data: true, // Start with data loading true to prevent flash
+    resources: true
   })
   const [error, setError] = useState({
     login: null as string | null,
     verify: null as string | null
   })
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
+  const [initialLoad, setInitialLoad] = useState(true)
 
   // Check for existing session on initial load
   useEffect(() => {
+    const storedLoggedIn = localStorage.getItem('delegateLoggedIn') === 'true'
     const storedEmail = localStorage.getItem('delegateEmail')
-    if (storedEmail) {
+    
+    if (storedLoggedIn) {
+      setLoggedIn(true)
+    } else if (storedEmail) {
       setEmail(storedEmail)
       router.push('/delegate?step=verify')
     }
+    setInitialLoad(false)
   }, [router])
 
   // Fetch all data when logged in
   useEffect(() => {
-    if (loggedIn && delegate) {
-      const fetchData = async () => {
-        try {
-          setLoading(prev => ({ ...prev, data: true, resources: true }))
-          
-          // Fetch committee data
-          const committeeRef = ref(db, `committees/${delegate.committeeId}`)
-          const committeeSnapshot = await get(committeeRef)
-          
-          if (committeeSnapshot.exists()) {
-            const committeeData = committeeSnapshot.val()
-            setCommittee(committeeData)
-            
-            // Fetch portfolio data
-            if (committeeData.portfolios && delegate.portfolioId) {
-              setPortfolio(committeeData.portfolios[delegate.portfolioId])
-            }
-          }
-          
-          // Fetch marksheet data
-          const marksRef = ref(db, `marksheets/${delegate.committeeId}/marks`)
-          const marksSnapshot = await get(marksRef)
-          
-          if (marksSnapshot.exists()) {
-            const marksData = marksSnapshot.val()
-            const delegateMarks = Object.values(marksData).find(
-              (mark: any) => mark.portfolioId === delegate.portfolioId
-            )
-            
-            if (delegateMarks) {
-              setDelegate(prev => ({
-                ...prev!,
-                marks: delegateMarks
-              }))
-            }
-          }
+    if (!loggedIn || !delegate) return
 
-          // Fetch resources
-          const resourcesRef = ref(db, 'resources')
-          const resourcesSnapshot = await get(resourcesRef)
+    const fetchData = async () => {
+      try {
+        setLoading(prev => ({ ...prev, data: true, resources: true }))
+        
+        // Fetch committee data
+        const committeeRef = ref(db, `committees/${delegate.committeeId}`)
+        const committeeSnapshot = await get(committeeRef)
+        
+        if (committeeSnapshot.exists()) {
+          const committeeData = committeeSnapshot.val()
+          setCommittee(committeeData)
           
-          if (resourcesSnapshot.exists()) {
-            const resourcesData = resourcesSnapshot.val()
-            const resourcesList = Object.keys(resourcesData).map(key => ({
-              id: key,
-              ...resourcesData[key]
-            }))
-            setResources(resourcesList.filter((r: Resource) => 
-              r.type === 'guide' || r.type === 'rules' || r.type === 'template'
-            ))
+          // Fetch portfolio data
+          if (committeeData.portfolios && delegate.portfolioId) {
+            setPortfolio(committeeData.portfolios[delegate.portfolioId])
           }
-
-        } catch (error) {
-          console.error('Error fetching data:', error)
-          toast.error('Failed to load data')
-        } finally {
-          setLoading(prev => ({ ...prev, data: false, resources: false }))
         }
+        
+        // Fetch marksheet data
+        const marksRef = ref(db, `marksheets/${delegate.committeeId}/marks`)
+        const marksSnapshot = await get(marksRef)
+        
+        if (marksSnapshot.exists()) {
+          const marksData = marksSnapshot.val()
+          const delegateMarks = Object.values(marksData).find(
+            (mark: any) => mark.portfolioId === delegate.portfolioId
+          ) as Mark | undefined
+          
+          if (delegateMarks) {
+            setDelegate(prev => ({
+              ...prev!,
+              marks: delegateMarks
+            }))
+          }
+        }
+
+        // Fetch resources
+        const resourcesRef = ref(db, 'resources')
+        const resourcesSnapshot = await get(resourcesRef)
+        
+        if (resourcesSnapshot.exists()) {
+          const resourcesData = resourcesSnapshot.val()
+          const resourcesList = Object.keys(resourcesData).map(key => ({
+            id: key,
+            ...resourcesData[key]
+          })) as Resource[]
+          setResources(resourcesList.filter(r => 
+            r.type === 'guide' || r.type === 'rules' || r.type === 'template'
+          ))
+        }
+
+      } catch (error) {
+        console.error('Error fetching data:', error)
+        toast.error('Failed to load data')
+      } finally {
+        setLoading(prev => ({ ...prev, data: false, resources: false }))
       }
-      
-      fetchData()
     }
+    
+    fetchData()
   }, [loggedIn, delegate])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -266,7 +283,7 @@ export default function DelegateDashboard() {
       setError(prev => ({ ...prev, verify: err.message }))
       toast.error(err.message)
     } finally {
-      setLoading(prev => ({ ...prev, verify: false, data: false }))
+      setLoading(prev => ({ ...prev, verify: false }))
     }
   }
 
@@ -275,6 +292,7 @@ export default function DelegateDashboard() {
     setDelegate(null)
     setCommittee(null)
     setPortfolio(null)
+    setResources([])
     localStorage.removeItem('delegateLoggedIn')
     localStorage.removeItem('delegateEmail')
     router.push('/delegate')
@@ -285,8 +303,9 @@ export default function DelegateDashboard() {
     setExpandedCard(expandedCard === cardId ? null : cardId)
   }
 
-  const getResourcesByType = (type: string) => {
-    return resources.filter(resource => resource.type === type)
+  // Show loading skeleton during initial load
+  if (initialLoad) {
+    return <LoadingSkeleton />
   }
 
   // Login form (step 1)
@@ -405,6 +424,11 @@ export default function DelegateDashboard() {
     )
   }
 
+  // Show loading skeleton while data is loading
+  if (loading.data) {
+    return <LoadingSkeleton />
+  }
+
   // Main dashboard
   return (
     <div className="min-h-screen bg-gradient-to-b from-black to-amber-950/20 text-white">
@@ -478,11 +502,7 @@ export default function DelegateDashboard() {
                 <ChevronDown className="text-amber-300 h-5 w-5" />
               )}
             </div>
-            {loading.data ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
-              </div>
-            ) : committee ? (
+            {committee ? (
               <div className="p-6 space-y-4">
                 <div>
                   <p className="text-sm text-amber-200/80">Committee</p>
@@ -536,11 +556,7 @@ export default function DelegateDashboard() {
                 <ChevronDown className="text-amber-300 h-5 w-5" />
               )}
             </div>
-            {loading.data ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
-              </div>
-            ) : portfolio ? (
+            {portfolio ? (
               <div className="p-6 space-y-4">
                 <div>
                   <p className="text-sm text-amber-200/80">Representing</p>
@@ -597,11 +613,7 @@ export default function DelegateDashboard() {
                 <ChevronDown className="text-amber-300 h-5 w-5" />
               )}
             </div>
-            {loading.data ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
-              </div>
-            ) : delegate?.marks ? (
+            {delegate?.marks ? (
               <div className="p-6 space-y-4">
                 <div>
                   <p className="text-sm text-amber-200/80">Total Score</p>
@@ -767,5 +779,13 @@ export default function DelegateDashboard() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function DelegateDashboard() {
+  return (
+    <Suspense fallback={<LoadingSkeleton />}>
+      <DelegateDashboardContent />
+    </Suspense>
   )
 }
