@@ -127,29 +127,40 @@ export default function ResourcesPage() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2">
-              <Image 
-                src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" 
-                alt="Kalinga International MUN Logo" 
-                width={40} 
-                height={40} 
-                className="mr-2" 
-              />
-              <span className="text-lg font-bold text-amber-300 hidden sm:inline-block">
+              <motion.div
+                initial={{ rotate: -10, scale: 0.9 }}
+                animate={{ rotate: 0, scale: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                <Image src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Kalinga International MUN Logo" width={40} height={40} className="mr-2" />
+              </motion.div>
+              <motion.span
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+                className="text-lg font-bold text-amber-300 hidden sm:inline-block"
+              >
                 Kalinga International Model United Nations
-              </span>
+              </motion.span>
             </Link>
           </div>
           <nav className="hidden md:flex space-x-8">
             {["Home", "About", "Registration", "Matrix", "Resources", "Committees"].map(
-              (item) => (
-                <Link
+              (item, i) => (
+                <motion.div
                   key={item}
-                  href={item === "Home" ? "/" : `/${item.toLowerCase()}`}
-                  className={`${item === "Resources" ? "text-amber-400" : "text-amber-100"} hover:text-amber-400 transition-colors relative group`}
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 * i, duration: 0.5 }}
                 >
-                  {item}
-                  <span className={`absolute -bottom-1 left-0 w-${item === "Resources" ? "full" : "0"} h-0.5 bg-amber-400 transition-all group-hover:w-full`}></span>
-                </Link>
+                  <Link
+                    href={item === "Home" ? "/" : `/${item.toLowerCase()}`}
+                    className="text-amber-100 hover:text-amber-400 transition-colors relative group"
+                  >
+                    {item}
+                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-amber-400 transition-all group-hover:w-full"></span>
+                  </Link>
+                </motion.div>
               ),
             )}
           </nav>
@@ -494,12 +505,7 @@ export default function ResourcesPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <h3 className="text-xl font-bold text-amber-300 mb-4 flex items-center gap-2">
-                <Image 
-                  src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" 
-                  alt="Kalinga International MUN Logo" 
-                  width={30} 
-                  height={30} 
-                />
+                <Image src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Kalinga International MUN Logo" width={30} height={30} className="mr-2" />
                 Kalinga International MUN
               </h3>
               <p className="text-gray-400">The premier Model United Nations conference in the region.</p>
@@ -533,7 +539,7 @@ export default function ResourcesPage() {
               <h3 className="text-lg font-bold text-amber-300 mb-4">Resources</h3>
               <ul className="space-y-2">
                 <li>
-                  <Link href="/resources" className="text-amber-400 hover:text-amber-300 transition-colors">
+                  <Link href="/resources" className="text-gray-400 hover:text-amber-400 transition-colors">
                     Study Guides
                   </Link>
                 </li>
@@ -557,10 +563,10 @@ export default function ResourcesPage() {
             <div>
               <h3 className="text-lg font-bold text-amber-300 mb-4">Contact</h3>
               <ul className="space-y-2">
-                <li className="text-gray-400">Email: info@kimun.in.co</li>
+                <li className="text-gray-400">Email: info@kimun.in.net</li>
                 <li className="text-gray-400">Phone: +918249979557</li>
                 <li className="flex space-x-4 mt-4">
-                  <a href="#" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <a href="https://www.facebook.com/kimun24" className="text-gray-400 hover:text-amber-400 transition-colors">
                     <span className="sr-only">Facebook</span>
                     <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path
@@ -570,7 +576,7 @@ export default function ResourcesPage() {
                       />
                     </svg>
                   </a>
-                  <a href="#" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <a href="https://www.instagram.com/kalingainternationalmun" className="text-gray-400 hover:text-amber-400 transition-colors">
                     <span className="sr-only">Instagram</span>
                     <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path
@@ -580,7 +586,7 @@ export default function ResourcesPage() {
                       />
                     </svg>
                   </a>
-                  <a href="#" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <a href="https://x.com/kimun2025" className="text-gray-400 hover:text-amber-400 transition-colors">
                     <span className="sr-only">Twitter</span>
                     <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />

@@ -110,7 +110,7 @@ export default function Home() {
                 animate={{ rotate: 0, scale: 1 }}
                 transition={{ duration: 0.5 }}
               >
-                <Image src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" alt="Kalinga International MUN Logo" width={40} height={40} className="mr-2" />
+                <Image src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Kalinga International MUN Logo" width={40} height={40} className="mr-2" />
               </motion.div>
               <motion.span
                 initial={{ opacity: 0, x: -10 }}
@@ -151,7 +151,7 @@ export default function Home() {
         <motion.div className="absolute inset-0 z-0" style={{ y: y1 }}>
           <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-black opacity-95 z-50"></div>
           <Image
-            src="https://media.discordapp.net/attachments/1268556254448455713/1355478794244329564/ChatGPT_Image_Mar_29_2025_12_03_59_PM.png?ex=67e91380&is=67e7c200&hm=59e346e38d159dbf58b27969af08fa1f6e7ced5bc7e59483bc5202b4aceaecf5&=&format=webp&quality=lossless&width=1001&height=668"
+            src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/chatgpt-image-mar-29-2025-12_03_59-pm.png"
             alt="Background"
             fill
             className="object-cover"
@@ -196,8 +196,8 @@ export default function Home() {
               transition={{ delay: 0.3, duration: 0.8 }}
             >
               <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
-                <span className="text-amber-400">30</span> - <span className="text-amber-400">31</span> {" "}
-                AUGUST 2025
+                <span className="text-amber-400">5</span> - <span className="text-amber-400">6</span> {" "}
+                JULY 2025
               </h2>
             </motion.div>
 
@@ -307,7 +307,7 @@ export default function Home() {
                 </p>
                 <p className="text-xl leading-relaxed">
                   Kalinga International MUN is back again, with its inaugural installment in 2025 as a two day
-                  conference on the <strong className="text-amber-400">30th and 31st of August</strong>.
+                  conference on the <strong className="text-amber-400">5th and 6th of July</strong>.
                 </p>
               </div>
 
@@ -340,7 +340,7 @@ export default function Home() {
               <div className="absolute -inset-4 bg-amber-500/20 rounded-2xl blur-xl"></div>
               <div className="relative aspect-video rounded-2xl overflow-hidden border border-amber-500/30">
                 <Image
-                  src="https://media.discordapp.net/attachments/1268556254448455713/1355489191227691169/2.png?ex=67e91d2e&is=67e7cbae&hm=8d08220163a31126559236495d5a9cd920cefbe6f53000d5e24bf583fbaff455&=&format=webp&quality=lossless&width=1240&height=698"
+                  src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/chatgpt-image-mar-29-2025-08_39_55-pm.png"
                   alt="Conference"
                   width={800}
                   height={450}
@@ -399,7 +399,7 @@ export default function Home() {
                     >
                       <div className="h-48 overflow-hidden relative">
                         <Image
-                          src={`https://media.discordapp.net/attachments/1268556254448455713/1355493344490291442/Bone_White_Blue_Groovy_You_Matter_Desktop_Wallpaper_1.png?ex=67e9210d&is=67e7cf8d&hm=b0aa8ff1c668335ab1af98fca3640a31cdb912e9990935e9fdcb66c0c38f597f&=&format=webp&quality=lossless&width=750&height=500`}
+                          src={`https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/bone-white-blue-groovy-you-matter-desktop-wallpaper.png`}
                           alt={committee.name}
                           width={600}
                           height={400}
@@ -470,7 +470,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <h3 className="text-xl font-bold text-amber-300 mb-4 flex items-center gap-2">
-                <Image src="https://media.discordapp.net/attachments/1268556254448455713/1355478819359817789/KIMUN_Logo_Color.png?ex=67e91386&is=67e7c206&hm=069060e64b9b750db76fd94f7b58e95940e6bb791a6c78f672b8361f802b7084&=&format=webp&quality=lossless&width=900&height=900" alt="Kalinga International MUN Logo" width={30} height={30} className="mr-2" />
+                <Image src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Kalinga International MUN Logo" width={30} height={30} className="mr-2" />
                 Kalinga International MUN
               </h3>
               <p className="text-gray-400">The premier Model United Nations conference in the region.</p>
@@ -528,10 +528,10 @@ export default function Home() {
             <div>
               <h3 className="text-lg font-bold text-amber-300 mb-4">Contact</h3>
               <ul className="space-y-2">
-                <li className="text-gray-400">Email: info@kimun.in.co</li>
+                <li className="text-gray-400">Email: info@kimun.in.net</li>
                 <li className="text-gray-400">Phone: +918249979557</li>
                 <li className="flex space-x-4 mt-4">
-                  <a href="#" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <a href="https://www.facebook.com/kimun24" className="text-gray-400 hover:text-amber-400 transition-colors">
                     <span className="sr-only">Facebook</span>
                     <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path
@@ -541,7 +541,7 @@ export default function Home() {
                       />
                     </svg>
                   </a>
-                  <a href="#" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <a href="https://www.instagram.com/kalingainternationalmun" className="text-gray-400 hover:text-amber-400 transition-colors">
                     <span className="sr-only">Instagram</span>
                     <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path
@@ -551,7 +551,7 @@ export default function Home() {
                       />
                     </svg>
                   </a>
-                  <a href="#" className="text-gray-400 hover:text-amber-400 transition-colors">
+                  <a href="https://x.com/kimun2025" className="text-gray-400 hover:text-amber-400 transition-colors">
                     <span className="sr-only">Twitter</span>
                     <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />

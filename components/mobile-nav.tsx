@@ -18,7 +18,7 @@ export default function MobileNav() {
     { name: "About", path: "/about" },
     { name: "Register", path: "/registration" },
     { name: "Resources", path: "/resources" },
-    { name: "Matrix", path: "/Matrix" },
+    { name: "Matrix", path: "/matrix" },
     { name: "Committees", path: "/committees" },
   ]
 
