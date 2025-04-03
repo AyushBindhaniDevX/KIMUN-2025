@@ -196,8 +196,8 @@ export default function Home() {
               transition={{ delay: 0.3, duration: 0.8 }}
             >
               <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
-                <span className="text-amber-400">30</span> - <span className="text-amber-400">31</span> {" "}
-                AUGUST 2025
+                <span className="text-amber-400">5</span> - <span className="text-amber-400">6</span> {" "}
+                JULY 2025
               </h2>
             </motion.div>
 
@@ -307,7 +307,7 @@ export default function Home() {
                 </p>
                 <p className="text-xl leading-relaxed">
                   Kalinga International MUN is back again, with its inaugural installment in 2025 as a two day
-                  conference on the <strong className="text-amber-400">30th and 31st of August</strong>.
+                  conference on the <strong className="text-amber-400">5th and 6th of July</strong>.
                 </p>
               </div>
 
