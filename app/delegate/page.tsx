@@ -80,17 +80,6 @@ type Resource = {
   format?: string
 }
 
-function LoadingSkeleton() {
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-black to-amber-950/20 flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <Loader2 className="h-12 w-12 animate-spin text-amber-500" />
-        <p className="text-amber-300">Loading dashboard...</p>
-      </div>
-    </div>
-  )
-}
-
 function DelegateDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -106,15 +95,14 @@ function DelegateDashboardContent() {
   const [loading, setLoading] = useState({
     login: false,
     verify: false,
-    data: true, // Start with data loading true to prevent flash
-    resources: true
+    data: false,
+    resources: false
   })
   const [error, setError] = useState({
     login: null as string | null,
     verify: null as string | null
   })
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
-  const [initialLoad, setInitialLoad] = useState(true)
 
   // Check for existing session on initial load
   useEffect(() => {
@@ -123,78 +111,114 @@ function DelegateDashboardContent() {
     
     if (storedLoggedIn) {
       setLoggedIn(true)
+      fetchDelegateData(storedEmail || '')
     } else if (storedEmail) {
       setEmail(storedEmail)
       router.push('/delegate?step=verify')
     }
-    setInitialLoad(false)
   }, [router])
 
-  // Fetch all data when logged in
-  useEffect(() => {
-    if (!loggedIn || !delegate) return
+  const fetchDelegateData = async (email: string) => {
+    try {
+      setLoading(prev => ({ ...prev, data: true }))
+      
+      const delegatesRef = ref(db, 'registrations')
+      const delegateQuery = query(
+        delegatesRef, 
+        orderByChild('delegateInfo/delegate1/email'), 
+        equalTo(email)
+      )
+      const snapshot = await get(delegateQuery)
 
-    const fetchData = async () => {
-      try {
-        setLoading(prev => ({ ...prev, data: true, resources: true }))
-        
-        // Fetch committee data
-        const committeeRef = ref(db, `committees/${delegate.committeeId}`)
-        const committeeSnapshot = await get(committeeRef)
-        
-        if (committeeSnapshot.exists()) {
-          const committeeData = committeeSnapshot.val()
-          setCommittee(committeeData)
-          
-          // Fetch portfolio data
-          if (committeeData.portfolios && delegate.portfolioId) {
-            setPortfolio(committeeData.portfolios[delegate.portfolioId])
-          }
-        }
-        
-        // Fetch marksheet data
-        const marksRef = ref(db, `marksheets/${delegate.committeeId}/marks`)
-        const marksSnapshot = await get(marksRef)
-        
-        if (marksSnapshot.exists()) {
-          const marksData = marksSnapshot.val()
-          const delegateMarks = Object.values(marksData).find(
-            (mark: any) => mark.portfolioId === delegate.portfolioId
-          ) as Mark | undefined
-          
-          if (delegateMarks) {
-            setDelegate(prev => ({
-              ...prev!,
-              marks: delegateMarks
-            }))
-          }
-        }
-
-        // Fetch resources
-        const resourcesRef = ref(db, 'resources')
-        const resourcesSnapshot = await get(resourcesRef)
-        
-        if (resourcesSnapshot.exists()) {
-          const resourcesData = resourcesSnapshot.val()
-          const resourcesList = Object.keys(resourcesData).map(key => ({
-            id: key,
-            ...resourcesData[key]
-          })) as Resource[]
-          setResources(resourcesList.filter(r => 
-            r.type === 'guide' || r.type === 'rules' || r.type === 'template'
-          ))
-        }
-
-      } catch (error) {
-        console.error('Error fetching data:', error)
-        toast.error('Failed to load data')
-      } finally {
-        setLoading(prev => ({ ...prev, data: false, resources: false }))
+      if (!snapshot.exists()) {
+        throw new Error('No delegate found with this email')
       }
+
+      const [key] = Object.keys(snapshot.val())
+      const data = snapshot.val()[key]
+      
+      setDelegate({
+        id: key,
+        ...data.delegateInfo.delegate1,
+        committeeId: data.committeeId,
+        portfolioId: data.portfolioId
+      })
+
+      fetchCommitteeData(data.committeeId, data.portfolioId)
+      fetchMarksData(data.committeeId, data.portfolioId)
+      fetchResources()
+    } catch (error) {
+      console.error('Error fetching delegate data:', error)
+      handleLogout()
+    } finally {
+      setLoading(prev => ({ ...prev, data: false }))
     }
-    
-    fetchData()
-  }, [loggedIn, delegate])
+  }
+
+  const fetchCommitteeData = async (committeeId: string, portfolioId: string) => {
+    try {
+      const committeeRef = ref(db, `committees/${committeeId}`)
+      const committeeSnapshot = await get(committeeRef)
+      
+      if (committeeSnapshot.exists()) {
+        const committeeData = committeeSnapshot.val()
+        setCommittee(committeeData)
+        
+        if (committeeData.portfolios && portfolioId) {
+          setPortfolio(committeeData.portfolios[portfolioId])
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching committee data:', error)
+    }
+  }
+
+  const fetchMarksData = async (committeeId: string, portfolioId: string) => {
+    try {
+      const marksRef = ref(db, `marksheets/${committeeId}/marks`)
+      const marksSnapshot = await get(marksRef)
+      
+      if (marksSnapshot.exists()) {
+        const marksData = marksSnapshot.val()
+        const delegateMarks = Object.values(marksData).find(
+          (mark: any) => mark.portfolioId === portfolioId
+        ) as Mark | undefined
+        
+        if (delegateMarks) {
+          setDelegate(prev => ({
+            ...prev!,
+            marks: delegateMarks
+          }))
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching marks data:', error)
+    }
+  }
+
+  const fetchResources = async () => {
+    try {
+      setLoading(prev => ({ ...prev, resources: true }))
+      
+      const resourcesRef = ref(db, 'resources')
+      const resourcesSnapshot = await get(resourcesRef)
+      
+      if (resourcesSnapshot.exists()) {
+        const resourcesData = resourcesSnapshot.val()
+        const resourcesList = Object.keys(resourcesData).map(key => ({
+          id: key,
+          ...resourcesData[key]
+        })) as Resource[]
+        setResources(resourcesList.filter(r => 
+          r.type === 'guide' || r.type === 'rules' || r.type === 'template'
+        ))
+      }
+    } catch (error) {
+      console.error('Error fetching resources:', error)
+    } finally {
+      setLoading(prev => ({ ...prev, resources: false }))
+    }
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -249,34 +273,11 @@ function DelegateDashboardContent() {
         throw new Error(errorData.error || 'Invalid OTP')
       }
 
-      setLoading(prev => ({ ...prev, data: true }))
-      
-      const delegatesRef = ref(db, 'registrations')
-      const delegateQuery = query(
-        delegatesRef, 
-        orderByChild('delegateInfo/delegate1/email'), 
-        equalTo(email)
-      )
-      const snapshot = await get(delegateQuery)
-
-      if (!snapshot.exists()) {
-        throw new Error('No delegate found with this email')
-      }
-
-      const [key] = Object.keys(snapshot.val())
-      const data = snapshot.val()[key]
-      
-      setDelegate({
-        id: key,
-        ...data.delegateInfo.delegate1,
-        committeeId: data.committeeId,
-        portfolioId: data.portfolioId
-      })
-
       setLoggedIn(true)
       localStorage.setItem('delegateLoggedIn', 'true')
       localStorage.removeItem('delegateEmail')
       
+      fetchDelegateData(email)
       router.push('/delegate')
       toast.success('Login successful')
     } catch (err: any) {
@@ -301,11 +302,6 @@ function DelegateDashboardContent() {
 
   const toggleCard = (cardId: string) => {
     setExpandedCard(expandedCard === cardId ? null : cardId)
-  }
-
-  // Show loading skeleton during initial load
-  if (initialLoad) {
-    return <LoadingSkeleton />
   }
 
   // Login form (step 1)
@@ -424,11 +420,6 @@ function DelegateDashboardContent() {
     )
   }
 
-  // Show loading skeleton while data is loading
-  if (loading.data) {
-    return <LoadingSkeleton />
-  }
-
   // Main dashboard
   return (
     <div className="min-h-screen bg-gradient-to-b from-black to-amber-950/20 text-white">
@@ -470,12 +461,12 @@ function DelegateDashboardContent() {
                 <p className="text-sm font-mono text-amber-300">{delegate?.id?.substring(0, 8)}</p>
               </div>
               {delegate?.id && (
-                <div className="bg-white p-1 rounded-lg">
+                <div className="bg-white p-2 rounded-lg">
                   <Image
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${delegate.id}`}
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${delegate.id}`}
                     alt="Delegate QR Code"
-                    width={40}
-                    height={40}
+                    width={80}
+                    height={80}
                     className="rounded"
                   />
                 </div>
@@ -731,29 +722,29 @@ function DelegateDashboardContent() {
               {[
                 {
                   day: "Day 1",
-                  date: "October 10, 2025",
+                  date: "August 5, 2023",
                   events: [
-                    { time: "08:00 - 09:00", title: "Registration", location: "Main Hall" },
-                    { time: "09:00 - 10:30", title: "Opening Ceremony", location: "Plenary Hall" },
-                    { time: "10:30 - 11:00", title: "Coffee Break", location: "Lounge Area" },
+                    { time: "08:00 - 09:00", title: "Registration", location: "BMPS Main Hall" },
+                    { time: "09:00 - 10:30", title: "Opening Ceremony", location: "BMPS Auditorium" },
+                    { time: "10:30 - 11:00", title: "Coffee Break", location: "BMPS Lounge" },
                     { time: "11:00 - 13:00", title: "Committee Session I", location: "Assigned Rooms" },
-                    { time: "13:00 - 14:00", title: "Lunch Break", location: "Dining Hall" },
+                    { time: "13:00 - 14:00", title: "Lunch Break", location: "BMPS Dining Hall" },
                     { time: "14:00 - 16:00", title: "Committee Session II", location: "Assigned Rooms" },
-                    { time: "16:00 - 16:30", title: "Coffee Break", location: "Lounge Area" },
+                    { time: "16:00 - 16:30", title: "Coffee Break", location: "BMPS Lounge" },
                     { time: "16:30 - 18:00", title: "Committee Session III", location: "Assigned Rooms" }
                   ]
                 },
                 {
                   day: "Day 2",
-                  date: "October 11, 2025",
+                  date: "August 6, 2023",
                   events: [
                     { time: "09:00 - 11:00", title: "Committee Session IV", location: "Assigned Rooms" },
-                    { time: "11:00 - 11:30", title: "Coffee Break", location: "Lounge Area" },
+                    { time: "11:00 - 11:30", title: "Coffee Break", location: "BMPS Lounge" },
                     { time: "11:30 - 13:30", title: "Committee Session V", location: "Assigned Rooms" },
-                    { time: "13:30 - 14:30", title: "Lunch Break", location: "Dining Hall" },
+                    { time: "13:30 - 14:30", title: "Lunch Break", location: "BMPS Dining Hall" },
                     { time: "14:30 - 16:30", title: "Committee Session VI", location: "Assigned Rooms" },
-                    { time: "16:30 - 17:00", title: "Coffee Break", location: "Lounge Area" },
-                    { time: "17:00 - 18:30", title: "Closing Ceremony", location: "Plenary Hall" }
+                    { time: "16:30 - 17:00", title: "Coffee Break", location: "BMPS Lounge" },
+                    { time: "17:00 - 18:30", title: "Closing Ceremony", location: "BMPS Auditorium" }
                   ]
                 }
               ].map((daySchedule, dayIndex) => (
@@ -784,7 +775,7 @@ function DelegateDashboardContent() {
 
 export default function DelegateDashboard() {
   return (
-    <Suspense fallback={<LoadingSkeleton />}>
+    <Suspense>
       <DelegateDashboardContent />
     </Suspense>
   )
