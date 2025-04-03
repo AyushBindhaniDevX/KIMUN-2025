@@ -589,72 +589,89 @@ function DelegateDashboardContent() {
           </div>
 
           {/* Performance Card */}
-          <div 
-            className={`bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 transition-all ${expandedCard === 'performance' ? 'md:col-span-2 lg:col-span-1' : ''}`}
-            onClick={() => toggleCard('performance')}
-          >
-            <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30 flex justify-between items-center cursor-pointer">
-              <h2 className="text-xl font-bold text-amber-300 flex items-center">
-                <Award className="h-5 w-5 mr-2" /> 
-                Performance Metrics
-              </h2>
-              {expandedCard === 'performance' ? (
-                <ChevronUp className="text-amber-300 h-5 w-5" />
-              ) : (
-                <ChevronDown className="text-amber-300 h-5 w-5" />
-              )}
+<div 
+  className={`bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 transition-all ${expandedCard === 'performance' ? 'md:col-span-2 lg:col-span-1' : ''}`}
+  onClick={() => toggleCard('performance')}
+>
+  <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30 flex justify-between items-center cursor-pointer">
+    <h2 className="text-xl font-bold text-amber-300 flex items-center">
+      <Award className="h-5 w-5 mr-2" /> 
+      Performance Metrics
+    </h2>
+    {expandedCard === 'performance' ? (
+      <ChevronUp className="text-amber-300 h-5 w-5" />
+    ) : (
+      <ChevronDown className="text-amber-300 h-5 w-5" />
+    )}
+  </div>
+  {delegate?.marks ? (
+    <div className="p-6 space-y-4">
+      <div>
+        <p className="text-sm text-amber-200/80">Total Score</p>
+        <p className="text-2xl font-bold text-amber-300">{delegate.marks.total}</p>
+      </div>
+      {expandedCard === 'performance' && (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">General Speakers List</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.gsl}</p>
             </div>
-            {delegate?.marks ? (
-              <div className="p-6 space-y-4">
-                <div>
-                  <p className="text-sm text-amber-200/80">Total Score</p>
-                  <p className="text-2xl font-bold text-amber-300">{delegate.marks.total}</p>
-                </div>
-                {expandedCard === 'performance' && (
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">General Speakers List</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.gsl}</p>
-                      </div>
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">Moderated Caucus</p>
-                        <p className="text-lg font-medium text-amber-100">
-                          {Math.max(
-                            delegate.marks.mod1 || 0,
-                            delegate.marks.mod2 || 0,
-                            delegate.marks.mod3 || 0,
-                            delegate.marks.mod4 || 0
-                          )}
-                        </p>
-                      </div>
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">Lobbying</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.lobby}</p>
-                      </div>
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">Resolution</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.doc}</p>
-                      </div>
-                    </div>
-                    <div className="pt-2">
-                      <p className="text-xs text-amber-200/60">
-                        * Scores are out of 50 total points
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="p-6 text-amber-200/80">
-                {expandedCard === 'performance' ? (
-                  <p>Your detailed marks will appear here after committee sessions</p>
-                ) : (
-                  <p>Your marks will appear here after committee sessions</p>
-                )}
-              </div>
-            )}
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Moderated Caucus 1</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.mod1}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Moderated Caucus 2</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.mod2}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Moderated Caucus 3</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.mod3}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Moderated Caucus 4</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.mod4}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Lobbying</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.lobby}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Chits</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.chits}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Foreign Policy</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.fp}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Resolution</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.doc}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Alternative Score</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.alt}</p>
+            </div>
           </div>
+          <div className="pt-2">
+            <p className="text-xs text-amber-200/60">
+              * Scores are out of 50 total points
+            </p>
+          </div>
+        </>
+      )}
+    </div>
+  ) : (
+    <div className="p-6 text-amber-200/80">
+      {expandedCard === 'performance' ? (
+        <p>Your detailed marks will appear here after committee sessions</p>
+      ) : (
+        <p>Your marks will appear here after committee sessions</p>
+      )}
+    </div>
+  )}
+</div>
         </div>
 
         {/* Resources Section */}
