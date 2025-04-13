@@ -408,7 +408,7 @@ export default function RegistrationPage() {
                       <input
                         type="number"
                         min="0"
-                        placeholder="MUNs Attended"
+                        placeholder="MUNs Attended(Integer)(E.g. 1,2,3..)"
                         className="w-full bg-transparent text-white placeholder-gray-400 focus:outline-none"
                         value={delegateInfo.delegate1.experience}
                         onChange={(e) => handleInputChange('delegate1', 'experience', e.target.value)}
