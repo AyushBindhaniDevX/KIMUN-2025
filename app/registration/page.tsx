@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import Confetti from 'react-confetti'
-import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle, ChevronRight } from 'lucide-react'
+import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle, ChevronRight, Calendar, Clock, Lock, Unlock } from 'lucide-react'
 import Flags from 'country-flag-icons/react/3x2'
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, push, update } from 'firebase/database'
@@ -48,6 +48,50 @@ type DelegateInfo = {
   }
 }
 
+// Registration phases configuration
+const REGISTRATION_PHASES = [
+  {
+    name: "Pre Early Bird",
+    startDate: new Date('2025-04-15'),
+    endDate: new Date('2025-04-19'),
+    singlePrice: 1199,
+    doublePrice: 2299,
+    isActive: false
+  },
+  {
+    name: "Early Bird",
+    startDate: new Date('2025-04-20'),
+    endDate: new Date('2025-05-10'),
+    singlePrice: 1299,
+    doublePrice: 2499,
+    isActive: false
+  },
+  {
+    name: "Phase 1",
+    startDate: new Date('2025-05-15'),
+    endDate: new Date('2025-05-29'),
+    singlePrice: 1299,
+    doublePrice: 2499,
+    isActive: false
+  },
+  {
+    name: "Phase 2",
+    startDate: new Date('2025-05-30'),
+    endDate: new Date('2025-06-14'),
+    singlePrice: 1299,
+    doublePrice: 2499,
+    isActive: false
+  },
+  {
+    name: "Final Phase",
+    startDate: new Date('2025-06-15'),
+    endDate: new Date('2025-06-30'),
+    singlePrice: 1399,
+    doublePrice: 2799,
+    isActive: false
+  }
+]
+
 // Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -83,6 +127,36 @@ export default function RegistrationPage() {
   const [selectedCommittee, setSelectedCommittee] = useState<Committee | null>(null)
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [isDoubleDel, setIsDoubleDel] = useState(false)
+  const [currentPhase, setCurrentPhase] = useState<typeof REGISTRATION_PHASES[0] | null>(null)
+  const [registrationOpen, setRegistrationOpen] = useState(false)
+
+  useEffect(() => {
+    const checkRegistrationPhase = () => {
+      const now = new Date()
+      let activePhase = null
+      
+      // Check if we're in any phase
+      for (const phase of REGISTRATION_PHASES) {
+        const startDate = new Date(phase.startDate)
+        const endDate = new Date(phase.endDate)
+        // Set end date to end of day (23:59:59.999)
+        endDate.setHours(23, 59, 59, 999)
+        
+        if (now >= startDate && now <= endDate) {
+          activePhase = phase
+          break
+        }
+      }
+      
+      setCurrentPhase(activePhase)
+      setRegistrationOpen(!!activePhase)
+    }
+
+    checkRegistrationPhase()
+    // Check phase every hour
+    const interval = setInterval(checkRegistrationPhase, 3600000)
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     const fetchCommittees = async () => {
@@ -147,7 +221,8 @@ export default function RegistrationPage() {
   }
 
   const calculatePrice = () => {
-    return isDoubleDel ?  2499 : 1299 // Example prices
+    if (!currentPhase) return 0
+    return isDoubleDel ? currentPhase.doublePrice : currentPhase.singlePrice
   }
 
   const getAverageExperience = () => {
@@ -171,7 +246,8 @@ export default function RegistrationPage() {
         paymentId,
         timestamp: Date.now(),
         isDoubleDel,
-        averageExperience: getAverageExperience()
+        averageExperience: getAverageExperience(),
+        registrationPhase: currentPhase?.name || 'Unknown'
       })
 
       const portfolioRef = ref(db, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
@@ -183,6 +259,8 @@ export default function RegistrationPage() {
         registrationId: newRegistration?.key,
         committee: selectedCommittee?.name,
         portfolio: selectedPortfolio?.country,
+        amount: calculatePrice(),
+        phase: currentPhase?.name || 'Unknown'
       };
 
       await fetch('/api/sendEmail', {
@@ -199,6 +277,11 @@ export default function RegistrationPage() {
   }
 
   const initiatePayment = async () => {
+    if (!currentPhase) {
+      setError('Registration is currently closed')
+      return
+    }
+
     const amount = calculatePrice() * 100
     if (!validateStep()) {
       setError('Please fill all required fields')
@@ -215,7 +298,7 @@ export default function RegistrationPage() {
         amount: amount,
         currency: 'INR',
         name: 'KIMUN Registration',
-        description: `Registration Fee for ${isDoubleDel ? 'Double Delegation' : 'Single Delegation'}`,
+        description: `Registration Fee for ${isDoubleDel ? 'Double Delegation' : 'Single Delegation'} (${currentPhase.name})`,
         image: 'https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png',
         handler: async (response: any) => {
           try {
@@ -245,6 +328,10 @@ export default function RegistrationPage() {
 
     script.onerror = () => setError('Failed to load payment gateway')
     document.body.appendChild(script)
+  }
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
   }
 
   if (loading) return (
@@ -277,6 +364,53 @@ export default function RegistrationPage() {
     </div>
   )
 
+  if (!registrationOpen) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-8 text-center">
+        <Lock className="w-12 h-12 text-amber-500 mb-4" />
+        <h1 className="text-3xl font-bold text-amber-300 mb-6">Registration Currently Closed</h1>
+        
+        <div className="max-w-md bg-black/30 border border-amber-800/30 rounded-xl p-6 space-y-6 mb-8">
+          <h2 className="text-xl font-semibold text-amber-300 mb-4">Upcoming Registration Phases</h2>
+          
+          <div className="space-y-4">
+            {REGISTRATION_PHASES.map((phase, index) => (
+              <div 
+                key={index} 
+                className={`p-4 rounded-lg border ${currentPhase?.name === phase.name ? 'border-amber-500 bg-amber-900/20' : 'border-amber-800/30'}`}
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-medium text-white">{phase.name}</h3>
+                  <span className="text-sm text-amber-300">
+                    {isDoubleDel ? `₹${phase.doublePrice}` : `₹${phase.singlePrice} Onwards`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <Calendar className="w-4 h-4" />
+                  <span>
+                    {formatDate(phase.startDate)} - {formatDate(phase.endDate)}
+                  </span>
+                </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  {new Date() < phase.startDate ? 'Starts soon' : 'Ended'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="text-gray-400 max-w-md mb-6">
+          Registration will open during the specified phases. Please check back during the active registration period.
+        </p>
+        
+        <div className="flex items-center gap-2 text-amber-300">
+          <Clock className="w-5 h-5" />
+          <span>Conference Dates: July 5-6, 2025</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
       {showConfetti && <Confetti recycle={false} numberOfPieces={400} />}
@@ -298,8 +432,14 @@ export default function RegistrationPage() {
               </span>
             </Link>
           </div>
-          <div className="text-amber-300">
-            Step {step} of 5
+          <div className="flex items-center gap-4">
+            <div className="bg-amber-900/30 px-3 py-1 rounded-full text-xs text-amber-300 flex items-center gap-1">
+              <Unlock className="w-3 h-3" />
+              <span>{currentPhase?.name}</span>
+            </div>
+            <div className="text-amber-300">
+              Step {step} of 5
+            </div>
           </div>
         </div>
       </header>
@@ -339,7 +479,7 @@ export default function RegistrationPage() {
                     />
                     <div>
                       <h3 className="text-xl font-semibold text-white">Single Delegation</h3>
-                      <p className="text-gray-400">₹1299 per delegate</p>
+                      <p className="text-gray-400">₹{currentPhase?.singlePrice} per delegate</p>
                     </div>
                   </label>
                 </motion.div>
@@ -359,10 +499,16 @@ export default function RegistrationPage() {
                     />
                     <div>
                       <h3 className="text-xl font-semibold text-white">Double Delegation</h3>
-                      <p className="text-gray-400">₹2499 for two delegates</p>
+                      <p className="text-gray-400">₹{currentPhase?.doublePrice} for two delegates</p>
                     </div>
                   </label>
                 </motion.div>
+              </div>
+
+              <div className="bg-amber-900/20 border border-amber-800/30 rounded-lg p-4 text-center">
+                <p className="text-sm text-amber-300">
+                  Current Phase: <span className="font-semibold">{currentPhase?.name}</span> (ends {formatDate(currentPhase?.endDate || new Date())})
+                </p>
               </div>
 
               <Button
@@ -408,7 +554,7 @@ export default function RegistrationPage() {
                       <input
                         type="number"
                         min="0"
-                        placeholder="MUNs Attended(Integer)(E.g. 1,2,3..)"
+                        placeholder="MUNs Attended"
                         className="w-full bg-transparent text-white placeholder-gray-400 focus:outline-none"
                         value={delegateInfo.delegate1.experience}
                         onChange={(e) => handleInputChange('delegate1', 'experience', e.target.value)}
@@ -617,7 +763,10 @@ export default function RegistrationPage() {
               <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6 space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xl font-semibold text-white">Total Fee:</h3>
-                  <p className="text-2xl font-bold text-amber-300">₹{calculatePrice()}</p>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-amber-300">₹{calculatePrice()}</p>
+                    <p className="text-xs text-amber-500">{currentPhase?.name} Pricing</p>
+                  </div>
                 </div>
 
                 <div className="space-y-4">
