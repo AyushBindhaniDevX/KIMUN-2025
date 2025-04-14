@@ -54,8 +54,8 @@ const REGISTRATION_PHASES = [
     name: "Pre Early Bird",
     startDate: new Date('2025-04-15'),
     endDate: new Date('2025-04-19'),
-    singlePrice: 1199,
-    doublePrice: 2299,
+    singlePrice: 1299,
+    doublePrice: 2499,
     isActive: false
   },
   {
