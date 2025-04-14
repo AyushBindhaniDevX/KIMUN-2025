@@ -114,8 +114,8 @@ function RegistrationSuccess() {
             <InfoBox title="Delegate ID" value={registration.id.slice(0).toUpperCase()} />
             <InfoBox title="Committee" value={committee} />
             <InfoBox title="Portfolio" value={portfolio} />
-            <InfoBox title="Venue" value="BMPS Takshila School Patia" />
-            <InfoBox title="Gate" value={`1 : Zone ${zone}`} />
+            <InfoBox title="Venue" value="TBA, Bhubaneswar" />
+            <InfoBox title="Gate" value={`TBA`} />
             <InfoBox title="Valid From/To" value="Feb 16 to June 16 2025" />
           </div>
           <div className="text-center mt-6">
