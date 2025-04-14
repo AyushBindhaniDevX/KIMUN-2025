@@ -52,7 +52,7 @@ type DelegateInfo = {
 const REGISTRATION_PHASES = [
   {
     name: "Pre Early Bird",
-    startDate: new Date('2025-04-15'),
+    startDate: new Date('2025-04-14'),
     endDate: new Date('2025-04-19'),
     singlePrice: 1299,
     doublePrice: 2499,
@@ -91,6 +91,7 @@ const REGISTRATION_PHASES = [
     isActive: false
   }
 ]
+
 
 // Firebase configuration
 const firebaseConfig = {
@@ -382,7 +383,7 @@ export default function RegistrationPage() {
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-medium text-white">{phase.name}</h3>
                   <span className="text-sm text-amber-300">
-                    {isDoubleDel ? `₹${phase.doublePrice}` : `₹${phase.singlePrice} Onwards`}
+                    {isDoubleDel ? `₹${phase.doublePrice}` : `₹${phase.singlePrice}`}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -405,7 +406,7 @@ export default function RegistrationPage() {
         
         <div className="flex items-center gap-2 text-amber-300">
           <Clock className="w-5 h-5" />
-          <span>Conference Dates: July 5-6, 2025</span>
+          <span>Event Dates: July 5-6, 2024</span>
         </div>
       </div>
     )
