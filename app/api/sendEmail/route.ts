@@ -290,7 +290,6 @@ function generateEmailTemplate(data: {
             <li>All participants must comply with local laws and KIMUN regulations.</li>
             <li>Participation implies acceptance of all policies.</li>
             <li>The Secretary-General holds the authority for any policy exceptions.</li>
-            <li>Formal dress code is mandatory during committee sessions.</li>
             <li>Delegates must complete registration fee payment before participation.</li>
             <li>No refunds will be issued for withdrawals after registration.</li>
             <li>All delegates must carry valid identification.</li>
