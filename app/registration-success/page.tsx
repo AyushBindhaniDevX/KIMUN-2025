@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useRef,React  } from 'react'
+import { useEffect, useState, useRef, React, Suspense } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import { getDatabase, ref, get, query, orderByChild, equalTo } from 'firebase/database'
@@ -11,7 +11,7 @@ import Flags from 'country-flag-icons/react/3x2'
 import Image from 'next/image'
 import Link from 'next/link'
 
-// Firebase initialization (same as before)
+// Firebase initialization
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -25,7 +25,7 @@ const firebaseConfig = {
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig)
 const db = getDatabase(app)
 
-export default function RegistrationSuccessPage() {
+function RegistrationSuccessContent() {
   const searchParams = useSearchParams()
   const paymentId = searchParams.get('paymentId')
   const registrationId = searchParams.get('registrationId')
@@ -133,8 +133,6 @@ export default function RegistrationSuccessPage() {
 
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
-      {showConfetti && <Confetti recycle={false} numberOfPieces={400} />}
-
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-md border-b border-amber-800/20">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -151,9 +149,6 @@ export default function RegistrationSuccessPage() {
                 Kalinga International MUN
               </span>
             </Link>
-          </div>
-          <div className="flex items-center gap-4">
-           
           </div>
         </div>
       </header>
@@ -224,10 +219,6 @@ export default function RegistrationSuccessPage() {
                   </Button>
                 </div>
               </form>
-              
-              <div className="mt-6 text-center text-gray-400">
-                <p>Need help? Contact <a href="mailto:support@kimun.com" className="text-amber-300">support@kimun.com</a></p>
-              </div>
             </motion.div>
           </motion.div>
         )}
@@ -296,9 +287,8 @@ export default function RegistrationSuccessPage() {
                       {(() => {
                           const FlagIcon = Flags[portfolio.countryCode]
                           return FlagIcon ? <FlagIcon className="w-5 h-5 rounded-sm" /> : null
-                                  })()}
-                                  {portfolio.country}
-
+                        })()}
+                        {portfolio.country}
                     </span>
                   } />
                   <InfoBox title="Venue" value="TBA" />
@@ -328,13 +318,12 @@ export default function RegistrationSuccessPage() {
                 Download ID Card
               </Button>
               <Button
-  onClick={() => window.location.href = `/delegate`}
-  className="w-full bg-black/30 border border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-4 rounded-xl"
->
-  <User className="w-5 h-5 mr-2" />
-  Delegate Dashboard
-</Button>
-
+                onClick={() => window.location.href = `/delegate`}
+                className="w-full bg-black/30 border border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-4 rounded-xl"
+              >
+                <User className="w-5 h-5 mr-2" />
+                Delegate Dashboard
+              </Button>
             </div>
             
             {/* Social Links */}
@@ -351,7 +340,6 @@ export default function RegistrationSuccessPage() {
                 >
                   <Instagram className="w-5 h-5" />
                 </a>
-                {/* Add more social links as needed */}
               </div>
             </div>
           </div>
@@ -404,8 +392,11 @@ const Button = ({ children, className = '', ...props }) => (
   </button>
 )
 
-const Confetti = ({ recycle, numberOfPieces }) => (
-  <div className="fixed inset-0 pointer-events-none">
-    {/* Confetti implementation would go here */}
-  </div>
-)
+// Main page component with Suspense boundary
+export default function RegistrationSuccessPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <RegistrationSuccessContent />
+    </Suspense>
+  )
+}
