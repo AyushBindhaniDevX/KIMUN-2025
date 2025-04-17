@@ -16,6 +16,7 @@ type Committee = {
   name: string
   emoji: string
   portfolios: Portfolio[]
+  isOnline?: boolean
 }
 
 type Portfolio = {
@@ -92,7 +93,6 @@ const REGISTRATION_PHASES = [
   }
 ]
 
-
 // Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -136,11 +136,9 @@ export default function RegistrationPage() {
       const now = new Date()
       let activePhase = null
       
-      // Check if we're in any phase
       for (const phase of REGISTRATION_PHASES) {
         const startDate = new Date(phase.startDate)
         const endDate = new Date(phase.endDate)
-        // Set end date to end of day (23:59:59.999)
         endDate.setHours(23, 59, 59, 999)
         
         if (now >= startDate && now <= endDate) {
@@ -154,7 +152,6 @@ export default function RegistrationPage() {
     }
 
     checkRegistrationPhase()
-    // Check phase every hour
     const interval = setInterval(checkRegistrationPhase, 3600000)
     return () => clearInterval(interval)
   }, [])
@@ -167,14 +164,30 @@ export default function RegistrationPage() {
         
         if (snapshot.exists()) {
           const committeesData = snapshot.val()
-          const committeesArray = Object.keys(committeesData).map(key => ({
-            id: key,
-            ...committeesData[key],
-            portfolios: Object.keys(committeesData[key].portfolios || {}).map(portfolioKey => ({
-              id: portfolioKey,
-              ...committeesData[key].portfolios[portfolioKey]
-            }))
-          }))
+          const committeesArray = Object.keys(committeesData).map(key => {
+            const committee = {
+              id: key,
+              ...committeesData[key],
+              portfolios: Object.keys(committeesData[key].portfolios || {}).map(portfolioKey => ({
+                id: portfolioKey,
+                ...committeesData[key].portfolios[portfolioKey]
+              }))
+            }
+            
+            // Mark UNSC and UNODC as online committees
+            if (committee.name === 'United Nations Security Council' || 
+                committee.name === 'United Nations Office on Drugs and Crime') {
+              return {
+                ...committee,
+                isOnline: true,
+                portfolios: committee.portfolios.map(p => ({
+                  ...p,
+                  isDoubleDelAllowed: false // Force single delegate for online committees
+                }))
+              }
+            }
+            return committee
+          })
           setCommittees(committeesArray)
         }
         setLoading(false)
@@ -223,6 +236,12 @@ export default function RegistrationPage() {
 
   const calculatePrice = () => {
     if (!currentPhase) return 0
+    
+    // Special pricing for online committees
+    if (selectedCommittee?.isOnline) {
+      return 199
+    }
+    
     return isDoubleDel ? currentPhase.doublePrice : currentPhase.singlePrice
   }
 
@@ -248,7 +267,8 @@ export default function RegistrationPage() {
         timestamp: Date.now(),
         isDoubleDel,
         averageExperience: getAverageExperience(),
-        registrationPhase: currentPhase?.name || 'Unknown'
+        registrationPhase: currentPhase?.name || 'Unknown',
+        isOnlineCommittee: selectedCommittee.isOnline || false
       })
 
       const portfolioRef = ref(db, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
@@ -261,7 +281,8 @@ export default function RegistrationPage() {
         committee: selectedCommittee?.name,
         portfolio: selectedPortfolio?.country,
         amount: calculatePrice(),
-        phase: currentPhase?.name || 'Unknown'
+        phase: currentPhase?.name || 'Unknown',
+        isOnline: selectedCommittee.isOnline || false
       };
 
       await fetch('/api/sendEmail', {
@@ -497,10 +518,14 @@ export default function RegistrationPage() {
                       onChange={() => setIsDoubleDel(true)}
                       className="form-radio h-5 w-5 text-amber-500"
                       required
+                      disabled={selectedCommittee?.isOnline} // Disable for online committees
                     />
                     <div>
                       <h3 className="text-xl font-semibold text-white">Double Delegation</h3>
                       <p className="text-gray-400">₹{currentPhase?.doublePrice} for two delegates</p>
+                      {selectedCommittee?.isOnline && (
+                        <p className="text-xs text-red-400 mt-1">Not available for online committees</p>
+                      )}
                     </div>
                   </label>
                 </motion.div>
@@ -566,7 +591,7 @@ export default function RegistrationPage() {
                 </div>
 
                 {/* Secondary Delegate */}
-                {isDoubleDel && (
+                {isDoubleDel && !selectedCommittee?.isOnline && (
                   <div className="space-y-4">
                     <h3 className="text-xl font-semibold text-white">Secondary Delegate</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -635,17 +660,32 @@ export default function RegistrationPage() {
                     key={committee.id}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className={`bg-black/30 border border-amber-800/30 rounded-xl p-6 cursor-pointer hover:border-amber-500 transition-colors ${
+                    className={`bg-black/30 border ${committee.isOnline ? 'border-blue-500/30' : 'border-amber-800/30'} rounded-xl p-6 cursor-pointer hover:border-amber-500 transition-colors ${
                       selectedCommittee?.id === committee.id ? 'ring-2 ring-amber-500' : ''
                     }`}
-                    onClick={() => setSelectedCommittee(committee)}
+                    onClick={() => {
+                      setSelectedCommittee(committee)
+                      if (committee.isOnline) {
+                        setIsDoubleDel(false) // Force single delegate for online committees
+                      }
+                    }}
                   >
                     <div className="flex items-center gap-4">
                       <span className="text-3xl">{committee.emoji}</span>
-                      <div>
-                        <h2 className="text-xl font-bold text-white">{committee.name}</h2>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <h2 className="text-xl font-bold text-white">{committee.name}</h2>
+                          {committee.isOnline && (
+                            <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full text-xs">
+                              Online Committee
+                            </span>
+                          )}
+                        </div>
                         <p className="text-gray-400">
                           {committee.portfolios.filter(p => p.isVacant).length} portfolios available
+                          {committee.isOnline && (
+                            <span className="text-blue-300 ml-2">₹199 per delegate</span>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -707,7 +747,7 @@ export default function RegistrationPage() {
                         key={portfolio.id}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        className={`bg-black/30 border border-amber-800/30 rounded-xl p-4 cursor-pointer hover:border-amber-500 transition-colors ${
+                        className={`bg-black/30 border ${selectedCommittee.isOnline ? 'border-blue-500/30' : 'border-amber-800/30'} rounded-xl p-4 cursor-pointer hover:border-amber-500 transition-colors ${
                           selectedPortfolio?.id === portfolio.id ? 'ring-2 ring-amber-500' : ''
                         }`}
                         onClick={() => setSelectedPortfolio(portfolio)}
@@ -724,6 +764,9 @@ export default function RegistrationPage() {
                             <CheckCircle className="text-green-500" />
                           )}
                         </div>
+                        {selectedCommittee.isOnline && (
+                          <p className="text-xs text-blue-300 mt-2">Online Committee - ₹199</p>
+                        )}
                       </motion.div>
                     ))}
                 </div>
@@ -766,9 +809,19 @@ export default function RegistrationPage() {
                   <h3 className="text-xl font-semibold text-white">Total Fee:</h3>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-amber-300">₹{calculatePrice()}</p>
-                    <p className="text-xs text-amber-500">{currentPhase?.name} Pricing</p>
+                    <p className="text-xs text-amber-500">
+                      {selectedCommittee?.isOnline ? 'Online Committee' : currentPhase?.name + ' Pricing'}
+                    </p>
                   </div>
                 </div>
+
+                {selectedCommittee?.isOnline && (
+                  <div className="bg-blue-900/20 border border-blue-800/30 rounded-lg p-3 text-center">
+                    <p className="text-sm text-blue-300">
+                      This is an online committee with special pricing
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Primary Delegate:</h4>
@@ -837,7 +890,14 @@ export default function RegistrationPage() {
 
                 <div className="pt-4 border-t border-amber-800/30">
                   <p className="text-gray-400">Committee</p>
-                  <p className="text-white">{selectedCommittee?.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-white">{selectedCommittee?.name}</p>
+                    {selectedCommittee?.isOnline && (
+                      <span className="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full text-xs">
+                        Online
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div>
