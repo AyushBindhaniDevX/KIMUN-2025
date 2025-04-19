@@ -455,7 +455,7 @@ export default function AdminDashboard() {
   const checkedInDelegates = delegates.filter(d => d.isCheckedIn).length;
   const singleDelegates = delegates.filter(d => !d.isDoubleDel).length;
   const doubleDelegates = delegates.filter(d => d.isDoubleDel).length;
-  const amountReceived = (singleDelegates * 1260.03) + (doubleDelegates * 1260.03);
+  const amountReceived = (singleDelegates * 1260.03) + (doubleDelegates * 1212.015);
   const portfoliosVacant = committees.reduce((acc, c) => acc + c.portfolios.filter(p => p.isVacant).length, 0);
   const portfoliosOccupied = committees.reduce((acc, c) => acc + c.portfolios.filter(p => !p.isVacant).length, 0);
 
