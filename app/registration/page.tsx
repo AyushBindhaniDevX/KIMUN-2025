@@ -61,7 +61,7 @@ const REGISTRATION_PHASES = [
   },
   {
     name: "Early Bird",
-    startDate: new Date('2025-04-20'),
+    startDate: new Date('2025-04-19'),
     endDate: new Date('2025-05-10'),
     singlePrice: 1299,
     doublePrice: 2499,
@@ -69,7 +69,7 @@ const REGISTRATION_PHASES = [
   },
   {
     name: "Phase 1",
-    startDate: new Date('2025-05-15'),
+    startDate: new Date('2025-05-10'),
     endDate: new Date('2025-05-29'),
     singlePrice: 1299,
     doublePrice: 2499,
@@ -77,7 +77,7 @@ const REGISTRATION_PHASES = [
   },
   {
     name: "Phase 2",
-    startDate: new Date('2025-05-30'),
+    startDate: new Date('2025-05-29'),
     endDate: new Date('2025-06-14'),
     singlePrice: 1299,
     doublePrice: 2499,
