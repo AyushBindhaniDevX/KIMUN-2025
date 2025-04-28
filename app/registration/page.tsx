@@ -126,7 +126,8 @@ const db = getDatabase(app)
 const VALID_COUPONS = {
   "BGUDELEGATION": 99,
   "RAVENSHAWDELEGATION": 99,
-  "SOADELEGATION": 99
+  "SOADELEGATION": 99,
+  "AYUSH":1330
 }
 
 const BUS_ROUTES = [

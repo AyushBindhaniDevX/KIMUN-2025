@@ -396,16 +396,7 @@ const Button = ({ children, className = '', ...props }) => (
   </button>
 )
 
-export default function RegistrationSuccessPage() {
-  return (
-    <Suspense fallback={<LoadingSpinner />}>
-      <RegistrationSuccessContent />
-    </Suspense>
-  )
-}
-
-
-// Main page component with Suspense boundary
+// Single default export for the page component
 export default function RegistrationSuccessPage() {
   return (
     <Suspense fallback={<LoadingSpinner />}>
