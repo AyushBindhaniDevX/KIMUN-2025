@@ -772,7 +772,7 @@ export default function AdminDashboard() {
       <div className="w-64 bg-gray-800 text-white fixed h-full border-r border-amber-700">
         <div className="p-4 border-b border-gray-700">
           <h1 className="text-xl font-bold flex items-center">
-            <Award className="mr-2 text-amber-500" /> MUN Admin
+            <Award className="mr-2 text-orange-500" /> MUN Admin
           </h1>
         </div>
         <nav className="p-4 space-y-2">
@@ -808,7 +808,7 @@ export default function AdminDashboard() {
           </button>
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
           >
             <Settings className="mr-3" /> Settings
           </button>

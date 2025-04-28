@@ -123,7 +123,7 @@ export default function Home() {
             </Link>
           </div>
           <nav className="hidden md:flex space-x-8">
-            {["Home", "About", "Registration", "Matrix", "Resources", "Committees"].map(
+            {["Home", "About", "Registration", "Matrix", "Resources", "Committees", "Delegate"].map(
               (item, i) => (
                 <motion.div
                   key={item}

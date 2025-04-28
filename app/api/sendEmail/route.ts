@@ -259,15 +259,15 @@ function generateEmailTemplate(data: {
             ` : ''}
             
             <div class="info-item">
-                <span class="info-label">Venue:</span> BMPS Takshila School Patia
+                <span class="info-label">Venue:</span> TBA
             </div>
             
             <div class="info-item">
-                <span class="info-label">Gate Entry:</span> Gate 1 (Zone ${data.zone})
+                <span class="info-label">Gate Entry:</span> TBA
             </div>
             
             <div class="info-item">
-                <span class="info-label">Event Dates:</span> February 16 - June 16, 2025
+                <span class="info-label">Event Dates:</span> JULY 5,6, 2025
             </div>
         </div>
         
@@ -290,7 +290,6 @@ function generateEmailTemplate(data: {
             <li>All participants must comply with local laws and KIMUN regulations.</li>
             <li>Participation implies acceptance of all policies.</li>
             <li>The Secretary-General holds the authority for any policy exceptions.</li>
-            <li>Formal dress code is mandatory during committee sessions.</li>
             <li>Delegates must complete registration fee payment before participation.</li>
             <li>No refunds will be issued for withdrawals after registration.</li>
             <li>All delegates must carry valid identification.</li>
@@ -306,7 +305,6 @@ function generateEmailTemplate(data: {
         <div class="footer">
             <p>We look forward to seeing you at KIMUN 2025!</p>
             <p><strong>The KIMUN Organizing Committee</strong></p>
-            <p>BMPS Takshila School, Bhubaneswar</p>
         </div>
     </div>
 </body>

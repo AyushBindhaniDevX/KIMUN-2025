@@ -1,11 +1,11 @@
 // app/delegate/page.tsx
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, query, orderByChild, equalTo } from 'firebase/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Mail, Lock, User, FileText, Award, Download, QrCode, ChevronDown, ChevronUp,Loader2  } from 'lucide-react'
+import { Mail, Lock, User, FileText, Award, Download, QrCode, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -80,7 +80,7 @@ type Resource = {
   format?: string
 }
 
-export default function DelegateDashboard() {
+function DelegateDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const step = searchParams.get('step')
@@ -106,78 +106,119 @@ export default function DelegateDashboard() {
 
   // Check for existing session on initial load
   useEffect(() => {
+    const storedLoggedIn = localStorage.getItem('delegateLoggedIn') === 'true'
     const storedEmail = localStorage.getItem('delegateEmail')
-    if (storedEmail) {
+    
+    if (storedLoggedIn) {
+      setLoggedIn(true)
+      fetchDelegateData(storedEmail || '')
+    } else if (storedEmail) {
       setEmail(storedEmail)
       router.push('/delegate?step=verify')
     }
   }, [router])
 
-  // Fetch all data when logged in
-  useEffect(() => {
-    if (loggedIn && delegate) {
-      const fetchData = async () => {
-        try {
-          setLoading(prev => ({ ...prev, data: true, resources: true }))
-          
-          // Fetch committee data
-          const committeeRef = ref(db, `committees/${delegate.committeeId}`)
-          const committeeSnapshot = await get(committeeRef)
-          
-          if (committeeSnapshot.exists()) {
-            const committeeData = committeeSnapshot.val()
-            setCommittee(committeeData)
-            
-            // Fetch portfolio data
-            if (committeeData.portfolios && delegate.portfolioId) {
-              setPortfolio(committeeData.portfolios[delegate.portfolioId])
-            }
-          }
-          
-          // Fetch marksheet data
-          const marksRef = ref(db, `marksheets/${delegate.committeeId}/marks`)
-          const marksSnapshot = await get(marksRef)
-          
-          if (marksSnapshot.exists()) {
-            const marksData = marksSnapshot.val()
-            const delegateMarks = Object.values(marksData).find(
-              (mark: any) => mark.portfolioId === delegate.portfolioId
-            )
-            
-            if (delegateMarks) {
-              setDelegate(prev => ({
-                ...prev!,
-                marks: delegateMarks
-              }))
-            }
-          }
+  const fetchDelegateData = async (email: string) => {
+    try {
+      setLoading(prev => ({ ...prev, data: true }))
+      
+      const delegatesRef = ref(db, 'registrations')
+      const delegateQuery = query(
+        delegatesRef, 
+        orderByChild('delegateInfo/delegate1/email'), 
+        equalTo(email)
+      )
+      const snapshot = await get(delegateQuery)
 
-          // Fetch resources
-          const resourcesRef = ref(db, 'resources')
-          const resourcesSnapshot = await get(resourcesRef)
-          
-          if (resourcesSnapshot.exists()) {
-            const resourcesData = resourcesSnapshot.val()
-            const resourcesList = Object.keys(resourcesData).map(key => ({
-              id: key,
-              ...resourcesData[key]
-            }))
-            setResources(resourcesList.filter((r: Resource) => 
-              r.type === 'guide' || r.type === 'rules' || r.type === 'template'
-            ))
-          }
+      if (!snapshot.exists()) {
+        throw new Error('No delegate found with this email')
+      }
 
-        } catch (error) {
-          console.error('Error fetching data:', error)
-          toast.error('Failed to load data')
-        } finally {
-          setLoading(prev => ({ ...prev, data: false, resources: false }))
+      const [key] = Object.keys(snapshot.val())
+      const data = snapshot.val()[key]
+      
+      setDelegate({
+        id: key,
+        ...data.delegateInfo.delegate1,
+        committeeId: data.committeeId,
+        portfolioId: data.portfolioId
+      })
+
+      fetchCommitteeData(data.committeeId, data.portfolioId)
+      fetchMarksData(data.committeeId, data.portfolioId)
+      fetchResources()
+    } catch (error) {
+      console.error('Error fetching delegate data:', error)
+      handleLogout()
+    } finally {
+      setLoading(prev => ({ ...prev, data: false }))
+    }
+  }
+
+  const fetchCommitteeData = async (committeeId: string, portfolioId: string) => {
+    try {
+      const committeeRef = ref(db, `committees/${committeeId}`)
+      const committeeSnapshot = await get(committeeRef)
+      
+      if (committeeSnapshot.exists()) {
+        const committeeData = committeeSnapshot.val()
+        setCommittee(committeeData)
+        
+        if (committeeData.portfolios && portfolioId) {
+          setPortfolio(committeeData.portfolios[portfolioId])
         }
       }
-      
-      fetchData()
+    } catch (error) {
+      console.error('Error fetching committee data:', error)
     }
-  }, [loggedIn, delegate])
+  }
+
+  const fetchMarksData = async (committeeId: string, portfolioId: string) => {
+    try {
+      const marksRef = ref(db, `marksheets/${committeeId}/marks`)
+      const marksSnapshot = await get(marksRef)
+      
+      if (marksSnapshot.exists()) {
+        const marksData = marksSnapshot.val()
+        const delegateMarks = Object.values(marksData).find(
+          (mark: any) => mark.portfolioId === portfolioId
+        ) as Mark | undefined
+        
+        if (delegateMarks) {
+          setDelegate(prev => ({
+            ...prev!,
+            marks: delegateMarks
+          }))
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching marks data:', error)
+    }
+  }
+
+  const fetchResources = async () => {
+    try {
+      setLoading(prev => ({ ...prev, resources: true }))
+      
+      const resourcesRef = ref(db, 'resources')
+      const resourcesSnapshot = await get(resourcesRef)
+      
+      if (resourcesSnapshot.exists()) {
+        const resourcesData = resourcesSnapshot.val()
+        const resourcesList = Object.keys(resourcesData).map(key => ({
+          id: key,
+          ...resourcesData[key]
+        })) as Resource[]
+        setResources(resourcesList.filter(r => 
+          r.type === 'guide' || r.type === 'rules' || r.type === 'template'
+        ))
+      }
+    } catch (error) {
+      console.error('Error fetching resources:', error)
+    } finally {
+      setLoading(prev => ({ ...prev, resources: false }))
+    }
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -232,41 +273,18 @@ export default function DelegateDashboard() {
         throw new Error(errorData.error || 'Invalid OTP')
       }
 
-      setLoading(prev => ({ ...prev, data: true }))
-      
-      const delegatesRef = ref(db, 'registrations')
-      const delegateQuery = query(
-        delegatesRef, 
-        orderByChild('delegateInfo/delegate1/email'), 
-        equalTo(email)
-      )
-      const snapshot = await get(delegateQuery)
-
-      if (!snapshot.exists()) {
-        throw new Error('No delegate found with this email')
-      }
-
-      const [key] = Object.keys(snapshot.val())
-      const data = snapshot.val()[key]
-      
-      setDelegate({
-        id: key,
-        ...data.delegateInfo.delegate1,
-        committeeId: data.committeeId,
-        portfolioId: data.portfolioId
-      })
-
       setLoggedIn(true)
       localStorage.setItem('delegateLoggedIn', 'true')
       localStorage.removeItem('delegateEmail')
       
+      fetchDelegateData(email)
       router.push('/delegate')
       toast.success('Login successful')
     } catch (err: any) {
       setError(prev => ({ ...prev, verify: err.message }))
       toast.error(err.message)
     } finally {
-      setLoading(prev => ({ ...prev, verify: false, data: false }))
+      setLoading(prev => ({ ...prev, verify: false }))
     }
   }
 
@@ -275,6 +293,7 @@ export default function DelegateDashboard() {
     setDelegate(null)
     setCommittee(null)
     setPortfolio(null)
+    setResources([])
     localStorage.removeItem('delegateLoggedIn')
     localStorage.removeItem('delegateEmail')
     router.push('/delegate')
@@ -283,10 +302,6 @@ export default function DelegateDashboard() {
 
   const toggleCard = (cardId: string) => {
     setExpandedCard(expandedCard === cardId ? null : cardId)
-  }
-
-  const getResourcesByType = (type: string) => {
-    return resources.filter(resource => resource.type === type)
   }
 
   // Login form (step 1)
@@ -446,12 +461,12 @@ export default function DelegateDashboard() {
                 <p className="text-sm font-mono text-amber-300">{delegate?.id?.substring(0, 8)}</p>
               </div>
               {delegate?.id && (
-                <div className="bg-white p-1 rounded-lg">
+                <div className="bg-white p-2 rounded-lg">
                   <Image
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${delegate.id}`}
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${delegate.id}`}
                     alt="Delegate QR Code"
-                    width={40}
-                    height={40}
+                    width={80}
+                    height={80}
                     className="rounded"
                   />
                 </div>
@@ -478,11 +493,7 @@ export default function DelegateDashboard() {
                 <ChevronDown className="text-amber-300 h-5 w-5" />
               )}
             </div>
-            {loading.data ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
-              </div>
-            ) : committee ? (
+            {committee ? (
               <div className="p-6 space-y-4">
                 <div>
                   <p className="text-sm text-amber-200/80">Committee</p>
@@ -536,11 +547,7 @@ export default function DelegateDashboard() {
                 <ChevronDown className="text-amber-300 h-5 w-5" />
               )}
             </div>
-            {loading.data ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
-              </div>
-            ) : portfolio ? (
+            {portfolio ? (
               <div className="p-6 space-y-4">
                 <div>
                   <p className="text-sm text-amber-200/80">Representing</p>
@@ -582,76 +589,89 @@ export default function DelegateDashboard() {
           </div>
 
           {/* Performance Card */}
-          <div 
-            className={`bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 transition-all ${expandedCard === 'performance' ? 'md:col-span-2 lg:col-span-1' : ''}`}
-            onClick={() => toggleCard('performance')}
-          >
-            <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30 flex justify-between items-center cursor-pointer">
-              <h2 className="text-xl font-bold text-amber-300 flex items-center">
-                <Award className="h-5 w-5 mr-2" /> 
-                Performance Metrics
-              </h2>
-              {expandedCard === 'performance' ? (
-                <ChevronUp className="text-amber-300 h-5 w-5" />
-              ) : (
-                <ChevronDown className="text-amber-300 h-5 w-5" />
-              )}
+<div 
+  className={`bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 transition-all ${expandedCard === 'performance' ? 'md:col-span-2 lg:col-span-1' : ''}`}
+  onClick={() => toggleCard('performance')}
+>
+  <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30 flex justify-between items-center cursor-pointer">
+    <h2 className="text-xl font-bold text-amber-300 flex items-center">
+      <Award className="h-5 w-5 mr-2" /> 
+      Performance Metrics
+    </h2>
+    {expandedCard === 'performance' ? (
+      <ChevronUp className="text-amber-300 h-5 w-5" />
+    ) : (
+      <ChevronDown className="text-amber-300 h-5 w-5" />
+    )}
+  </div>
+  {delegate?.marks ? (
+    <div className="p-6 space-y-4">
+      <div>
+        <p className="text-sm text-amber-200/80">Total Score</p>
+        <p className="text-2xl font-bold text-amber-300">{delegate.marks.total}</p>
+      </div>
+      {expandedCard === 'performance' && (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">General Speakers List</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.gsl}</p>
             </div>
-            {loading.data ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
-              </div>
-            ) : delegate?.marks ? (
-              <div className="p-6 space-y-4">
-                <div>
-                  <p className="text-sm text-amber-200/80">Total Score</p>
-                  <p className="text-2xl font-bold text-amber-300">{delegate.marks.total}</p>
-                </div>
-                {expandedCard === 'performance' && (
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">General Speakers List</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.gsl}</p>
-                      </div>
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">Moderated Caucus</p>
-                        <p className="text-lg font-medium text-amber-100">
-                          {Math.max(
-                            delegate.marks.mod1 || 0,
-                            delegate.marks.mod2 || 0,
-                            delegate.marks.mod3 || 0,
-                            delegate.marks.mod4 || 0
-                          )}
-                        </p>
-                      </div>
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">Lobbying</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.lobby}</p>
-                      </div>
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">Resolution</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.doc}</p>
-                      </div>
-                    </div>
-                    <div className="pt-2">
-                      <p className="text-xs text-amber-200/60">
-                        * Scores are out of 50 total points
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="p-6 text-amber-200/80">
-                {expandedCard === 'performance' ? (
-                  <p>Your detailed marks will appear here after committee sessions</p>
-                ) : (
-                  <p>Your marks will appear here after committee sessions</p>
-                )}
-              </div>
-            )}
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Moderated Caucus 1</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.mod1}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Moderated Caucus 2</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.mod2}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Moderated Caucus 3</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.mod3}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Moderated Caucus 4</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.mod4}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Lobbying</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.lobby}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Chits</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.chits}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Foreign Policy</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.fp}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Resolution</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.doc}</p>
+            </div>
+            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+              <p className="text-sm text-amber-200/80">Alternative Score</p>
+              <p className="text-lg font-medium text-amber-100">{delegate.marks.alt}</p>
+            </div>
           </div>
+          <div className="pt-2">
+            <p className="text-xs text-amber-200/60">
+              * Scores are out of 50 total points
+            </p>
+          </div>
+        </>
+      )}
+    </div>
+  ) : (
+    <div className="p-6 text-amber-200/80">
+      {expandedCard === 'performance' ? (
+        <p>Your detailed marks will appear here after committee sessions</p>
+      ) : (
+        <p>Your marks will appear here after committee sessions</p>
+      )}
+    </div>
+  )}
+</div>
         </div>
 
         {/* Resources Section */}
@@ -719,29 +739,29 @@ export default function DelegateDashboard() {
               {[
                 {
                   day: "Day 1",
-                  date: "October 10, 2025",
+                  date: "August 5, 2023",
                   events: [
-                    { time: "08:00 - 09:00", title: "Registration", location: "Main Hall" },
-                    { time: "09:00 - 10:30", title: "Opening Ceremony", location: "Plenary Hall" },
-                    { time: "10:30 - 11:00", title: "Coffee Break", location: "Lounge Area" },
+                    { time: "08:00 - 09:00", title: "Registration", location: "BMPS Main Hall" },
+                    { time: "09:00 - 10:30", title: "Opening Ceremony", location: "BMPS Auditorium" },
+                    { time: "10:30 - 11:00", title: "Coffee Break", location: "BMPS Lounge" },
                     { time: "11:00 - 13:00", title: "Committee Session I", location: "Assigned Rooms" },
-                    { time: "13:00 - 14:00", title: "Lunch Break", location: "Dining Hall" },
+                    { time: "13:00 - 14:00", title: "Lunch Break", location: "BMPS Dining Hall" },
                     { time: "14:00 - 16:00", title: "Committee Session II", location: "Assigned Rooms" },
-                    { time: "16:00 - 16:30", title: "Coffee Break", location: "Lounge Area" },
+                    { time: "16:00 - 16:30", title: "Coffee Break", location: "BMPS Lounge" },
                     { time: "16:30 - 18:00", title: "Committee Session III", location: "Assigned Rooms" }
                   ]
                 },
                 {
                   day: "Day 2",
-                  date: "October 11, 2025",
+                  date: "August 6, 2023",
                   events: [
                     { time: "09:00 - 11:00", title: "Committee Session IV", location: "Assigned Rooms" },
-                    { time: "11:00 - 11:30", title: "Coffee Break", location: "Lounge Area" },
+                    { time: "11:00 - 11:30", title: "Coffee Break", location: "BMPS Lounge" },
                     { time: "11:30 - 13:30", title: "Committee Session V", location: "Assigned Rooms" },
-                    { time: "13:30 - 14:30", title: "Lunch Break", location: "Dining Hall" },
+                    { time: "13:30 - 14:30", title: "Lunch Break", location: "BMPS Dining Hall" },
                     { time: "14:30 - 16:30", title: "Committee Session VI", location: "Assigned Rooms" },
-                    { time: "16:30 - 17:00", title: "Coffee Break", location: "Lounge Area" },
-                    { time: "17:00 - 18:30", title: "Closing Ceremony", location: "Plenary Hall" }
+                    { time: "16:30 - 17:00", title: "Coffee Break", location: "BMPS Lounge" },
+                    { time: "17:00 - 18:30", title: "Closing Ceremony", location: "BMPS Auditorium" }
                   ]
                 }
               ].map((daySchedule, dayIndex) => (
@@ -767,5 +787,13 @@ export default function DelegateDashboard() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function DelegateDashboard() {
+  return (
+    <Suspense>
+      <DelegateDashboardContent />
+    </Suspense>
   )
 }
