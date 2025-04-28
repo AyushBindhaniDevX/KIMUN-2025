@@ -396,6 +396,7 @@ const Button = ({ children, className = '', ...props }) => (
   </button>
 )
 
+<<<<<<< Updated upstream
 export default function RegistrationSuccessPage() {
   return (
     <Suspense fallback={<LoadingSpinner />}>
@@ -414,6 +415,8 @@ const Button = ({ children, className = '', ...props }) => (
 )
 
 // Main page component with Suspense boundary
+=======
+>>>>>>> Stashed changes
 export default function RegistrationSuccessPage() {
   return (
     <Suspense fallback={<LoadingSpinner />}>

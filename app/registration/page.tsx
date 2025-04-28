@@ -5,7 +5,11 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import Confetti from 'react-confetti'
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle, ChevronRight, Calendar, Clock, Lock, Unlock } from 'lucide-react'
+=======
+import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle, ChevronRight, Calendar, Clock, Lock, Unlock, Hotel, Bus } from 'lucide-react'
+>>>>>>> Stashed changes
 =======
 import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle, ChevronRight, Calendar, Clock, Lock, Unlock, Hotel, Bus } from 'lucide-react'
 >>>>>>> Stashed changes
@@ -60,7 +64,10 @@ type DelegateInfo = {
 }
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+=======
+>>>>>>> Stashed changes
 type AdditionalServices = {
   accommodation: {
     day1: boolean
@@ -73,6 +80,9 @@ type AdditionalServices = {
   }
 }
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 const REGISTRATION_PHASES = [
   {
@@ -137,7 +147,10 @@ const VALID_COUPONS = {
 }
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+=======
+>>>>>>> Stashed changes
 const BUS_ROUTES = [
   {
     id: 'route1',
@@ -159,6 +172,9 @@ const BUS_ROUTES = [
   }
 ]
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 export default function RegistrationPage() {
   const router = useRouter()
@@ -188,7 +204,10 @@ export default function RegistrationPage() {
   const [couponApplied, setCouponApplied] = useState(false)
   const [couponError, setCouponError] = useState('')
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+=======
+>>>>>>> Stashed changes
   const [additionalServices, setAdditionalServices] = useState<AdditionalServices>({
     accommodation: {
       day1: false,
@@ -246,6 +265,9 @@ export default function RegistrationPage() {
       }
     }
   }, [step, initializeVenueMap])
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
   useEffect(() => {
@@ -392,12 +414,15 @@ export default function RegistrationPage() {
     if (!currentPhase) return 0
     
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     if (selectedCommittee?.isOnline) {
       return 199 - discount
     }
     
     return (isDoubleDel ? currentPhase.doublePrice : currentPhase.singlePrice) - discount
 =======
+=======
+>>>>>>> Stashed changes
     let basePrice = 0
     if (selectedCommittee?.isOnline) {
       basePrice = 199
@@ -414,6 +439,9 @@ export default function RegistrationPage() {
     const subtotal = basePrice - discount
     const tax = subtotal * 0.03
     return Math.round(subtotal + tax)
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
   }
 
@@ -443,7 +471,12 @@ export default function RegistrationPage() {
         isOnlineCommittee: selectedCommittee.isOnline || false,
         couponCode: couponApplied ? couponCode : null,
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         discountApplied: couponApplied ? discount : 0
+=======
+        discountApplied: couponApplied ? discount : 0,
+        additionalServices
+>>>>>>> Stashed changes
 =======
         discountApplied: couponApplied ? discount : 0,
         additionalServices
@@ -464,7 +497,12 @@ export default function RegistrationPage() {
         isOnline: selectedCommittee.isOnline || false,
         couponCode: couponApplied ? couponCode : null,
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         discount: couponApplied ? discount : 0
+=======
+        discount: couponApplied ? discount : 0,
+        additionalServices
+>>>>>>> Stashed changes
 =======
         discount: couponApplied ? discount : 0,
         additionalServices
@@ -614,7 +652,11 @@ export default function RegistrationPage() {
         <div className="flex items-center gap-2 text-amber-300">
           <Clock className="w-5 h-5" />
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
           <span>Event Dates: July 5-6, 2024</span>
+=======
+          <span>Event Dates: July 5-6, 2025</span>
+>>>>>>> Stashed changes
 =======
           <span>Event Dates: July 5-6, 2025</span>
 >>>>>>> Stashed changes
@@ -650,7 +692,11 @@ export default function RegistrationPage() {
             </div>
             <div className="text-amber-300">
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
               Step {step} of 5
+=======
+              Step {step + 1} of 6
+>>>>>>> Stashed changes
 =======
               Step {step + 1} of 6
 >>>>>>> Stashed changes
@@ -666,7 +712,10 @@ export default function RegistrationPage() {
           className="bg-black/50 backdrop-blur-sm border border-amber-800/30 rounded-2xl shadow-lg p-8"
         >
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+=======
+>>>>>>> Stashed changes
           {step === 0 && (
             <motion.div
               key="step0"
@@ -746,6 +795,9 @@ export default function RegistrationPage() {
             </motion.div>
           )}
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
           {step === 1 && (
             <motion.div
@@ -1071,6 +1123,7 @@ export default function RegistrationPage() {
                 <Hotel className="text-amber-400" /> Additional Services
               </h1>
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
               
               <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6 space-y-4">
                 {/* Coupon Code Section */}
@@ -1214,6 +1267,9 @@ export default function RegistrationPage() {
                 </div>
 =======
 
+=======
+
+>>>>>>> Stashed changes
               <div className="space-y-6">
                 <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6">
                   <h2 className="text-xl font-bold text-amber-300 mb-4">Accommodation</h2>
@@ -1297,8 +1353,122 @@ export default function RegistrationPage() {
                 <Button
                   onClick={() => setStep(6)}
                   className="flex-1 bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
+<<<<<<< Updated upstream
                 >
                   Next: Confirmation
+=======
+                >
+                  Next: Confirmation
+                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {step === 6 && (
+            <motion.div
+              key="step6"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="space-y-6"
+            >
+              <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
+                <CheckCircle className="text-green-500" /> Final Confirmation
+              </h1>
+              
+              <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6 space-y-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-amber-300 border-b border-amber-800/30 pb-2">
+                    Registration Details
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-gray-400">Committee</p>
+                      <p className="text-white">{selectedCommittee?.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Portfolio</p>
+                      <p className="text-white">{selectedPortfolio?.country}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Delegation Type</p>
+                      <p className="text-white">
+                        {isDoubleDel ? 'Double Delegation' : 'Single Delegation'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Registration Phase</p>
+                      <p className="text-white">{currentPhase?.name}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-amber-800/30">
+                  <h3 className="text-lg font-semibold text-amber-300 mb-4">
+                    Additional Services
+                  </h3>
+                  {(additionalServices.accommodation.day1 || additionalServices.accommodation.day2) && (
+                    <div className="mb-4">
+                      <h4 className="text-gray-400 mb-2">Accommodation:</h4>
+                      <div className="space-y-2">
+                        {additionalServices.accommodation.day1 && <p className="text-white">July 5 - ₹200</p>}
+                        {additionalServices.accommodation.day2 && <p className="text-white">July 6 - ₹200</p>}
+                      </div>
+                    </div>
+                  )}
+
+                  {additionalServices.travelBus.route && (
+                    <div className="mb-4">
+                      <h4 className="text-gray-400 mb-2">Travel Route:</h4>
+                      <p className="text-white">
+                        {BUS_ROUTES.find(r => r.id === additionalServices.travelBus.route)?.name}
+                      </p>
+                      <div className="mt-4 relative h-48 rounded-xl overflow-hidden">
+                        <iframe
+                          src={`https://apis.mapmyindia.com/advancedmaps/v1/${process.env.NEXT_PUBLIC_MAPPLES_TOKEN}/static_map?zoom=13&size=600x200&center=20.3014,85.8019&markers=20.3014,85.8019`}
+                          className="w-full h-full"
+                          loading="lazy"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t border-amber-800/30">
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Subtotal:</span>
+                      <span className="text-amber-300">₹{(calculatePrice() / 1.03).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Tax (3%):</span>
+                      <span className="text-amber-300">₹{(calculatePrice() * 0.03).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-3">
+                      <h3 className="text-xl font-semibold text-white">Total:</h3>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-amber-300">₹{calculatePrice()}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <Button
+                  onClick={() => setStep(5)}
+                  variant="outline"
+                  className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
+                >
+                  Back
+                </Button>
+                <Button
+                  onClick={initiatePayment}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 rounded-xl text-lg group"
+                >
+                  Confirm & Pay Now
+>>>>>>> Stashed changes
                   <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Button>
               </div>
@@ -1440,5 +1610,9 @@ export default function RegistrationPage() {
 }
 =======
   )
+<<<<<<< Updated upstream
+}
+>>>>>>> Stashed changes
+=======
 }
 >>>>>>> Stashed changes
