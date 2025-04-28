@@ -4,15 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import Confetti from 'react-confetti'
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle, ChevronRight, Calendar, Clock, Lock, Unlock } from 'lucide-react'
-=======
-import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle, ChevronRight, Calendar, Clock, Lock, Unlock, Hotel, Bus } from 'lucide-react'
->>>>>>> Stashed changes
-=======
-import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle, ChevronRight, Calendar, Clock, Lock, Unlock, Hotel, Bus } from 'lucide-react'
->>>>>>> Stashed changes
+import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle, ChevronRight, Calendar, Clock, Lock, Unlock, Hotel, Bus,X } from 'lucide-react'
 import Flags from 'country-flag-icons/react/3x2'
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, push, update } from 'firebase/database'
@@ -63,12 +55,6 @@ type DelegateInfo = {
   }
 }
 
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> Stashed changes
 type AdditionalServices = {
   accommodation: {
     day1: boolean
@@ -81,25 +67,18 @@ type AdditionalServices = {
   }
 }
 
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
-// Registration phases configuration
->>>>>>> parent of 0021dfb (Update page.tsx)
 const REGISTRATION_PHASES = [
   {
     name: "Pre Early Bird",
     startDate: new Date('2025-04-14'),
     endDate: new Date('2025-04-19'),
-    singlePrice: 1299,
+    singlePrice: 1,
     doublePrice: 2499,
     isActive: true
   },
   {
     name: "Early Bird",
-    startDate: new Date('2025-04-19'),
+    startDate: new Date('2025-04-20'),
     endDate: new Date('2025-05-10'),
     singlePrice: 1299,
     doublePrice: 2499,
@@ -107,7 +86,7 @@ const REGISTRATION_PHASES = [
   },
   {
     name: "Phase 1",
-    startDate: new Date('2025-05-10'),
+    startDate: new Date('2025-05-15'),
     endDate: new Date('2025-05-29'),
     singlePrice: 1299,
     doublePrice: 2499,
@@ -115,7 +94,7 @@ const REGISTRATION_PHASES = [
   },
   {
     name: "Phase 2",
-    startDate: new Date('2025-05-29'),
+    startDate: new Date('2025-05-30'),
     endDate: new Date('2025-06-14'),
     singlePrice: 1299,
     doublePrice: 2499,
@@ -131,7 +110,6 @@ const REGISTRATION_PHASES = [
   }
 ]
 
-// Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -145,45 +123,46 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 const db = getDatabase(app)
 
-<<<<<<< HEAD
 const VALID_COUPONS = {
   "BGUDELEGATION": 99,
   "RAVENSHAWDELEGATION": 99,
   "SOADELEGATION": 99
 }
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> Stashed changes
 const BUS_ROUTES = [
   {
-    id: 'route1',
-    name: 'Route 1: Patia – Nalco Square – Jaydev Vihar',
+    id: 'KIIT SQUARE',
+    name: 'KIIT SQUARE',
     stops: [
-      { name: 'Patia', pin: '9jectp' },
-      { name: 'Nalco Square', pin: 'o2tteo' },
-      { name: 'Jaydev Vihar', pin: 'su1os9' }
     ]
   },
   {
-    id: 'route2',
-    name: 'Route 2: Saheed Nagar – Vani Vihar – Baramunda',
+    id: 'JAYDEV VIHAR ',
+    name: 'JAYDEV VIHAR',
     stops: [
-      { name: 'Saheed Nagar', pin: '58o2zc' },
-      { name: 'Vani Vihar', pin: 'b25ksg' },
-      { name: 'Baramunda', pin: 'xawf92' }
+    ]
+  },
+  {
+    id: 'VANI VIHAR',
+    name: 'VANI VIHAR',
+    stops: [
+    ]
+  },
+  {
+    id: 'FIRE STATION',
+    name: 'FIRE STATION',
+    stops: [
+    ]
+  },
+  {
+    id: 'BARMUNDA',
+    name: 'BARMUNDA',
+    stops: [
     ]
   }
+  
 ]
 
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> parent of 0021dfb (Update page.tsx)
 export default function RegistrationPage() {
   const router = useRouter()
   const [step, setStep] = useState(0)
@@ -207,16 +186,10 @@ export default function RegistrationPage() {
   const [isDoubleDel, setIsDoubleDel] = useState(false)
   const [currentPhase, setCurrentPhase] = useState<typeof REGISTRATION_PHASES[0] | null>(null)
   const [registrationOpen, setRegistrationOpen] = useState(false)
-<<<<<<< HEAD
   const [couponCode, setCouponCode] = useState('')
   const [discount, setDiscount] = useState(0)
   const [couponApplied, setCouponApplied] = useState(false)
   const [couponError, setCouponError] = useState('')
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> Stashed changes
   const [additionalServices, setAdditionalServices] = useState<AdditionalServices>({
     accommodation: {
       day1: false,
@@ -233,53 +206,6 @@ export default function RegistrationPage() {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<any>(null)
 
-  const initializeVenueMap = useCallback(() => {
-    const script = document.createElement('script')
-    script.src = `https://apis.mappls.com/advancedmaps/api/${process.env.NEXT_PUBLIC_MAPPLES_TOKEN}/map_sdk?layer=vector&v=3.0`
-    script.defer = true
-    script.async = true
-    
-    script.onload = () => {
-      if (mapRef.current && !mapInstance.current) {
-        mapInstance.current = new window.mappls.Map(mapRef.current, {
-          center: [85.8019, 20.3014],
-          zoom: 15,
-          gestureHandling: 'auto'
-        })
-
-        new window.mappls.Marker({
-          map: mapInstance.current,
-          position: {
-            lat: 20.3014,
-            lng: 85.8019
-          },
-          icon: 'https://www.mapmyindia.com/api/advanced-maps/doc/sample/map_sdk/marker.png',
-          offset: [12, 45]
-        })
-      }
-    }
-
-    document.body.appendChild(script)
-  }, [])
-
-  useEffect(() => {
-    if (step === 0) {
-      initializeVenueMap()
-    }
-
-    return () => {
-      if (mapInstance.current) {
-        mapInstance.current.remove()
-        mapInstance.current = null
-      }
-    }
-  }, [step, initializeVenueMap])
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> parent of 0021dfb (Update page.tsx)
 
   useEffect(() => {
     const checkRegistrationPhase = () => {
@@ -324,7 +250,6 @@ export default function RegistrationPage() {
               }))
             }
             
-            // Mark UNSC and UNODC as online committees
             if (committee.name === 'United Nations Security Council' || 
                 committee.name === 'United Nations Office on Drugs and Crime') {
               return {
@@ -332,7 +257,7 @@ export default function RegistrationPage() {
                 isOnline: true,
                 portfolios: committee.portfolios.map(p => ({
                   ...p,
-                  isDoubleDelAllowed: false // Force single delegate for online committees
+                  isDoubleDelAllowed: false
                 }))
               }
             }
@@ -370,12 +295,12 @@ export default function RegistrationPage() {
     }))
   }
 
-  const handleRouteChange = (route: string) => {
+  const handleRouteChange = (route: string | null) => {
     setAdditionalServices(prev => ({
       ...prev,
       travelBus: {
         ...prev.travelBus,
-        route
+        route: route || ''
       }
     }))
   }
@@ -404,48 +329,48 @@ export default function RegistrationPage() {
     return baseValidation
   }
 
+  const applyCoupon = () => {
+    if (couponCode.trim() === '') {
+      setCouponError('Please enter a coupon code')
+      return
+    }
+
+    const upperCaseCoupon = couponCode.toUpperCase()
+    if (VALID_COUPONS.hasOwnProperty(upperCaseCoupon)) {
+      setDiscount(VALID_COUPONS[upperCaseCoupon as keyof typeof VALID_COUPONS])
+      setCouponApplied(true)
+      setCouponError('')
+    } else {
+      setCouponError('Invalid coupon code')
+      setDiscount(0)
+      setCouponApplied(false)
+    }
+  }
+
   const calculatePrice = () => {
     if (!currentPhase) return 0
-    
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-    // Special pricing for online committees
->>>>>>> parent of 0021dfb (Update page.tsx)
-    if (selectedCommittee?.isOnline) {
-      return 199
-    }
-    
-<<<<<<< HEAD
-    return (isDoubleDel ? currentPhase.doublePrice : currentPhase.singlePrice) - discount
-=======
-=======
->>>>>>> Stashed changes
+  
     let basePrice = 0
     if (selectedCommittee?.isOnline) {
       basePrice = 199
     } else {
       basePrice = isDoubleDel ? currentPhase.doublePrice : currentPhase.singlePrice
     }
-
+  
     if (additionalServices.accommodation.day1) basePrice += 200
     if (additionalServices.accommodation.day2) basePrice += 200
-
+  
     if (additionalServices.travelBus.day1) basePrice += 100
     if (additionalServices.travelBus.day2) basePrice += 100
-
+  
+    // ✅ ADD ₹200 if a travel route is selected
+    if (additionalServices.travelBus.route) basePrice += 200
+  
     const subtotal = basePrice - discount
     const tax = subtotal * 0.03
     return Math.round(subtotal + tax)
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
-    return isDoubleDel ? currentPhase.doublePrice : currentPhase.singlePrice
->>>>>>> parent of 0021dfb (Update page.tsx)
   }
+  
 
   const getAverageExperience = () => {
     const exp1 = parseInt(delegateInfo.delegate1.experience) || 0
@@ -470,23 +395,10 @@ export default function RegistrationPage() {
         isDoubleDel,
         averageExperience: getAverageExperience(),
         registrationPhase: currentPhase?.name || 'Unknown',
-<<<<<<< HEAD
         isOnlineCommittee: selectedCommittee.isOnline || false,
         couponCode: couponApplied ? couponCode : null,
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-        discountApplied: couponApplied ? discount : 0
-=======
         discountApplied: couponApplied ? discount : 0,
         additionalServices
->>>>>>> Stashed changes
-=======
-        discountApplied: couponApplied ? discount : 0,
-        additionalServices
->>>>>>> Stashed changes
-=======
-        isOnlineCommittee: selectedCommittee.isOnline || false
->>>>>>> parent of 0021dfb (Update page.tsx)
       })
 
       const portfolioRef = ref(db, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
@@ -500,23 +412,10 @@ export default function RegistrationPage() {
         portfolio: selectedPortfolio?.country,
         amount: calculatePrice(),
         phase: currentPhase?.name || 'Unknown',
-<<<<<<< HEAD
         isOnline: selectedCommittee.isOnline || false,
         couponCode: couponApplied ? couponCode : null,
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-        discount: couponApplied ? discount : 0
-=======
         discount: couponApplied ? discount : 0,
         additionalServices
->>>>>>> Stashed changes
-=======
-        discount: couponApplied ? discount : 0,
-        additionalServices
->>>>>>> Stashed changes
-=======
-        isOnline: selectedCommittee.isOnline || false
->>>>>>> parent of 0021dfb (Update page.tsx)
       };
 
       await fetch('/api/sendEmail', {
@@ -661,15 +560,7 @@ export default function RegistrationPage() {
         
         <div className="flex items-center gap-2 text-amber-300">
           <Clock className="w-5 h-5" />
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-          <span>Event Dates: July 5-6, 2024</span>
-=======
           <span>Event Dates: July 5-6, 2025</span>
->>>>>>> Stashed changes
-=======
-          <span>Event Dates: July 5-6, 2025</span>
->>>>>>> Stashed changes
         </div>
       </div>
     )
@@ -679,7 +570,6 @@ export default function RegistrationPage() {
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
       {showConfetti && <Confetti recycle={false} numberOfPieces={400} />}
 
-      {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-md border-b border-amber-800/20">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center">
@@ -702,15 +592,7 @@ export default function RegistrationPage() {
               <span>{currentPhase?.name}</span>
             </div>
             <div className="text-amber-300">
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-              Step {step} of 5
-=======
               Step {step + 1} of 6
->>>>>>> Stashed changes
-=======
-              Step {step + 1} of 6
->>>>>>> Stashed changes
             </div>
           </div>
         </div>
@@ -722,12 +604,6 @@ export default function RegistrationPage() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-black/50 backdrop-blur-sm border border-amber-800/30 rounded-2xl shadow-lg p-8"
         >
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> Stashed changes
           {step === 0 && (
             <motion.div
               key="step0"
@@ -761,18 +637,6 @@ export default function RegistrationPage() {
                   </div>
                 </div>
 
-                <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6">
-                  <h2 className="text-xl font-bold text-amber-300 mb-4">Venue Map</h2>
-                  <div 
-                    ref={mapRef}
-                    className="h-64 rounded-xl overflow-hidden bg-gray-800"
-                    style={{ height: '300px', width: '100%' }}
-                  >
-                    <div className="h-full w-full flex items-center justify-center text-amber-300">
-                      Loading map...
-                    </div>
-                  </div>
-                </div>
 
                 <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6">
                   <h2 className="text-xl font-bold text-amber-300 mb-4">Committees & Portfolios</h2>
@@ -807,13 +671,6 @@ export default function RegistrationPage() {
             </motion.div>
           )}
 
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
-          {/* Step 1: Delegation Type */}
->>>>>>> parent of 0021dfb (Update page.tsx)
           {step === 1 && (
             <motion.div
               key="step1"
@@ -859,7 +716,7 @@ export default function RegistrationPage() {
                       onChange={() => setIsDoubleDel(true)}
                       className="form-radio h-5 w-5 text-amber-500"
                       required
-                      disabled={selectedCommittee?.isOnline} // Disable for online committees
+                      disabled={selectedCommittee?.isOnline}
                     />
                     <div>
                       <h3 className="text-xl font-semibold text-white">Double Delegation</h3>
@@ -888,7 +745,6 @@ export default function RegistrationPage() {
             </motion.div>
           )}
 
-          {/* Step 2: Delegate Details */}
           {step === 2 && (
             <motion.div
               key="step2"
@@ -902,7 +758,6 @@ export default function RegistrationPage() {
               </h1>
               
               <div className="space-y-8">
-                {/* Primary Delegate */}
                 <div className="space-y-4">
                   <h3 className="text-xl font-semibold text-white">Primary Delegate</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -931,7 +786,6 @@ export default function RegistrationPage() {
                   </div>
                 </div>
 
-                {/* Secondary Delegate */}
                 {isDoubleDel && !selectedCommittee?.isOnline && (
                   <div className="space-y-4">
                     <h3 className="text-xl font-semibold text-white">Secondary Delegate</h3>
@@ -982,7 +836,6 @@ export default function RegistrationPage() {
             </motion.div>
           )}
 
-          {/* Step 3: Committee Selection */}
           {step === 3 && (
             <motion.div
               key="step3"
@@ -1007,7 +860,7 @@ export default function RegistrationPage() {
                     onClick={() => {
                       setSelectedCommittee(committee)
                       if (committee.isOnline) {
-                        setIsDoubleDel(false) // Force single delegate for online committees
+                        setIsDoubleDel(false)
                       }
                     }}
                   >
@@ -1053,7 +906,6 @@ export default function RegistrationPage() {
             </motion.div>
           )}
 
-          {/* Step 4: Portfolio Selection */}
           {step === 4 && (
             <motion.div
               key="step4"
@@ -1131,241 +983,109 @@ export default function RegistrationPage() {
             </motion.div>
           )}
 
-          {/* Step 5: Confirmation */}
-          {step === 5 && (
-            <motion.div
-              key="step5"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="space-y-6"
+{step === 5 && (
+  <motion.div
+    key="step5"
+    initial={{ opacity: 0, x: -20 }}
+    animate={{ opacity: 1, x: 0 }}
+    exit={{ opacity: 0, x: 20 }}
+    className="space-y-6"
+  >
+    <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
+      <Hotel className="text-amber-400" /> Additional Services
+    </h1>
+
+    <div className="space-y-6">
+      {/* Accommodation Section */}
+      <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6">
+        <h2 className="text-xl font-bold text-amber-300 mb-4">Accommodation (Optional)</h2>
+        <div className="space-y-4">
+          {[['day1', 'July 5'], ['day2', 'July 6']].map(([day, date]) => (
+            <label 
+              key={day}
+              className={`flex items-center justify-between p-4 rounded-lg transition-colors border ${
+                additionalServices.accommodation[day as 'day1' | 'day2'] 
+                  ? 'bg-amber-900/20 border-amber-500' 
+                  : 'bg-black/20 border-amber-800/30 hover:bg-amber-900/10'
+              }`}
             >
-              <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
-                <Hotel className="text-amber-400" /> Additional Services
-              </h1>
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-              
-              <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6 space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-semibold text-white">Total Fee:</h3>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-amber-300">₹{calculatePrice()}</p>
-                    <p className="text-xs text-amber-500">
-                      {selectedCommittee?.isOnline ? 'Online Committee' : currentPhase?.name + ' Pricing'}
-                    </p>
-                  </div>
-                </div>
-
-                {selectedCommittee?.isOnline && (
-                  <div className="bg-blue-900/20 border border-blue-800/30 rounded-lg p-3 text-center">
-                    <p className="text-sm text-blue-300">
-                      This is an online committee with special pricing
-                    </p>
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Primary Delegate:</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-gray-400">Name</p>
-                      <p className="text-white">{delegateInfo.delegate1.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Email</p>
-                      <p className="text-white">{delegateInfo.delegate1.email}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Phone</p>
-                      <p className="text-white">{delegateInfo.delegate1.phone}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Experience</p>
-                      <p className="text-white">{delegateInfo.delegate1.experience || '0'} MUNs</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Institution</p>
-                      <p className="text-white">{delegateInfo.delegate1.institution}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Year</p>
-                      <p className="text-white">{delegateInfo.delegate1.year}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Course</p>
-                      <p className="text-white">{delegateInfo.delegate1.course}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                {isDoubleDel && delegateInfo.delegate2 && (
-                  <div className="space-y-4">
-                    <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Secondary Delegate:</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-gray-400">Name</p>
-                        <p className="text-white">{delegateInfo.delegate2.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-400">Email</p>
-                        <p className="text-white">{delegateInfo.delegate2.email}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-400">Phone</p>
-                        <p className="text-white">{delegateInfo.delegate2.phone}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-400">Experience</p>
-                        <p className="text-white">{delegateInfo.delegate2.experience || '0'} MUNs</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {isDoubleDel && (
-                  <div className="pt-4">
-                    <p className="text-gray-400">Average Experience</p>
-                    <p className="text-white">{getAverageExperience()} MUNs</p>
-                  </div>
-                )}
-
-                <div className="pt-4 border-t border-amber-800/30">
-                  <p className="text-gray-400">Committee</p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-white">{selectedCommittee?.name}</p>
-                    {selectedCommittee?.isOnline && (
-                      <span className="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full text-xs">
-                        Online
-                      </span>
-                    )}
-                  </div>
-                </div>
-
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={additionalServices.accommodation[day as 'day1' | 'day2']}
+                  onChange={(e) => handleServiceChange('accommodation', day as 'day1' | 'day2', e.target.checked)}
+                  className="form-checkbox h-5 w-5 text-amber-500"
+                />
                 <div>
-                  <p className="text-gray-400">Portfolio</p>
-                  <div className="flex items-center gap-2">
-                    {selectedPortfolio?.countryCode && Flags[selectedPortfolio.countryCode] && React.createElement(
-                      Flags[selectedPortfolio.countryCode], 
-                      { className: 'w-6 h-6 rounded-sm' }
-                    )}
-                    <p className="text-white">{selectedPortfolio?.country}</p>
-                  </div>
+                  <p className="text-white">{date}</p>
+                  <p className="text-sm text-gray-400">ASBM University Hostel</p>
                 </div>
               </div>
+              <span className="text-amber-300">₹200</span>
+            </label>
+          ))}
+        </div>
+      </div>
 
-<<<<<<< HEAD
-              <div>
-                <p className="text-gray-400">Portfolio</p>
-                <div className="flex items-center gap-2">
-                  {selectedPortfolio?.countryCode && Flags[selectedPortfolio.countryCode] && React.createElement(
-                    Flags[selectedPortfolio.countryCode], 
-                    { className: 'w-6 h-6 rounded-sm' }
-                  )}
-                  <p className="text-white">{selectedPortfolio?.country}</p>
-                </div>
-=======
+      {/* Travel Bus Service Section */}
+      <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6">
+        <h2 className="text-xl font-bold text-amber-300 mb-4">Travel Bus Service (Optional)</h2>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-4">
+          {BUS_ROUTES.map(route => (
+  <motion.div
+    key={route.id}
+    whileHover={{ scale: 1.02 }}
+    className={`p-4 rounded-lg border cursor-pointer relative ${
+      additionalServices.travelBus.route === route.id 
+        ? 'border-amber-500 bg-amber-900/20' 
+        : 'border-amber-800/30'
+    }`}
+    onClick={() => {
+      if (additionalServices.travelBus.route === route.id) {
+        handleRouteChange('')
+      } else {
+        handleRouteChange(route.id)
+      }
+      setShowMap(true)
+    }}
+  >
+    <div className="flex items-center justify-between">
+      <div>
+        <h3 className="text-lg font-semibold text-white">{route.name}</h3>
+        <p className="text-sm text-gray-400 mt-1">Travel Route - ₹200</p> {/* 👈 Add this line */}
+      </div>
+      {additionalServices.travelBus.route === route.id && (
+        <CheckCircle className="text-green-500 flex-shrink-0" />
+      )}
+    </div>
+  </motion.div>
+))}
+          </div>
 
-=======
+          
+        </div>
+      </div>
+    </div>
 
->>>>>>> Stashed changes
-              <div className="space-y-6">
-                <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6">
-                  <h2 className="text-xl font-bold text-amber-300 mb-4">Accommodation</h2>
-                  <div className="space-y-4">
-                    {[['day1', 'July 5'], ['day2', 'July 6']].map(([day, date]) => (
-                      <label key={day} className="flex items-center justify-between p-4 bg-black/20 rounded-lg hover:bg-amber-900/10 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={additionalServices.accommodation[day as 'day1' | 'day2']}
-                            onChange={(e) => handleServiceChange('accommodation', day as 'day1' | 'day2', e.target.checked)}
-                            className="form-checkbox h-5 w-5 text-amber-500"
-                          />
-                          <div>
-                            <p className="text-white">{date}</p>
-                            <p className="text-sm text-gray-400">ASBM University Hostel</p>
-                          </div>
-                        </div>
-                        <span className="text-amber-300">₹200</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6">
-                  <h2 className="text-xl font-bold text-amber-300 mb-4">Travel Bus Service</h2>
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 gap-4">
-                      {BUS_ROUTES.map(route => (
-                        <motion.div
-                          key={route.id}
-                          whileHover={{ scale: 1.02 }}
-                          className={`p-4 rounded-lg border ${
-                            additionalServices.travelBus.route === route.id 
-                              ? 'border-amber-500 bg-amber-900/20' 
-                              : 'border-amber-800/30'
-                          } cursor-pointer`}
-                          onClick={() => {
-                            handleRouteChange(route.id)
-                            setShowMap(true)
-                          }}
-                        >
-                          <h3 className="font-semibold text-white">{route.name}</h3>
-                          <div className="mt-2 grid grid-cols-3 gap-2">
-                            {route.stops.map((stop, index) => (
-                              <div key={stop.pin} className="flex items-center gap-2 text-sm text-gray-400">
-                                <span className="text-amber-300">{index + 1}.</span>
-                                {stop.name}
-                              </div>
-                            ))}
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-
-                    {showMap && (
-                      <div className="relative h-64 rounded-xl overflow-hidden">
-                        <iframe
-                          src={`https://apis.mapmyindia.com/advancedmaps/v1/${process.env.NEXT_PUBLIC_MAPPLES_TOKEN}/static_map?zoom=13&size=600x250&center=20.3014,85.8019&markers=20.3014,85.8019|20.3687,85.8185|20.3054,85.8181|20.2961,85.8194|20.2969,85.8446|20.2945,85.8414|20.2760,85.7892`}
-                          className="w-full h-full"
-                          loading="lazy"
-                        />
-                        <div className="absolute bottom-2 right-2 bg-black/50 px-2 py-1 rounded text-xs">
-                          <Bus className="inline w-4 h-4 mr-1" />
-                          Mappls Route View
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-=======
->>>>>>> parent of 0021dfb (Update page.tsx)
-              <div className="flex gap-4">
-                <Button
-                  onClick={() => setStep(4)}
-                  variant="outline"
-                  className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
-                >
-                  Back
-                </Button>
-                <Button
-<<<<<<< HEAD
-                  onClick={() => setStep(6)}
-                  className="flex-1 bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
-<<<<<<< Updated upstream
-                >
-                  Next: Confirmation
-=======
-                >
-                  Next: Confirmation
-                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-                </Button>
-              </div>
-            </motion.div>
-          )}
+    <div className="flex gap-4">
+      <Button
+        onClick={() => setStep(4)}
+        variant="outline"
+        className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
+      >
+        Back
+      </Button>
+      <Button
+        onClick={() => setStep(6)}
+        className="flex-1 bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
+      >
+        Next: Confirmation
+        <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+      </Button>
+    </div>
+  </motion.div>
+)}
 
           {step === 6 && (
             <motion.div
@@ -1426,123 +1146,7 @@ export default function RegistrationPage() {
                       <p className="text-white">
                         {BUS_ROUTES.find(r => r.id === additionalServices.travelBus.route)?.name}
                       </p>
-                      <div className="mt-4 relative h-48 rounded-xl overflow-hidden">
-                        <iframe
-                          src={`https://apis.mapmyindia.com/advancedmaps/v1/${process.env.NEXT_PUBLIC_MAPPLES_TOKEN}/static_map?zoom=13&size=600x200&center=20.3014,85.8019&markers=20.3014,85.8019`}
-                          className="w-full h-full"
-                          loading="lazy"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-4 border-t border-amber-800/30">
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Subtotal:</span>
-                      <span className="text-amber-300">₹{(calculatePrice() / 1.03).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Tax (3%):</span>
-                      <span className="text-amber-300">₹{(calculatePrice() * 0.03).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between items-center pt-3">
-                      <h3 className="text-xl font-semibold text-white">Total:</h3>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-amber-300">₹{calculatePrice()}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <Button
-                  onClick={() => setStep(5)}
-                  variant="outline"
-                  className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={initiatePayment}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 rounded-xl text-lg group"
-                >
-                  Confirm & Pay Now
->>>>>>> Stashed changes
-                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
-          {step === 6 && (
-            <motion.div
-              key="step6"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="space-y-6"
-            >
-              <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
-                <CheckCircle className="text-green-500" /> Final Confirmation
-              </h1>
-              
-              <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6 space-y-6">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-amber-300 border-b border-amber-800/30 pb-2">
-                    Registration Details
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-gray-400">Committee</p>
-                      <p className="text-white">{selectedCommittee?.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Portfolio</p>
-                      <p className="text-white">{selectedPortfolio?.country}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Delegation Type</p>
-                      <p className="text-white">
-                        {isDoubleDel ? 'Double Delegation' : 'Single Delegation'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Registration Phase</p>
-                      <p className="text-white">{currentPhase?.name}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-amber-800/30">
-                  <h3 className="text-lg font-semibold text-amber-300 mb-4">
-                    Additional Services
-                  </h3>
-                  {(additionalServices.accommodation.day1 || additionalServices.accommodation.day2) && (
-                    <div className="mb-4">
-                      <h4 className="text-gray-400 mb-2">Accommodation:</h4>
-                      <div className="space-y-2">
-                        {additionalServices.accommodation.day1 && <p className="text-white">July 5 - ₹200</p>}
-                        {additionalServices.accommodation.day2 && <p className="text-white">July 6 - ₹200</p>}
-                      </div>
-                    </div>
-                  )}
-
-                  {additionalServices.travelBus.route && (
-                    <div className="mb-4">
-                      <h4 className="text-gray-400 mb-2">Travel Route:</h4>
-                      <p className="text-white">
-                        {BUS_ROUTES.find(r => r.id === additionalServices.travelBus.route)?.name}
-                      </p>
-                      <div className="mt-4 relative h-48 rounded-xl overflow-hidden">
-                        <iframe
-                          src={`https://apis.mapmyindia.com/advancedmaps/v1/${process.env.NEXT_PUBLIC_MAPPLES_TOKEN}/static_map?zoom=13&size=600x200&center=20.3014,85.8019&markers=20.3014,85.8019`}
-                          className="w-full h-full"
-                          loading="lazy"
-                        />
-                      </div>
+                      
                     </div>
                   )}
                 </div>
@@ -1582,34 +1186,11 @@ export default function RegistrationPage() {
                   Confirm & Pay Now
                   <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Button>
->>>>>>> Stashed changes
-=======
-                  onClick={initiatePayment}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 rounded-xl text-lg group"
-                >
-                  Pay & Confirm Registration
-                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-                </Button>
->>>>>>> parent of 0021dfb (Update page.tsx)
               </div>
             </motion.div>
           )}
         </motion.div>
       </div>
     </div>
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-  </div>
-)
-=======
   )
->>>>>>> parent of 0021dfb (Update page.tsx)
 }
-=======
-  )
-<<<<<<< Updated upstream
-}
->>>>>>> Stashed changes
-=======
-}
->>>>>>> Stashed changes
