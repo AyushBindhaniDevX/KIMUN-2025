@@ -187,6 +187,7 @@ export default function AdminDashboard() {
       });
     };
   }, [showScanner]);
+  
   // Fetch all data with real-time updates
   useEffect(() => {
     if (!accessGranted) return;
