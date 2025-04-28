@@ -404,14 +404,6 @@ export default function RegistrationSuccessPage() {
   )
 }
 
-const Button = ({ children, className = '', ...props }) => (
-  <button
-    className={`flex items-center justify-center transition-colors ${className}`}
-    {...props}
-  >
-    {children}
-  </button>
-)
 
 // Main page component with Suspense boundary
 export default function RegistrationSuccessPage() {
