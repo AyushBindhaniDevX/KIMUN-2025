@@ -42,6 +42,7 @@ function RegistrationSuccessContent() {
   const [password, setPassword] = useState('')
   const [showLogin, setShowLogin] = useState(false)
   const [loginError, setLoginError] = useState('')
+  const [isOnlineCommittee, setIsOnlineCommittee] = useState(false)
 
   useEffect(() => {
     if (!paymentId) {
@@ -78,12 +79,14 @@ function RegistrationSuccessContent() {
         setRegistration(fullRegistration)
         setCommittee({
           name: committeeData.name,
-          emoji: committeeData.emoji
+          emoji: committeeData.emoji,
+          isOnline: committeeData.isOnline || false
         })
         setPortfolio({
           country: portfolioData.country,
           countryCode: portfolioData.countryCode
         })
+        setIsOnlineCommittee(committeeData.isOnline || false)
         setZone(Math.floor(Math.random() * 5) + 1)
         setLoading(false)
       } catch (err) {
@@ -115,12 +118,9 @@ function RegistrationSuccessContent() {
   const handleLogin = async (e) => {
     e.preventDefault()
     try {
-      // Implement your login logic here
-      // For demo purposes, we'll just check if email matches
       if (email !== registration?.delegateInfo.delegate1.email) {
         throw new Error('Invalid credentials')
       }
-      // If successful, redirect to dashboard
       window.location.href = `/dashboard/${registration.id}`
     } catch (err) {
       setLoginError(err.message)
@@ -133,7 +133,6 @@ function RegistrationSuccessContent() {
 
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
-      {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-md border-b border-amber-800/20">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center">
@@ -153,7 +152,6 @@ function RegistrationSuccessContent() {
         </div>
       </header>
 
-      {/* Login Modal */}
       <AnimatePresence>
         {showLogin && (
           <motion.div 
@@ -240,7 +238,6 @@ function RegistrationSuccessContent() {
           </div>
           
           <div className="space-y-6">
-            {/* Success Message */}
             <div className="bg-green-900/20 border border-green-800/30 rounded-xl p-4">
               <p className="text-green-300">
                 Thank you for registering! Your delegate ID card is ready below. 
@@ -248,12 +245,10 @@ function RegistrationSuccessContent() {
               </p>
             </div>
             
-            {/* ID Card */}
             <div 
               ref={idCardRef}
               className="bg-black/30 border border-amber-800/30 rounded-xl p-8 relative overflow-hidden"
             >
-              {/* Watermark */}
               <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
                 <Image 
                   src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" 
@@ -268,6 +263,11 @@ function RegistrationSuccessContent() {
                   <div>
                     <h2 className="text-2xl font-bold text-amber-300">KIMUN 2025</h2>
                     <p className="text-gray-400">Delegate Digital ID</p>
+                    {isOnlineCommittee && (
+                      <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full mt-1">
+                        Online Committee
+                      </span>
+                    )}
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-gray-400">Registration ID</p>
@@ -275,7 +275,7 @@ function RegistrationSuccessContent() {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className={`grid ${isOnlineCommittee ? 'grid-cols-2' : 'grid-cols-3'} gap-4 mb-6`}>
                   <InfoBox title="Delegate Name" value={registration.delegateInfo.delegate1.name} />
                   <InfoBox title="Committee" value={
                     <span className="flex items-center gap-2">
@@ -291,8 +291,14 @@ function RegistrationSuccessContent() {
                         {portfolio.country}
                     </span>
                   } />
-                  <InfoBox title="Venue" value="TBA" />
-                  <InfoBox title="Gate Zone" value={`Zone ${zone}`} />
+                  
+                  {!isOnlineCommittee && (
+                    <>
+                      <InfoBox title="Venue" value="TBA" />
+                      <InfoBox title="Gate Zone" value={`Zone ${zone}`} />
+                    </>
+                  )}
+                  
                   <InfoBox title="Valid Until" value="July 6, 2025" />
                 </div>
                 
@@ -308,7 +314,6 @@ function RegistrationSuccessContent() {
               </div>
             </div>
             
-            {/* Action Buttons */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Button
                 onClick={downloadIDCard}
@@ -326,7 +331,6 @@ function RegistrationSuccessContent() {
               </Button>
             </div>
             
-            {/* Social Links */}
             <div className="pt-6 border-t border-amber-800/30">
               <h3 className="text-lg font-semibold text-amber-300 mb-3 flex items-center gap-2">
                 <Sparkles className="text-amber-400" /> Connect With Us
@@ -392,7 +396,6 @@ const Button = ({ children, className = '', ...props }) => (
   </button>
 )
 
-// Main page component with Suspense boundary
 export default function RegistrationSuccessPage() {
   return (
     <Suspense fallback={<LoadingSpinner />}>

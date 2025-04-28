@@ -796,4 +796,8 @@ export default function DelegateDashboard() {
       <DelegateDashboardContent />
     </Suspense>
   )
+<<<<<<< Updated upstream
 }
+=======
+}
+>>>>>>> Stashed changes

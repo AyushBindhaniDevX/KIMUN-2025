@@ -39,6 +39,30 @@ type Portfolio = {
   minExperience: number
 }
 
+const sponsors = [
+  {
+    name: "Gold Sponsor",
+    tier: "gold",
+    logos: [
+      { url: "https://placehold.co/300x150/FFD700/000000?text=Gold+Sponsor", alt: "Gold Sponsor 1" }
+    ]
+  },
+  {
+    name: "Silver Sponsors",
+    tier: "silver",
+    logos: [
+      { url: "https://placehold.co/250x100/C0C0C0/000000?text=Silver+Sponsor", alt: "Silver Sponsor 1" }
+    ]
+  },
+  {
+    name: "Bronze Sponsors",
+    tier: "bronze",
+    logos: [
+      { url: "https://placehold.co/200x80/CD7F32/000000?text=Bronze+Sponsor", alt: "Bronze Sponsor 1" }
+    ]
+  }
+]
+
 export default function Home() {
   const { scrollY } = useScroll()
   const y1 = useTransform(scrollY, [0, 500], [0, 100])
@@ -359,8 +383,87 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Sponsors Section */}
+      <section className="py-16 bg-gradient-to-b from-black to-amber-950/10 relative overflow-hidden">
+        <div className="container mx-auto px-4 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="mb-12 text-center"
+          >
+            <span className="text-amber-500 text-lg font-medium">Our Valued Partners</span>
+            <h2 className="text-4xl md:text-5xl font-bold text-white mt-2">Sponsors & Partners</h2>
+            <p className="text-xl text-amber-100/80 mt-4 max-w-2xl mx-auto">
+              We're proud to collaborate with these outstanding organizations
+            </p>
+          </motion.div>
+
+          <div className="space-y-16">
+            {sponsors.map((sponsor, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="text-center"
+              >
+                <h3 className={`text-xl font-bold mb-6 ${
+                  sponsor.tier === 'gold' ? 'text-amber-400' :
+                  sponsor.tier === 'silver' ? 'text-gray-300' :
+                  sponsor.tier === 'bronze' ? 'text-amber-700' : 'text-purple-400'
+                }`}>
+                  {sponsor.name}
+                </h3>
+                <div className={`flex flex-wrap justify-center items-center gap-8 ${
+                  sponsor.tier === 'community' ? 'gap-6' : 'gap-12'
+                }`}>
+                  {sponsor.logos.map((logo, logoIndex) => (
+                    <motion.div
+                      key={logoIndex}
+                      whileHover={{ scale: 1.05 }}
+                      transition={{ duration: 0.2 }}
+                      className={`relative ${
+                        sponsor.tier === 'gold' ? 'h-24' :
+                        sponsor.tier === 'silver' ? 'h-20' :
+                        sponsor.tier === 'bronze' ? 'h-16' : 'h-14'
+                      }`}
+                    >
+                      <Image
+                        src={logo.url}
+                        alt={logo.alt}
+                        width={sponsor.tier === 'gold' ? 300 : sponsor.tier === 'silver' ? 250 : sponsor.tier === 'bronze' ? 200 : 180}
+                        height={sponsor.tier === 'gold' ? 150 : sponsor.tier === 'silver' ? 100 : sponsor.tier === 'bronze' ? 80 : 60}
+                        className="object-contain w-full h-full"
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.8 }}
+            viewport={{ once: true }}
+            className="mt-16 text-center"
+          >
+            <h3 className="text-xl text-amber-300 mb-4">Interested in becoming a sponsor?</h3>
+            <Link href="mailto:info@kimun.in.net" passHref>
+              <Button variant="outline" className="border-amber-500 text-amber-300 hover:bg-amber-900/30 font-bold px-8 py-6 text-lg rounded-full">
+                Contact Us
+              </Button>
+            </Link>
+          </motion.div>
+        </div>
+      </section>
+
       {/* Committees Preview */}
-      <section ref={ref2} className="py-20 bg-gradient-to-b from-black to-amber-950/20 relative overflow-hidden">
+      <section ref={ref2} className="py-20 bg-gradient-to-b from-amber-950/20 to-amber-950/20 relative overflow-hidden">
         <div className="container mx-auto px-4 relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 50 }}
