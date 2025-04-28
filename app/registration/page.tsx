@@ -63,6 +63,7 @@ type DelegateInfo = {
   }
 }
 
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 =======
@@ -84,18 +85,21 @@ type AdditionalServices = {
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
+=======
+// Registration phases configuration
+>>>>>>> parent of 0021dfb (Update page.tsx)
 const REGISTRATION_PHASES = [
   {
     name: "Pre Early Bird",
     startDate: new Date('2025-04-14'),
     endDate: new Date('2025-04-19'),
-    singlePrice: 1,
+    singlePrice: 1299,
     doublePrice: 2499,
     isActive: true
   },
   {
     name: "Early Bird",
-    startDate: new Date('2025-04-20'),
+    startDate: new Date('2025-04-19'),
     endDate: new Date('2025-05-10'),
     singlePrice: 1299,
     doublePrice: 2499,
@@ -103,7 +107,7 @@ const REGISTRATION_PHASES = [
   },
   {
     name: "Phase 1",
-    startDate: new Date('2025-05-15'),
+    startDate: new Date('2025-05-10'),
     endDate: new Date('2025-05-29'),
     singlePrice: 1299,
     doublePrice: 2499,
@@ -111,7 +115,7 @@ const REGISTRATION_PHASES = [
   },
   {
     name: "Phase 2",
-    startDate: new Date('2025-05-30'),
+    startDate: new Date('2025-05-29'),
     endDate: new Date('2025-06-14'),
     singlePrice: 1299,
     doublePrice: 2499,
@@ -127,6 +131,7 @@ const REGISTRATION_PHASES = [
   }
 ]
 
+// Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -140,6 +145,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 const db = getDatabase(app)
 
+<<<<<<< HEAD
 const VALID_COUPONS = {
   "BGUDELEGATION": 99,
   "RAVENSHAWDELEGATION": 99,
@@ -176,6 +182,8 @@ const BUS_ROUTES = [
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
+=======
+>>>>>>> parent of 0021dfb (Update page.tsx)
 export default function RegistrationPage() {
   const router = useRouter()
   const [step, setStep] = useState(0)
@@ -199,6 +207,7 @@ export default function RegistrationPage() {
   const [isDoubleDel, setIsDoubleDel] = useState(false)
   const [currentPhase, setCurrentPhase] = useState<typeof REGISTRATION_PHASES[0] | null>(null)
   const [registrationOpen, setRegistrationOpen] = useState(false)
+<<<<<<< HEAD
   const [couponCode, setCouponCode] = useState('')
   const [discount, setDiscount] = useState(0)
   const [couponApplied, setCouponApplied] = useState(false)
@@ -269,6 +278,8 @@ export default function RegistrationPage() {
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
+=======
+>>>>>>> parent of 0021dfb (Update page.tsx)
 
   useEffect(() => {
     const checkRegistrationPhase = () => {
@@ -313,6 +324,7 @@ export default function RegistrationPage() {
               }))
             }
             
+            // Mark UNSC and UNODC as online committees
             if (committee.name === 'United Nations Security Council' || 
                 committee.name === 'United Nations Office on Drugs and Crime') {
               return {
@@ -320,7 +332,7 @@ export default function RegistrationPage() {
                 isOnline: true,
                 portfolios: committee.portfolios.map(p => ({
                   ...p,
-                  isDoubleDelAllowed: false
+                  isDoubleDelAllowed: false // Force single delegate for online committees
                 }))
               }
             }
@@ -392,33 +404,20 @@ export default function RegistrationPage() {
     return baseValidation
   }
 
-  const applyCoupon = () => {
-    if (couponCode.trim() === '') {
-      setCouponError('Please enter a coupon code')
-      return
-    }
-
-    const upperCaseCoupon = couponCode.toUpperCase()
-    if (VALID_COUPONS.hasOwnProperty(upperCaseCoupon)) {
-      setDiscount(VALID_COUPONS[upperCaseCoupon as keyof typeof VALID_COUPONS])
-      setCouponApplied(true)
-      setCouponError('')
-    } else {
-      setCouponError('Invalid coupon code')
-      setDiscount(0)
-      setCouponApplied(false)
-    }
-  }
-
   const calculatePrice = () => {
     if (!currentPhase) return 0
     
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+=======
+    // Special pricing for online committees
+>>>>>>> parent of 0021dfb (Update page.tsx)
     if (selectedCommittee?.isOnline) {
-      return 199 - discount
+      return 199
     }
     
+<<<<<<< HEAD
     return (isDoubleDel ? currentPhase.doublePrice : currentPhase.singlePrice) - discount
 =======
 =======
@@ -443,6 +442,9 @@ export default function RegistrationPage() {
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
+=======
+    return isDoubleDel ? currentPhase.doublePrice : currentPhase.singlePrice
+>>>>>>> parent of 0021dfb (Update page.tsx)
   }
 
   const getAverageExperience = () => {
@@ -468,6 +470,7 @@ export default function RegistrationPage() {
         isDoubleDel,
         averageExperience: getAverageExperience(),
         registrationPhase: currentPhase?.name || 'Unknown',
+<<<<<<< HEAD
         isOnlineCommittee: selectedCommittee.isOnline || false,
         couponCode: couponApplied ? couponCode : null,
 <<<<<<< Updated upstream
@@ -481,6 +484,9 @@ export default function RegistrationPage() {
         discountApplied: couponApplied ? discount : 0,
         additionalServices
 >>>>>>> Stashed changes
+=======
+        isOnlineCommittee: selectedCommittee.isOnline || false
+>>>>>>> parent of 0021dfb (Update page.tsx)
       })
 
       const portfolioRef = ref(db, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
@@ -494,6 +500,7 @@ export default function RegistrationPage() {
         portfolio: selectedPortfolio?.country,
         amount: calculatePrice(),
         phase: currentPhase?.name || 'Unknown',
+<<<<<<< HEAD
         isOnline: selectedCommittee.isOnline || false,
         couponCode: couponApplied ? couponCode : null,
 <<<<<<< Updated upstream
@@ -507,6 +514,9 @@ export default function RegistrationPage() {
         discount: couponApplied ? discount : 0,
         additionalServices
 >>>>>>> Stashed changes
+=======
+        isOnline: selectedCommittee.isOnline || false
+>>>>>>> parent of 0021dfb (Update page.tsx)
       };
 
       await fetch('/api/sendEmail', {
@@ -669,6 +679,7 @@ export default function RegistrationPage() {
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
       {showConfetti && <Confetti recycle={false} numberOfPieces={400} />}
 
+      {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-md border-b border-amber-800/20">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center">
@@ -711,6 +722,7 @@ export default function RegistrationPage() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-black/50 backdrop-blur-sm border border-amber-800/30 rounded-2xl shadow-lg p-8"
         >
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 =======
@@ -799,6 +811,9 @@ export default function RegistrationPage() {
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
+=======
+          {/* Step 1: Delegation Type */}
+>>>>>>> parent of 0021dfb (Update page.tsx)
           {step === 1 && (
             <motion.div
               key="step1"
@@ -844,7 +859,7 @@ export default function RegistrationPage() {
                       onChange={() => setIsDoubleDel(true)}
                       className="form-radio h-5 w-5 text-amber-500"
                       required
-                      disabled={selectedCommittee?.isOnline}
+                      disabled={selectedCommittee?.isOnline} // Disable for online committees
                     />
                     <div>
                       <h3 className="text-xl font-semibold text-white">Double Delegation</h3>
@@ -873,6 +888,7 @@ export default function RegistrationPage() {
             </motion.div>
           )}
 
+          {/* Step 2: Delegate Details */}
           {step === 2 && (
             <motion.div
               key="step2"
@@ -886,6 +902,7 @@ export default function RegistrationPage() {
               </h1>
               
               <div className="space-y-8">
+                {/* Primary Delegate */}
                 <div className="space-y-4">
                   <h3 className="text-xl font-semibold text-white">Primary Delegate</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -914,6 +931,7 @@ export default function RegistrationPage() {
                   </div>
                 </div>
 
+                {/* Secondary Delegate */}
                 {isDoubleDel && !selectedCommittee?.isOnline && (
                   <div className="space-y-4">
                     <h3 className="text-xl font-semibold text-white">Secondary Delegate</h3>
@@ -964,6 +982,7 @@ export default function RegistrationPage() {
             </motion.div>
           )}
 
+          {/* Step 3: Committee Selection */}
           {step === 3 && (
             <motion.div
               key="step3"
@@ -988,7 +1007,7 @@ export default function RegistrationPage() {
                     onClick={() => {
                       setSelectedCommittee(committee)
                       if (committee.isOnline) {
-                        setIsDoubleDel(false)
+                        setIsDoubleDel(false) // Force single delegate for online committees
                       }
                     }}
                   >
@@ -1034,6 +1053,7 @@ export default function RegistrationPage() {
             </motion.div>
           )}
 
+          {/* Step 4: Portfolio Selection */}
           {step === 4 && (
             <motion.div
               key="step4"
@@ -1111,6 +1131,7 @@ export default function RegistrationPage() {
             </motion.div>
           )}
 
+          {/* Step 5: Confirmation */}
           {step === 5 && (
             <motion.div
               key="step5"
@@ -1126,45 +1147,10 @@ export default function RegistrationPage() {
 <<<<<<< Updated upstream
               
               <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6 space-y-4">
-                {/* Coupon Code Section */}
-                <div className="bg-black/30 border border-amber-800/30 rounded-xl p-4 mb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Enter coupon code"
-                      className="flex-1 bg-black/20 border border-amber-800/30 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
-                      disabled={couponApplied}
-                    />
-                    <Button
-                      onClick={applyCoupon}
-                      disabled={couponApplied}
-                      className="bg-amber-600 hover:bg-amber-700 text-black"
-                    >
-                      {couponApplied ? 'Applied' : 'Apply'}
-                    </Button>
-                  </div>
-                  {couponError && <p className="text-red-400 text-sm">{couponError}</p>}
-                  {couponApplied && (
-                    <p className="text-green-400 text-sm">
-                      Coupon applied! ₹{discount} discount will be applied to your total.
-                    </p>
-                  )}
-                </div>
-
                 <div className="flex justify-between items-center">
                   <h3 className="text-xl font-semibold text-white">Total Fee:</h3>
                   <div className="text-right">
-                    {discount > 0 && (
-                      <div className="text-sm text-gray-400 line-through">
-                        ₹{selectedCommittee?.isOnline ? 199 : (isDoubleDel ? currentPhase?.doublePrice : currentPhase?.singlePrice)}
-                      </div>
-                    )}
                     <p className="text-2xl font-bold text-amber-300">₹{calculatePrice()}</p>
-                    {discount > 0 && (
-                      <p className="text-xs text-green-500">You saved ₹{discount}</p>
-                    )}
                     <p className="text-xs text-amber-500">
                       {selectedCommittee?.isOnline ? 'Online Committee' : currentPhase?.name + ' Pricing'}
                     </p>
@@ -1179,83 +1165,96 @@ export default function RegistrationPage() {
                   </div>
                 )}
 
-<div className="space-y-4">
-                <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Primary Delegate:</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-gray-400">Name</p>
-                    <p className="text-white">{delegateInfo.delegate1.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Email</p>
-                    <p className="text-white">{delegateInfo.delegate1.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Phone</p>
-                    <p className="text-white">{delegateInfo.delegate1.phone}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Experience</p>
-                    <p className="text-white">{delegateInfo.delegate1.experience || '0'} MUNs</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Institution</p>
-                    <p className="text-white">{delegateInfo.delegate1.institution}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Year</p>
-                    <p className="text-white">{delegateInfo.delegate1.year}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Course</p>
-                    <p className="text-white">{delegateInfo.delegate1.course}</p>
-                  </div>
-                </div>
-              </div>
-              
-              {isDoubleDel && delegateInfo.delegate2 && (
                 <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Secondary Delegate:</h4>
+                  <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Primary Delegate:</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-gray-400">Name</p>
-                      <p className="text-white">{delegateInfo.delegate2.name}</p>
+                      <p className="text-white">{delegateInfo.delegate1.name}</p>
                     </div>
                     <div>
                       <p className="text-gray-400">Email</p>
-                      <p className="text-white">{delegateInfo.delegate2.email}</p>
+                      <p className="text-white">{delegateInfo.delegate1.email}</p>
                     </div>
                     <div>
                       <p className="text-gray-400">Phone</p>
-                      <p className="text-white">{delegateInfo.delegate2.phone}</p>
+                      <p className="text-white">{delegateInfo.delegate1.phone}</p>
                     </div>
                     <div>
                       <p className="text-gray-400">Experience</p>
-                      <p className="text-white">{delegateInfo.delegate2.experience || '0'} MUNs</p>
+                      <p className="text-white">{delegateInfo.delegate1.experience || '0'} MUNs</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Institution</p>
+                      <p className="text-white">{delegateInfo.delegate1.institution}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Year</p>
+                      <p className="text-white">{delegateInfo.delegate1.year}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Course</p>
+                      <p className="text-white">{delegateInfo.delegate1.course}</p>
                     </div>
                   </div>
                 </div>
-              )}
+                
+                {isDoubleDel && delegateInfo.delegate2 && (
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Secondary Delegate:</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-gray-400">Name</p>
+                        <p className="text-white">{delegateInfo.delegate2.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Email</p>
+                        <p className="text-white">{delegateInfo.delegate2.email}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Phone</p>
+                        <p className="text-white">{delegateInfo.delegate2.phone}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Experience</p>
+                        <p className="text-white">{delegateInfo.delegate2.experience || '0'} MUNs</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-              {isDoubleDel && (
-                <div className="pt-4">
-                  <p className="text-gray-400">Average Experience</p>
-                  <p className="text-white">{getAverageExperience()} MUNs</p>
+                {isDoubleDel && (
+                  <div className="pt-4">
+                    <p className="text-gray-400">Average Experience</p>
+                    <p className="text-white">{getAverageExperience()} MUNs</p>
+                  </div>
+                )}
+
+                <div className="pt-4 border-t border-amber-800/30">
+                  <p className="text-gray-400">Committee</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-white">{selectedCommittee?.name}</p>
+                    {selectedCommittee?.isOnline && (
+                      <span className="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full text-xs">
+                        Online
+                      </span>
+                    )}
+                  </div>
                 </div>
-              )}
 
-              <div className="pt-4 border-t border-amber-800/30">
-                <p className="text-gray-400">Committee</p>
-                <div className="flex items-center gap-2">
-                  <p className="text-white">{selectedCommittee?.name}</p>
-                  {selectedCommittee?.isOnline && (
-                    <span className="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full text-xs">
-                      Online
-                    </span>
-                  )}
+                <div>
+                  <p className="text-gray-400">Portfolio</p>
+                  <div className="flex items-center gap-2">
+                    {selectedPortfolio?.countryCode && Flags[selectedPortfolio.countryCode] && React.createElement(
+                      Flags[selectedPortfolio.countryCode], 
+                      { className: 'w-6 h-6 rounded-sm' }
+                    )}
+                    <p className="text-white">{selectedPortfolio?.country}</p>
+                  </div>
                 </div>
               </div>
 
+<<<<<<< HEAD
               <div>
                 <p className="text-gray-400">Portfolio</p>
                 <div className="flex items-center gap-2">
@@ -1342,6 +1341,8 @@ export default function RegistrationPage() {
                 </div>
               </div>
 
+=======
+>>>>>>> parent of 0021dfb (Update page.tsx)
               <div className="flex gap-4">
                 <Button
                   onClick={() => setStep(4)}
@@ -1351,6 +1352,7 @@ export default function RegistrationPage() {
                   Back
                 </Button>
                 <Button
+<<<<<<< HEAD
                   onClick={() => setStep(6)}
                   className="flex-1 bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
 <<<<<<< Updated upstream
@@ -1581,32 +1583,27 @@ export default function RegistrationPage() {
                   <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Button>
 >>>>>>> Stashed changes
+=======
+                  onClick={initiatePayment}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 rounded-xl text-lg group"
+                >
+                  Pay & Confirm Registration
+                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </Button>
+>>>>>>> parent of 0021dfb (Update page.tsx)
               </div>
-            </div>
-
-            <div className="flex gap-4">
-              <Button
-                onClick={() => setStep(4)}
-                variant="outline"
-                className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
-              >
-                Back
-              </Button>
-              <Button
-                onClick={initiatePayment}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 rounded-xl text-lg group"
-              >
-                Pay & Confirm Registration
-                <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </motion.div>
+            </motion.div>
+          )}
+        </motion.div>
+      </div>
     </div>
+<<<<<<< HEAD
 <<<<<<< Updated upstream
   </div>
 )
+=======
+  )
+>>>>>>> parent of 0021dfb (Update page.tsx)
 }
 =======
   )
