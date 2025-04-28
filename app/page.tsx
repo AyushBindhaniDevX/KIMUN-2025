@@ -44,21 +44,14 @@ const sponsors = [
     name: "Gold Sponsor",
     tier: "gold",
     logos: [
-      { url: "https://placehold.co/300x150/FFD700/000000?text=Gold+Sponsor", alt: "Gold Sponsor 1" }
+      { url: "https://placehold.co/300x150/FFD700/000000?text=TBA", alt: "Gold Sponsor 1" }
     ]
   },
   {
     name: "Silver Sponsors",
     tier: "silver",
     logos: [
-      { url: "https://placehold.co/250x100/C0C0C0/000000?text=Silver+Sponsor", alt: "Silver Sponsor 1" }
-    ]
-  },
-  {
-    name: "Bronze Sponsors",
-    tier: "bronze",
-    logos: [
-      { url: "https://placehold.co/200x80/CD7F32/000000?text=Bronze+Sponsor", alt: "Bronze Sponsor 1" }
+      { url: "https://placehold.co/250x100/C0C0C0/000000?text=TBA", alt: "Silver Sponsor 1" }
     ]
   }
 ]
