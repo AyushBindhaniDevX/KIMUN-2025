@@ -16,21 +16,7 @@ import { Legend } from 'recharts';
 import emailjs from '@emailjs/browser';
 import dynamic from 'next/dynamic';
 
-const Html5QrcodeScanner = dynamic(
-  async () => {
-    const mod = await import('html5-qrcode');
-    return mod.Html5QrcodeScanner;
-  },
-  { ssr: false }
-);
 
-const Html5Qrcode = dynamic(
-  async () => {
-    const mod = await import('html5-qrcode');
-    return mod.Html5Qrcode;
-  },
-  { ssr: false }
-);
 
 
 // Updated Committee Type
@@ -155,39 +141,7 @@ export default function AdminDashboard() {
     emailjs.init(process.env.NEXT_PUBLIC_EMAILJS_USER_ID || '');
   }, []);
 
-  useEffect(() => {
-    if (!showScanner) return;
-  
-    const qrCodeScanner = new Html5Qrcode('qr-scanner');
-    const onScanSuccess = (decodedText: string) => {
-      setScanResult(decodedText);
-      setBarcodeInput(decodedText);
-      setShowScanner(false);
-      qrCodeScanner.stop();
-      handleCheckIn();
-    };
-  
-    const onScanFailure = (error: string) => {
-      console.error('QR Scan Error:', error);
-    };
-  
-    qrCodeScanner.start(
-      { facingMode: "environment" }, // camera settings
-      {
-        fps: 10,
-        qrbox: { width: 250, height: 250 }
-      },
-      onScanSuccess,
-      onScanFailure
-    );
-  
-    return () => {
-      qrCodeScanner.stop().catch(error => {
-        console.error("Failed to clear scanner.", error);
-      });
-    };
-  }, [showScanner]);
-  
+
   // Fetch all data with real-time updates
   useEffect(() => {
     if (!accessGranted) return;
@@ -1182,13 +1136,7 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   <div className="flex space-x-2">
-                    <Button 
-                      onClick={() => setShowScanner(!showScanner)}
-                      className="bg-amber-600 hover:bg-amber-700 text-white"
-                    >
-                      <QrCode className="mr-2 h-5 w-5" /> Scan QR
-                    </Button>
-                    <Button 
+                     <Button 
                       onClick={handleCheckIn} 
                       className="bg-amber-600 hover:bg-amber-700 text-white"
                     >
@@ -1196,17 +1144,6 @@ export default function AdminDashboard() {
                     </Button>
                   </div>
                 </div>
-
-{showScanner && (
-  <div className="mb-6 p-2 bg-gray-700 rounded-lg" style={{ width: 300, height: 300 }}>
-    <div id="qr-scanner" style={{ width: '100%', height: '100%' }}></div>
-    {scanResult && (
-      <p className="mt-2 text-amber-300">Scanned: {scanResult}</p>
-    )}
-  </div>
-)}
-
-
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold text-white">
                     {viewMode === 'all' && 'All Delegates'}
