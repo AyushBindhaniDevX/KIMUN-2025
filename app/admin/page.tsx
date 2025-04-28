@@ -7,12 +7,17 @@ import { Edit, Plus, X, Trash, ChartBar, Users, CheckCircle, Download, UserCheck
 import * as Flags from 'country-flag-icons/react/3x2';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, get, push, update, remove, onValue } from 'firebase/database';
+import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import Select from 'react-select';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { Legend } from 'recharts';
 import emailjs from '@emailjs/browser';
+import dynamic from 'next/dynamic';
+
+const QrReader = dynamic(() => import('react-qr-scanner'), { ssr: false })
+
 
 // Updated Committee Type
 type Committee = {
@@ -91,7 +96,9 @@ const countryOptions = Object.entries(Flags)
 
 export default function AdminDashboard() {
   const [accessGranted, setAccessGranted] = useState(false);
-  const [pinInput, setPinInput] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [committees, setCommittees] = useState<Committee[]>([]);
   const [delegates, setDelegates] = useState<Delegate[]>([]);
@@ -111,6 +118,8 @@ export default function AdminDashboard() {
   const [showBlacklistModal, setShowBlacklistModal] = useState(false);
   const [blacklistReason, setBlacklistReason] = useState('');
   const [currentDelegateToBlacklist, setCurrentDelegateToBlacklist] = useState<Delegate | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanResult, setScanResult] = useState('');
 
   // Initialize Firebase
   const firebaseConfig = {
@@ -125,7 +134,8 @@ export default function AdminDashboard() {
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
-
+  const auth = getAuth(app);
+ 
   // Initialize EmailJS
   useEffect(() => {
     emailjs.init(process.env.NEXT_PUBLIC_EMAILJS_USER_ID || '');
@@ -264,97 +274,108 @@ export default function AdminDashboard() {
     };
   }, [accessGranted]);
 
-  const handlePinSubmit = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pinInput === '515234') {
+    setLoginError('');
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
       setAccessGranted(true);
-    } else {
-      alert('Incorrect PIN');
-      setPinInput('');
+    } catch (error: any) {
+      console.error('Login error:', error);
+      setLoginError(error.message || 'Login failed. Please check your credentials.');
+    }
+  };
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setAccessGranted(false);
+      setEmail('');
+      setPassword('');
+    } catch (error) {
+      console.error('Logout error:', error);
     }
   };
 
-      // Email functions (modified slightly)
-      const sendWelcomeEmail = async (delegate: Delegate) => {
-        try {
-          const response = await fetch('/api/send-checkin', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              toEmail: delegate.email,
-              toName: delegate.name,
-              committeeName: committees.find(c => c.id === delegate.committeeId)?.name
-            }),
-          });
+  // Email functions
+  const sendWelcomeEmail = async (delegate: Delegate) => {
+    try {
+      const response = await fetch('/api/send-checkin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          toEmail: delegate.email,
+          toName: delegate.name,
+          committeeName: committees.find(c => c.id === delegate.committeeId)?.name
+        }),
+      });
+  
+      const data = await response.json();
       
-          const data = await response.json();
-          
-          if (!response.ok) {
-            throw new Error(data.error || 'Failed to send welcome email');
-          }
-          
-          console.log('Welcome email sent successfully');
-        } catch (error) {
-          console.error('Failed to send welcome email:', error);
-          throw error;
-        }
-      };
-
-
-      const sendDebarredEmail = async (delegate: Delegate, reason: string) => {
-        try {
-          const response = await fetch('/api/send-ban', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              toEmail: delegate.email,
-              toName: delegate.name,
-              reason: reason
-            }),
-          });
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send welcome email');
+      }
       
-          const data = await response.json();
-          
-          if (!response.ok) {
-            throw new Error(data.error || 'Failed to send debarred email');
-          }
-          
-          console.log('Debarred email sent successfully');
-        } catch (error) {
-          console.error('Failed to send debarred email:', error);
-          throw error;
-        }
-      };
+      console.log('Welcome email sent successfully');
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
+      throw error;
+    }
+  };
 
-      const blacklistDelegate = async (delegate: Delegate, reason: string) => {
-        try {
-          // Add to blacklist in database
-          const newBlacklisted = {
-            id: delegate.id,
-            name: delegate.name,
-            email: delegate.email,
-            reason: reason,
-            timestamp: Date.now()
-          };
-          
-          await push(ref(db, 'blacklisted'), newBlacklisted);
-          
-          // Send debarred email
-          await sendDebarredEmail(delegate, reason);
-          
-          alert('Delegate has been blacklisted and notified');
-          setShowBlacklistModal(false);
-          setBlacklistReason('');
-          setCurrentDelegateToBlacklist(null);
-        } catch (error) {
-          console.error('Error blacklisting delegate:', error);
-          alert(`Failed to blacklist delegate: ${error instanceof Error ? error.message : ''}`);
-        }
+  const sendDebarredEmail = async (delegate: Delegate, reason: string) => {
+    try {
+      const response = await fetch('/api/send-ban', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          toEmail: delegate.email,
+          toName: delegate.name,
+          reason: reason
+        }),
+      });
+  
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send debarred email');
+      }
+      
+      console.log('Debarred email sent successfully');
+    } catch (error) {
+      console.error('Failed to send debarred email:', error);
+      throw error;
+    }
+  };
+
+  const blacklistDelegate = async (delegate: Delegate, reason: string) => {
+    try {
+      // Add to blacklist in database
+      const newBlacklisted = {
+        id: delegate.id,
+        name: delegate.name,
+        email: delegate.email,
+        reason: reason,
+        timestamp: Date.now()
       };
+      
+      await push(ref(db, 'blacklisted'), newBlacklisted);
+      
+      // Send debarred email
+      await sendDebarredEmail(delegate, reason);
+      
+      alert('Delegate has been blacklisted and notified');
+      setShowBlacklistModal(false);
+      setBlacklistReason('');
+      setCurrentDelegateToBlacklist(null);
+    } catch (error) {
+      console.error('Error blacklisting delegate:', error);
+      alert(`Failed to blacklist delegate: ${error instanceof Error ? error.message : ''}`);
+    }
+  };
 
   const handleCheckIn = async () => {
     if (!barcodeInput) return;
@@ -393,6 +414,20 @@ export default function AdminDashboard() {
       alert(`Check-in failed! ${error instanceof Error ? error.message : ''}`);
     }
   };
+
+  const handleScan = (data: string | null) => {
+    if (data) {
+      setScanResult(data);
+      setBarcodeInput(data);
+      setShowScanner(false);
+      handleCheckIn();
+    }
+  };
+
+  const handleScanError = (err: any) => {
+    console.error('QR Scan Error:', err);
+  };
+
   const openCommitteeModal = (committee: Committee | null) => {
     setEditingCommittee(committee || {
       id: '',
@@ -455,7 +490,7 @@ export default function AdminDashboard() {
   const checkedInDelegates = delegates.filter(d => d.isCheckedIn).length;
   const singleDelegates = delegates.filter(d => !d.isDoubleDel).length;
   const doubleDelegates = delegates.filter(d => d.isDoubleDel).length;
-  const amountReceived = (singleDelegates * 1200) + (doubleDelegates * 2400);
+  const amountReceived = (singleDelegates * 1260.03) + (doubleDelegates * 1212.015);
   const portfoliosVacant = committees.reduce((acc, c) => acc + c.portfolios.filter(p => p.isVacant).length, 0);
   const portfoliosOccupied = committees.reduce((acc, c) => acc + c.portfolios.filter(p => !p.isVacant).length, 0);
 
@@ -465,8 +500,6 @@ export default function AdminDashboard() {
       currency: 'INR',
     }).format(amount);
   };
-
-
 
   const exportExcel = (data: any[], fileName: string) => {
     const worksheet = XLSX.utils.json_to_sheet(data);
@@ -654,28 +687,50 @@ export default function AdminDashboard() {
   if (!accessGranted) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full">
-          <h1 className="text-2xl font-bold text-orange-500 mb-6 text-center">Admin Access</h1>
-          <form onSubmit={handlePinSubmit} className="space-y-4">
+        <div className="bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full border border-amber-600">
+          <div className="text-center mb-6">
+            <Award className="mx-auto h-12 w-12 text-amber-500" />
+            <h1 className="text-2xl font-bold text-amber-500 mt-2">MUN Admin Portal</h1>
+          </div>
+          <form onSubmit={handleLogin} className="space-y-4">
+            {loginError && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+                {loginError}
+              </div>
+            )}
             <div>
-              <label htmlFor="pin" className="block text-sm font-medium text-gray-300 mb-1">
-                Enter Access PIN
+              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                placeholder="admin@example.com"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
+                Password
               </label>
               <input
                 type="password"
-                id="pin"
-                value={pinInput}
-                onChange={(e) => setPinInput(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                placeholder="Enter PIN"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                placeholder="Enter password"
                 required
               />
             </div>
             <Button
               type="submit"
-              className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-md"
+              className="w-full bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-md"
             >
-              Submit
+              Login
             </Button>
           </form>
         </div>
@@ -687,8 +742,8 @@ export default function AdminDashboard() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-900">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-orange-400">Loading dashboard...</p>
+          <div className="w-16 h-16 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-amber-400">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -697,12 +752,12 @@ export default function AdminDashboard() {
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="text-center p-6 bg-gray-800 rounded-lg max-w-md">
-          <h2 className="text-xl font-bold text-orange-500 mb-2">Error</h2>
+        <div className="text-center p-6 bg-gray-800 rounded-lg max-w-md border border-amber-600">
+          <h2 className="text-xl font-bold text-amber-500 mb-2">Error</h2>
           <p className="text-gray-300 mb-4">{error}</p>
           <Button 
             onClick={() => window.location.reload()} 
-            className="bg-orange-600 hover:bg-orange-700 text-white"
+            className="bg-amber-600 hover:bg-amber-700 text-white"
           >
             Try Again
           </Button>
@@ -712,58 +767,55 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 flex">
+    <div className="min-h-screen bg-gray-900 text-gray-100 flex">
       {/* Sidebar */}
-      <div className="w-64 bg-gray-800 text-white fixed h-full">
+      <div className="w-64 bg-gray-800 text-white fixed h-full border-r border-amber-700">
         <div className="p-4 border-b border-gray-700">
           <h1 className="text-xl font-bold flex items-center">
-            <Award className="mr-2 text-orange-500" /> MUN Admin
+            <Award className="mr-2 text-amber-500" /> MUN Admin
           </h1>
         </div>
         <nav className="p-4 space-y-2">
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
           >
             <ChartBar className="mr-3" /> Dashboard
           </button>
           <button
             onClick={() => setActiveTab('delegates')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'delegates' ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'delegates' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
           >
             <UserCheck className="mr-3" /> Delegates
           </button>
           <button
             onClick={() => setActiveTab('committees')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'committees' ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'committees' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
           >
             <Users className="mr-3" /> Committees
           </button>
           <button
             onClick={() => setActiveTab('eb')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'eb' ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'eb' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
           >
             <Briefcase className="mr-3" /> Executive Board
           </button>
           <button
             onClick={() => setActiveTab('resources')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'resources' ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'resources' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
           >
             <BookOpen className="mr-3" /> Resources
           </button>
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
           >
             <Settings className="mr-3" /> Settings
           </button>
         </nav>
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-700">
           <button 
-            onClick={() => {
-              setAccessGranted(false);
-              setPinInput('');
-            }}
+            onClick={handleLogout}
             className="flex items-center w-full p-3 rounded-lg text-gray-300 hover:bg-gray-700 transition-colors"
           >
             <LogOut className="mr-3" /> Logout
@@ -774,9 +826,9 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <div className="flex-1 ml-64">
         {/* Header */}
-        <header className="bg-white shadow-sm p-4">
+        <header className="bg-gray-800 shadow-sm p-4 border-b border-amber-700">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-800 capitalize">
+            <h2 className="text-xl font-semibold text-amber-400 capitalize">
               {activeTab === 'dashboard' && 'Dashboard'}
               {activeTab === 'delegates' && 'Delegates Management'}
               {activeTab === 'committees' && 'Committees Management'}
@@ -789,7 +841,7 @@ export default function AdminDashboard() {
                 <input
                   type="text"
                   placeholder="Search..."
-                  className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-white"
                 />
                 <svg
                   className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
@@ -805,8 +857,8 @@ export default function AdminDashboard() {
                   />
                 </svg>
               </div>
-              <div className="h-10 w-10 rounded-full bg-orange-500 flex items-center justify-center text-white font-semibold">
-                AD
+              <div className="h-10 w-10 rounded-full bg-amber-600 flex items-center justify-center text-white font-semibold">
+                {email.charAt(0).toUpperCase()}
               </div>
             </div>
           </div>
@@ -819,47 +871,47 @@ export default function AdminDashboard() {
             <div className="space-y-6">
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
                   <div className="flex items-center space-x-4">
-                    <div className="p-3 rounded-full bg-orange-100 text-orange-600">
+                    <div className="p-3 rounded-full bg-amber-100 text-amber-600">
                       <User className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Total Delegates</p>
-                      <p className="text-2xl font-bold">{totalDelegates}</p>
+                      <p className="text-sm text-gray-300">Total Delegates</p>
+                      <p className="text-2xl font-bold text-white">{totalDelegates}</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-green-700">
                   <div className="flex items-center space-x-4">
                     <div className="p-3 rounded-full bg-green-100 text-green-600">
                       <CheckCircle className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Checked In</p>
-                      <p className="text-2xl font-bold">{checkedInDelegates}</p>
+                      <p className="text-sm text-gray-300">Checked In</p>
+                      <p className="text-2xl font-bold text-white">{checkedInDelegates}</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-blue-700">
                   <div className="flex items-center space-x-4">
                     <div className="p-3 rounded-full bg-blue-100 text-blue-600">
                       <Coins className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Amount Received</p>
-                      <p className="text-2xl font-bold">{formatCurrency(amountReceived)}</p>
+                      <p className="text-sm text-gray-300">Amount Received</p>
+                      <p className="text-2xl font-bold text-white">{formatCurrency(amountReceived)}</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-purple-700">
                   <div className="flex items-center space-x-4">
                     <div className="p-3 rounded-full bg-purple-100 text-purple-600">
                       <Users className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Committees</p>
-                      <p className="text-2xl font-bold">{committees.length}</p>
+                      <p className="text-sm text-gray-300">Committees</p>
+                      <p className="text-2xl font-bold text-white">{committees.length}</p>
                     </div>
                   </div>
                 </div>
@@ -867,28 +919,43 @@ export default function AdminDashboard() {
 
               {/* Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <h3 className="text-lg font-semibold mb-4">Registrations by Committee</h3>
+                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
+                  <h3 className="text-lg font-semibold mb-4 text-white">Registrations by Committee</h3>
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={committees.map(c => ({
-                        name: c.name,
-                        registrations: delegates.filter(d => d.committeeId === c.id).length
-                      }))}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="name" stroke="#6b7280" />
-                        <YAxis stroke="#6b7280" />
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb', borderRadius: '0.5rem' }}
-                          itemStyle={{ color: '#1f2937' }}
+                      <BarChart 
+                        data={committees.map(c => ({
+                          name: c.name,
+                          registrations: delegates.filter(d => d.committeeId === c.id).length
+                        }))}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#4b5563" />
+                        <XAxis 
+                          dataKey="name" 
+                          stroke="#d1d5db"
+                          tick={{ fill: '#d1d5db' }}
                         />
-                        <Bar dataKey="registrations" fill="#f97316" radius={[4, 4, 0, 0]} />
-                      </BarChart>
+                        <YAxis 
+                          stroke="#d1d5db"
+                          tick={{ fill: '#d1d5db' }}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#1f2937', 
+                            borderColor: '#4b5563', 
+                            borderRadius: '0.5rem',
+                            color: '#f3f4f6'
+                          }}
+                          itemStyle={{ color: '#f3f4f6' }}
+                        />
+                        <Bar dataKey="registrations" fill="#d97706" radius={[4, 4, 0, 0]} />
+                        </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <h3 className="text-lg font-semibold mb-4">Portfolio Distribution</h3>
+                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
+                  <h3 className="text-lg font-semibold mb-4 text-white">Portfolio Distribution</h3>
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -905,14 +972,21 @@ export default function AdminDashboard() {
                           dataKey="value"
                           label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                         >
-                          <Cell fill="#ef4444" />
+                          <Cell fill="#b45309" />
                           <Cell fill="#10b981" />
                         </Pie>
                         <Tooltip 
-                          contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e5e7eb', borderRadius: '0.5rem' }}
+                          contentStyle={{ 
+                            backgroundColor: '#1f2937',
+                            borderColor: '#4b5563',
+                            borderRadius: '0.5rem',
+                            color: '#f3f4f6'
+                          }}
                           formatter={(value, name) => [value, name]}
                         />
-                        <Legend />
+                        <Legend 
+                          wrapperStyle={{ color: '#d1d5db' }}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -920,57 +994,57 @@ export default function AdminDashboard() {
               </div>
 
               {/* Recent Check-ins */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+              <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">Recent Check-ins</h3>
+                  <h3 className="text-lg font-semibold text-white">Recent Check-ins</h3>
                   <Button 
                     variant="outline" 
-                    className="border-orange-500 text-orange-500 hover:bg-orange-50"
+                    className="border-amber-500 text-amber-500 hover:bg-amber-900"
                     onClick={() => setActiveTab('delegates')}
                   >
                     View All
                   </Button>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-gray-700">
+                    <thead className="bg-gray-700">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Delegate</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Committee</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Portfolio</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Delegate</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Committee</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Portfolio</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Time</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-gray-800 divide-y divide-gray-700">
                       {delegates
                         .filter(d => d.isCheckedIn)
                         .sort((a, b) => (b.checkInTime || '').localeCompare(a.checkInTime || ''))
                         .slice(0, 5)
                         .map(delegate => (
-                          <tr key={delegate.id}>
+                          <tr key={delegate.id} className="hover:bg-gray-700">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-semibold">
+                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 font-semibold">
                                   {delegate.name.charAt(0)}
                                 </div>
                                 <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">{delegate.name}</div>
-                                  <div className="text-sm text-gray-500">{delegate.email}</div>
+                                  <div className="text-sm font-medium text-white">{delegate.name}</div>
+                                  <div className="text-sm text-gray-300">{delegate.email}</div>
                                 </div>
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
+                              <div className="text-sm text-white">
                                 {committees.find(c => c.id === delegate.committeeId)?.name || 'N/A'}
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
+                              <div className="text-sm text-white">
                                 {committees.find(c => c.id === delegate.committeeId)
                                   ?.portfolios.find(p => p.id === delegate.portfolioId)?.country || 'N/A'}
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                               {delegate.checkInTime ? new Date(delegate.checkInTime).toLocaleString() : 'N/A'}
                             </td>
                           </tr>
@@ -985,7 +1059,7 @@ export default function AdminDashboard() {
           {/* Delegates Tab */}
           {activeTab === 'delegates' && (
             <div className="space-y-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+              <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                   <div className="flex-1">
                     <Select
@@ -995,54 +1069,115 @@ export default function AdminDashboard() {
                       isClearable
                       className="react-select-container"
                       classNamePrefix="react-select"
+                      styles={{
+                        control: (base) => ({
+                          ...base,
+                          backgroundColor: '#1f2937',
+                          borderColor: '#4b5563',
+                          color: 'white'
+                        }),
+                        singleValue: (base) => ({
+                          ...base,
+                          color: 'white'
+                        }),
+                        menu: (base) => ({
+                          ...base,
+                          backgroundColor: '#1f2937',
+                          color: 'white'
+                        }),
+                        option: (base) => ({
+                          ...base,
+                          backgroundColor: '#1f2937',
+                          ':hover': {
+                            backgroundColor: '#374151'
+                          }
+                        })
+                      }}
                     />
                   </div>
                   <div className="flex space-x-2">
                     <Button
                       variant={viewMode === 'all' ? 'default' : 'outline'}
                       onClick={() => setViewMode('all')}
-                      className="border-gray-300"
+                      className="border-gray-600 text-white"
                     >
                       All
                     </Button>
                     <Button
                       variant={viewMode === 'checkedIn' ? 'default' : 'outline'}
                       onClick={() => setViewMode('checkedIn')}
-                      className="border-gray-300"
+                      className="border-gray-600 text-white"
                     >
                       Checked In
                     </Button>
                     <Button
                       variant={viewMode === 'notCheckedIn' ? 'default' : 'outline'}
                       onClick={() => setViewMode('notCheckedIn')}
-                      className="border-gray-300"
+                      className="border-gray-600 text-white"
                     >
                       Not Checked In
                     </Button>
                   </div>
                 </div>
 
-                <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6 p-4 bg-orange-50 rounded-lg">
+                <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6 p-4 bg-amber-900 rounded-lg">
                   <div className="flex-1">
                     <div className="relative">
-                      <QrCode className="absolute left-3 top-3 h-5 w-5 text-orange-500" />
+                      <QrCode className="absolute left-3 top-3 h-5 w-5 text-amber-500" />
                       <input
                         type="text"
                         placeholder="Scan Delegate ID/Phone/Email"
                         value={barcodeInput}
                         onChange={(e) => setBarcodeInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleCheckIn()}
-                        className="pl-10 pr-4 py-2 w-full border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        className="pl-10 pr-4 py-2 w-full bg-gray-700 border border-amber-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-white"
                       />
                     </div>
                   </div>
-                  <Button onClick={handleCheckIn} className="bg-orange-600 hover:bg-orange-700 text-white">
-                    <CheckCircle className="mr-2 h-5 w-5" /> Check In
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button 
+                      onClick={() => setShowScanner(!showScanner)}
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                    >
+                      <QrCode className="mr-2 h-5 w-5" /> Scan QR
+                    </Button>
+                    <Button 
+                      onClick={handleCheckIn} 
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                    >
+                      <CheckCircle className="mr-2 h-5 w-5" /> Check In
+                    </Button>
+                  </div>
                 </div>
 
+                {showScanner && (
+    <div
+      className="mb-6 p-2 bg-gray-700 rounded-lg"
+      style={{ width: 300, height: 300 }}
+    >
+      <QrReader
+        delay={300}                       // v2 prop
+        facingMode="environment"          // v2 prop
+        onError={(err) => console.error('QR error', err)}
+        onScan={(data: string | null) => {
+          if (data) {
+            setScanResult(data)
+            setBarcodeInput(data)
+            setShowScanner(false)
+            handleCheckIn()
+          }
+        }}
+        style={{ width: '100%', height: '100%' }}
+      />
+      {scanResult && (
+        <p className="mt-2 text-amber-300">Scanned: {scanResult}</p>
+      )}
+    </div>
+  )}
+
+
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">
+                  <h3 className="text-lg font-semibold text-white">
                     {viewMode === 'all' && 'All Delegates'}
                     {viewMode === 'checkedIn' && 'Checked In Delegates'}
                     {viewMode === 'notCheckedIn' && 'Not Checked In Delegates'}
@@ -1064,7 +1199,7 @@ export default function AdminDashboard() {
                         })),
                         'delegates'
                       )}
-                      className="border-green-500 text-green-600 hover:bg-green-50"
+                      className="border-green-500 text-green-400 hover:bg-green-900"
                     >
                       <Download className="mr-2 h-5 w-5" /> Excel
                     </Button>
@@ -1081,7 +1216,7 @@ export default function AdminDashboard() {
                         ['ID', 'Name', 'Committee', 'Portfolio', 'Checked In'],
                         'delegates'
                       )}
-                      className="border-red-500 text-red-600 hover:bg-red-50"
+                      className="border-red-500 text-red-400 hover:bg-red-900"
                     >
                       <Download className="mr-2 h-5 w-5" /> PDF
                     </Button>
@@ -1089,71 +1224,72 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-gray-700">
+                    <thead className="bg-gray-700">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Committee</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Portfolio</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Committee</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Portfolio</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredDelegates.length > 0 ? (
-    filteredDelegates.map(delegate => (
-      <tr key={delegate.id} className="hover:bg-gray-50">
-        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{delegate.id}</td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{delegate.name}</td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-          {committees.find(c => c.id === delegate.committeeId)?.name || 'N/A'}
-        </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-          {committees.find(c => c.id === delegate.committeeId)
-            ?.portfolios.find(p => p.id === delegate.portfolioId)?.country || 'N/A'}
-        </td>
-        <td className="px-6 py-4 whitespace-nowrap">
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-            delegate.isCheckedIn 
-              ? 'bg-green-100 text-green-800' 
-              : 'bg-red-100 text-red-800'
-          }`}>
-            {delegate.isCheckedIn ? 'Checked In' : 'Not Checked In'}
-          </span>
-        </td>
-        <td className="px-6 py-4 whitespace-nowrap">
-          <div className="flex space-x-2">
-            {!delegate.isCheckedIn && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setCurrentDelegateToBlacklist(delegate);
-                  setShowBlacklistModal(true);
-                }}
-                className="text-red-500 hover:text-red-700"
-              >
-                <Ban className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </td>
-      </tr>
-    ))
-  ) : (
-    <tr>
-      <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
-        No delegates found
-      </td>
-    </tr>
-  )}
-
+                    <tbody className="bg-gray-800 divide-y divide-gray-700">
+                      {filteredDelegates.length > 0 ? (
+                        filteredDelegates.map(delegate => (
+                          <tr key={delegate.id} className="hover:bg-gray-700">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{delegate.id}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{delegate.name}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                              {committees.find(c => c.id === delegate.committeeId)?.name || 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                              {committees.find(c => c.id === delegate.committeeId)
+                                ?.portfolios.find(p => p.id === delegate.portfolioId)?.country || 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                delegate.isCheckedIn 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {delegate.isCheckedIn ? 'Checked In' : 'Not Checked In'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex space-x-2">
+                                {!delegate.isCheckedIn && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setCurrentDelegateToBlacklist(delegate);
+                                      setShowBlacklistModal(true);
+                                    }}
+                                    className="text-red-400 hover:text-red-300"
+                                  >
+                                    <Ban className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-300">
+                            No delegates found
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
             </div>
           )}
+
 
           {/* Committees Tab */}
           {activeTab === 'committees' && (
