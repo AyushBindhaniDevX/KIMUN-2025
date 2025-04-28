@@ -1,21 +1,15 @@
 'use client'
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import Confetti from 'react-confetti'
-import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle, ChevronRight, Calendar, Clock, Lock, Unlock, Hotel, Bus,X } from 'lucide-react'
+import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle, ChevronRight, Calendar, Clock, Lock, Unlock } from 'lucide-react'
 import Flags from 'country-flag-icons/react/3x2'
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, push, update } from 'firebase/database'
 import Image from 'next/image'
 import Link from "next/link"
-
-declare global {
-  interface Window {
-    mappls: any;
-  }
-}
 
 type Committee = {
   id: string
@@ -52,18 +46,6 @@ type DelegateInfo = {
     year: string
     course: string
     experience: string
-  }
-}
-
-type AdditionalServices = {
-  accommodation: {
-    day1: boolean
-    day2: boolean
-  }
-  travelBus: {
-    day1: boolean
-    day2: boolean
-    route?: string
   }
 }
 
@@ -126,47 +108,12 @@ const db = getDatabase(app)
 const VALID_COUPONS = {
   "BGUDELEGATION": 99,
   "RAVENSHAWDELEGATION": 99,
-  "SOADELEGATION": 99,
-  "AYUSH":1330
+  "SOADELEGATION": 99
 }
-
-const BUS_ROUTES = [
-  {
-    id: 'KIIT SQUARE',
-    name: 'KIIT SQUARE',
-    stops: [
-    ]
-  },
-  {
-    id: 'JAYDEV VIHAR ',
-    name: 'JAYDEV VIHAR',
-    stops: [
-    ]
-  },
-  {
-    id: 'VANI VIHAR',
-    name: 'VANI VIHAR',
-    stops: [
-    ]
-  },
-  {
-    id: 'FIRE STATION',
-    name: 'FIRE STATION',
-    stops: [
-    ]
-  },
-  {
-    id: 'BARMUNDA',
-    name: 'BARMUNDA',
-    stops: [
-    ]
-  }
-  
-]
 
 export default function RegistrationPage() {
   const router = useRouter()
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(1)
   const [showConfetti, setShowConfetti] = useState(false)
   const [committees, setCommittees] = useState<Committee[]>([])
   const [loading, setLoading] = useState(true)
@@ -191,22 +138,6 @@ export default function RegistrationPage() {
   const [discount, setDiscount] = useState(0)
   const [couponApplied, setCouponApplied] = useState(false)
   const [couponError, setCouponError] = useState('')
-  const [additionalServices, setAdditionalServices] = useState<AdditionalServices>({
-    accommodation: {
-      day1: false,
-      day2: false
-    },
-    travelBus: {
-      day1: false,
-      day2: false,
-      route: ''
-    }
-  })
-  const [showMap, setShowMap] = useState(false)
-
-  const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstance = useRef<any>(null)
-
 
   useEffect(() => {
     const checkRegistrationPhase = () => {
@@ -286,26 +217,6 @@ export default function RegistrationPage() {
     }))
   }
 
-  const handleServiceChange = (service: 'accommodation' | 'travelBus', day: 'day1' | 'day2', value: boolean) => {
-    setAdditionalServices(prev => ({
-      ...prev,
-      [service]: {
-        ...prev[service],
-        [day]: value
-      }
-    }))
-  }
-
-  const handleRouteChange = (route: string | null) => {
-    setAdditionalServices(prev => ({
-      ...prev,
-      travelBus: {
-        ...prev.travelBus,
-        route: route || ''
-      }
-    }))
-  }
-
   const validateStep = () => {
     const baseValidation = (
       delegateInfo.delegate1.name.trim() !== '' &&
@@ -350,28 +261,13 @@ export default function RegistrationPage() {
 
   const calculatePrice = () => {
     if (!currentPhase) return 0
-  
-    let basePrice = 0
+    
     if (selectedCommittee?.isOnline) {
-      basePrice = 199
-    } else {
-      basePrice = isDoubleDel ? currentPhase.doublePrice : currentPhase.singlePrice
+      return 199 - discount
     }
-  
-    if (additionalServices.accommodation.day1) basePrice += 200
-    if (additionalServices.accommodation.day2) basePrice += 200
-  
-    if (additionalServices.travelBus.day1) basePrice += 100
-    if (additionalServices.travelBus.day2) basePrice += 100
-  
-    // ✅ ADD ₹200 if a travel route is selected
-    if (additionalServices.travelBus.route) basePrice += 200
-  
-    const subtotal = basePrice - discount
-    const tax = subtotal * 0.03
-    return Math.round(subtotal + tax)
+    
+    return (isDoubleDel ? currentPhase.doublePrice : currentPhase.singlePrice) - discount
   }
-  
 
   const getAverageExperience = () => {
     const exp1 = parseInt(delegateInfo.delegate1.experience) || 0
@@ -398,8 +294,7 @@ export default function RegistrationPage() {
         registrationPhase: currentPhase?.name || 'Unknown',
         isOnlineCommittee: selectedCommittee.isOnline || false,
         couponCode: couponApplied ? couponCode : null,
-        discountApplied: couponApplied ? discount : 0,
-        additionalServices
+        discountApplied: couponApplied ? discount : 0
       })
 
       const portfolioRef = ref(db, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
@@ -415,8 +310,7 @@ export default function RegistrationPage() {
         phase: currentPhase?.name || 'Unknown',
         isOnline: selectedCommittee.isOnline || false,
         couponCode: couponApplied ? couponCode : null,
-        discount: couponApplied ? discount : 0,
-        additionalServices
+        discount: couponApplied ? discount : 0
       };
 
       await fetch('/api/sendEmail', {
@@ -561,7 +455,7 @@ export default function RegistrationPage() {
         
         <div className="flex items-center gap-2 text-amber-300">
           <Clock className="w-5 h-5" />
-          <span>Event Dates: July 5-6, 2025</span>
+          <span>Event Dates: July 5-6, 2024</span>
         </div>
       </div>
     )
@@ -593,7 +487,7 @@ export default function RegistrationPage() {
               <span>{currentPhase?.name}</span>
             </div>
             <div className="text-amber-300">
-              Step {step + 1} of 6
+              Step {step} of 5
             </div>
           </div>
         </div>
@@ -605,73 +499,6 @@ export default function RegistrationPage() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-black/50 backdrop-blur-sm border border-amber-800/30 rounded-2xl shadow-lg p-8"
         >
-          {step === 0 && (
-            <motion.div
-              key="step0"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="space-y-6"
-            >
-              <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
-                <Sparkles className="text-amber-400" /> Event Details
-              </h1>
-              
-              <div className="space-y-6">
-                <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6">
-                  <h2 className="text-xl font-bold text-amber-300 mb-4">Event Information</h2>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <Calendar className="text-amber-400" />
-                      <div>
-                        <p className="text-gray-400">Dates</p>
-                        <p className="text-white">July 5-6, 2025</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Globe className="text-amber-400" />
-                      <div>
-                        <p className="text-gray-400">Venue</p>
-                        <p className="text-white">ASBM University, Bhubaneswar</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-
-                <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6">
-                  <h2 className="text-xl font-bold text-amber-300 mb-4">Committees & Portfolios</h2>
-                  <div className="space-y-4">
-                    {committees.map(committee => (
-                      <div key={committee.id} className="border-b border-amber-800/30 pb-4 last:border-0 last:pb-0">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xl">{committee.emoji}</span>
-                            <h3 className="font-semibold">{committee.name}</h3>
-                          </div>
-                          <span className="text-amber-300">
-                            {committee.portfolios.filter(p => p.isVacant).length} vacancies
-                          </span>
-                        </div>
-                        {committee.isOnline && (
-                          <span className="text-xs text-blue-300">Online Committee</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <Button
-                onClick={() => setStep(1)}
-                className="w-full bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
-              >
-                Continue to Registration
-                <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </Button>
-            </motion.div>
-          )}
-
           {step === 1 && (
             <motion.div
               key="step1"
@@ -921,7 +748,8 @@ export default function RegistrationPage() {
               
               {selectedCommittee?.portfolios.filter(p => 
                 p.isVacant && 
-                (isDoubleDel ? p.isDoubleDelAllowed : true)
+                (isDoubleDel ? p.isDoubleDelAllowed : true) &&
+                getAverageExperience() >= p.minExperience
               ).length === 0 ? (
                 <div className="flex flex-col items-center justify-center space-y-4 p-8 bg-black/30 border border-amber-800/30 rounded-xl">
                   <AlertCircle className="w-12 h-12 text-red-500" />
@@ -977,221 +805,188 @@ export default function RegistrationPage() {
                   onClick={() => selectedPortfolio ? setStep(5) : setError('Please select a portfolio')}
                   className="flex-1 bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
                 >
-                  Next: Additional Services
+                  Next: Confirmation
                   <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Button>
               </div>
             </motion.div>
           )}
 
-{step === 5 && (
-  <motion.div
-    key="step5"
-    initial={{ opacity: 0, x: -20 }}
-    animate={{ opacity: 1, x: 0 }}
-    exit={{ opacity: 0, x: 20 }}
-    className="space-y-6"
-  >
-    <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
-      <Hotel className="text-amber-400" /> Additional Services
-    </h1>
-
-    <div className="space-y-6">
-      {/* Accommodation Section */}
-      <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6">
-        <h2 className="text-xl font-bold text-amber-300 mb-4">Accommodation (Optional)</h2>
-        <div className="space-y-4">
-          {[['day1', 'July 5'], ['day2', 'July 6']].map(([day, date]) => (
-            <label 
-              key={day}
-              className={`flex items-center justify-between p-4 rounded-lg transition-colors border ${
-                additionalServices.accommodation[day as 'day1' | 'day2'] 
-                  ? 'bg-amber-900/20 border-amber-500' 
-                  : 'bg-black/20 border-amber-800/30 hover:bg-amber-900/10'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={additionalServices.accommodation[day as 'day1' | 'day2']}
-                  onChange={(e) => handleServiceChange('accommodation', day as 'day1' | 'day2', e.target.checked)}
-                  className="form-checkbox h-5 w-5 text-amber-500"
-                />
-                <div>
-                  <p className="text-white">{date}</p>
-                  <p className="text-sm text-gray-400">ASBM University Hostel</p>
-                </div>
-              </div>
-              <span className="text-amber-300">₹200</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Travel Bus Service Section */}
-      <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6">
-        <h2 className="text-xl font-bold text-amber-300 mb-4">Travel Bus Service (Optional)</h2>
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-4">
-          {BUS_ROUTES.map(route => (
-  <motion.div
-    key={route.id}
-    whileHover={{ scale: 1.02 }}
-    className={`p-4 rounded-lg border cursor-pointer relative ${
-      additionalServices.travelBus.route === route.id 
-        ? 'border-amber-500 bg-amber-900/20' 
-        : 'border-amber-800/30'
-    }`}
-    onClick={() => {
-      if (additionalServices.travelBus.route === route.id) {
-        handleRouteChange('')
-      } else {
-        handleRouteChange(route.id)
-      }
-      setShowMap(true)
-    }}
-  >
-    <div className="flex items-center justify-between">
-      <div>
-        <h3 className="text-lg font-semibold text-white">{route.name}</h3>
-        <p className="text-sm text-gray-400 mt-1">Travel Route - ₹200</p> {/* 👈 Add this line */}
-      </div>
-      {additionalServices.travelBus.route === route.id && (
-        <CheckCircle className="text-green-500 flex-shrink-0" />
-      )}
-    </div>
-  </motion.div>
-))}
-          </div>
-
-          
-        </div>
-      </div>
-    </div>
-
-    <div className="flex gap-4">
-      <Button
-        onClick={() => setStep(4)}
-        variant="outline"
-        className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
-      >
-        Back
-      </Button>
-      <Button
-        onClick={() => setStep(6)}
-        className="flex-1 bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
-      >
-        Next: Confirmation
-        <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-      </Button>
-    </div>
-  </motion.div>
-)}
-
-          {step === 6 && (
+          {step === 5 && (
             <motion.div
-              key="step6"
+              key="step5"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
               className="space-y-6"
             >
               <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
-                <CheckCircle className="text-green-500" /> Final Confirmation
+                <CheckCircle className="text-green-500" /> Confirmation
               </h1>
               
-              <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6 space-y-6">
+              <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6 space-y-4">
+                {/* Coupon Code Section */}
+                <div className="bg-black/30 border border-amber-800/30 rounded-xl p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      placeholder="Enter coupon code"
+                      className="flex-1 bg-black/20 border border-amber-800/30 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value)}
+                      disabled={couponApplied}
+                    />
+                    <Button
+                      onClick={applyCoupon}
+                      disabled={couponApplied}
+                      className="bg-amber-600 hover:bg-amber-700 text-black"
+                    >
+                      {couponApplied ? 'Applied' : 'Apply'}
+                    </Button>
+                  </div>
+                  {couponError && <p className="text-red-400 text-sm">{couponError}</p>}
+                  {couponApplied && (
+                    <p className="text-green-400 text-sm">
+                      Coupon applied! ₹{discount} discount will be applied to your total.
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-semibold text-white">Total Fee:</h3>
+                  <div className="text-right">
+                    {discount > 0 && (
+                      <div className="text-sm text-gray-400 line-through">
+                        ₹{selectedCommittee?.isOnline ? 199 : (isDoubleDel ? currentPhase?.doublePrice : currentPhase?.singlePrice)}
+                      </div>
+                    )}
+                    <p className="text-2xl font-bold text-amber-300">₹{calculatePrice()}</p>
+                    {discount > 0 && (
+                      <p className="text-xs text-green-500">You saved ₹{discount}</p>
+                    )}
+                    <p className="text-xs text-amber-500">
+                      {selectedCommittee?.isOnline ? 'Online Committee' : currentPhase?.name + ' Pricing'}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedCommittee?.isOnline && (
+                  <div className="bg-blue-900/20 border border-blue-800/30 rounded-lg p-3 text-center">
+                    <p className="text-sm text-blue-300">
+                      This is an online committee with special pricing
+                    </p>
+                  </div>
+                )}
+
+                              <div className="space-y-4">
+                <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Primary Delegate:</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-gray-400">Name</p>
+                    <p className="text-white">{delegateInfo.delegate1.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Email</p>
+                    <p className="text-white">{delegateInfo.delegate1.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Phone</p>
+                    <p className="text-white">{delegateInfo.delegate1.phone}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Experience</p>
+                    <p className="text-white">{delegateInfo.delegate1.experience || '0'} MUNs</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Institution</p>
+                    <p className="text-white">{delegateInfo.delegate1.institution}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Year</p>
+                    <p className="text-white">{delegateInfo.delegate1.year}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Course</p>
+                    <p className="text-white">{delegateInfo.delegate1.course}</p>
+                  </div>
+                </div>
+              </div>
+              
+              {isDoubleDel && delegateInfo.delegate2 && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-amber-300 border-b border-amber-800/30 pb-2">
-                    Registration Details
-                  </h3>
+                  <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Secondary Delegate:</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-gray-400">Committee</p>
-                      <p className="text-white">{selectedCommittee?.name}</p>
+                      <p className="text-gray-400">Name</p>
+                      <p className="text-white">{delegateInfo.delegate2.name}</p>
                     </div>
                     <div>
-                      <p className="text-gray-400">Portfolio</p>
-                      <p className="text-white">{selectedPortfolio?.country}</p>
+                      <p className="text-gray-400">Email</p>
+                      <p className="text-white">{delegateInfo.delegate2.email}</p>
                     </div>
                     <div>
-                      <p className="text-gray-400">Delegation Type</p>
-                      <p className="text-white">
-                        {isDoubleDel ? 'Double Delegation' : 'Single Delegation'}
-                      </p>
+                      <p className="text-gray-400">Phone</p>
+                      <p className="text-white">{delegateInfo.delegate2.phone}</p>
                     </div>
                     <div>
-                      <p className="text-gray-400">Registration Phase</p>
-                      <p className="text-white">{currentPhase?.name}</p>
+                      <p className="text-gray-400">Experience</p>
+                      <p className="text-white">{delegateInfo.delegate2.experience || '0'} MUNs</p>
                     </div>
                   </div>
                 </div>
+              )}
 
-                <div className="pt-4 border-t border-amber-800/30">
-                  <h3 className="text-lg font-semibold text-amber-300 mb-4">
-                    Additional Services
-                  </h3>
-                  {(additionalServices.accommodation.day1 || additionalServices.accommodation.day2) && (
-                    <div className="mb-4">
-                      <h4 className="text-gray-400 mb-2">Accommodation:</h4>
-                      <div className="space-y-2">
-                        {additionalServices.accommodation.day1 && <p className="text-white">July 5 - ₹200</p>}
-                        {additionalServices.accommodation.day2 && <p className="text-white">July 6 - ₹200</p>}
-                      </div>
-                    </div>
-                  )}
-
-                  {additionalServices.travelBus.route && (
-                    <div className="mb-4">
-                      <h4 className="text-gray-400 mb-2">Travel Route:</h4>
-                      <p className="text-white">
-                        {BUS_ROUTES.find(r => r.id === additionalServices.travelBus.route)?.name}
-                      </p>
-                      
-                    </div>
-                  )}
+              {isDoubleDel && (
+                <div className="pt-4">
+                  <p className="text-gray-400">Average Experience</p>
+                  <p className="text-white">{getAverageExperience()} MUNs</p>
                 </div>
+              )}
 
-                <div className="pt-4 border-t border-amber-800/30">
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Subtotal:</span>
-                      <span className="text-amber-300">₹{(calculatePrice() / 1.03).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Tax (3%):</span>
-                      <span className="text-amber-300">₹{(calculatePrice() * 0.03).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between items-center pt-3">
-                      <h3 className="text-xl font-semibold text-white">Total:</h3>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-amber-300">₹{calculatePrice()}</p>
-                      </div>
-                    </div>
-                  </div>
+              <div className="pt-4 border-t border-amber-800/30">
+                <p className="text-gray-400">Committee</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-white">{selectedCommittee?.name}</p>
+                  {selectedCommittee?.isOnline && (
+                    <span className="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full text-xs">
+                      Online
+                    </span>
+                  )}
                 </div>
               </div>
 
-              <div className="flex gap-4">
-                <Button
-                  onClick={() => setStep(5)}
-                  variant="outline"
-                  className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={initiatePayment}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 rounded-xl text-lg group"
-                >
-                  Confirm & Pay Now
-                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-                </Button>
+              <div>
+                <p className="text-gray-400">Portfolio</p>
+                <div className="flex items-center gap-2">
+                  {selectedPortfolio?.countryCode && Flags[selectedPortfolio.countryCode] && React.createElement(
+                    Flags[selectedPortfolio.countryCode], 
+                    { className: 'w-6 h-6 rounded-sm' }
+                  )}
+                  <p className="text-white">{selectedPortfolio?.country}</p>
+                </div>
               </div>
-            </motion.div>
-          )}
-        </motion.div>
-      </div>
+            </div>
+
+            <div className="flex gap-4">
+              <Button
+                onClick={() => setStep(4)}
+                variant="outline"
+                className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
+              >
+                Back
+              </Button>
+              <Button
+                onClick={initiatePayment}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 rounded-xl text-lg group"
+              >
+                Pay & Confirm Registration
+                <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </motion.div>
     </div>
-  )
+  </div>
+)
 }
