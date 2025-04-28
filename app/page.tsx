@@ -10,7 +10,7 @@ import { Calendar, ChevronRight, Globe, MapPin, Sparkles, Star, Users, Loader2 }
 import MobileNav from "@/components/mobile-nav"
 import ParallaxText from "@/components/parallax-text"
 import { initializeApp } from "firebase/app"
-import { getDatabase, ref, get } from "firebase/database"
+import { getDatabase, ref, get, set } from "firebase/database"
 
 // Firebase configuration
 const firebaseConfig = {
@@ -65,6 +65,8 @@ export default function Home() {
   const [isMounted, setIsMounted] = useState(false)
   const [committees, setCommittees] = useState<Committee[]>([])
   const [loading, setLoading] = useState(true)
+  const [underMaintenance, setUnderMaintenance] = useState(false)
+  const [countdown, setCountdown] = useState(600) // 10 minutes in seconds
 
   const [ref1, inView1] = useInView({
     triggerOnce: false,
@@ -84,36 +86,117 @@ export default function Home() {
   useEffect(() => {
     setIsMounted(true)
     
-    const fetchCommittees = async () => {
+    const fetchData = async () => {
       try {
         const app = initializeApp(firebaseConfig)
         const db = getDatabase(app)
-        const committeesRef = ref(db, 'committees')
-        const snapshot = await get(committeesRef)
         
-        if (snapshot.exists()) {
-          const committeesData = snapshot.val()
-          const committeesArray = Object.keys(committeesData).map(key => ({
-            id: key,
-            ...committeesData[key],
-            portfolios: Object.keys(committeesData[key].portfolios || {}).map(portfolioKey => ({
-              id: portfolioKey,
-              ...committeesData[key].portfolios[portfolioKey]
+        // Check maintenance status first
+        const maintenanceRef = ref(db, 'maintenance')
+        const maintenanceSnapshot = await get(maintenanceRef)
+        
+        if (!maintenanceSnapshot.exists()) {
+          // If maintenance flag doesn't exist, create it with false
+          await set(maintenanceRef, { enabled: false })
+          setUnderMaintenance(false)
+        } else {
+          const maintenanceData = maintenanceSnapshot.val()
+          setUnderMaintenance(maintenanceData.enabled)
+          
+          if (maintenanceData.enabled) {
+            // Start countdown if in maintenance mode
+            const timer = setInterval(() => {
+              setCountdown(prev => {
+                if (prev <= 1) {
+                  clearInterval(timer)
+                  window.location.reload()
+                  return 0
+                }
+                return prev - 1
+              })
+            }, 1000)
+            
+            return () => clearInterval(timer)
+          }
+        }
+
+        // Only fetch committees if not in maintenance mode
+        if (!underMaintenance) {
+          const committeesRef = ref(db, 'committees')
+          const snapshot = await get(committeesRef)
+          
+          if (snapshot.exists()) {
+            const committeesData = snapshot.val()
+            const committeesArray = Object.keys(committeesData).map(key => ({
+              id: key,
+              ...committeesData[key],
+              portfolios: Object.keys(committeesData[key].portfolios || {}).map(portfolioKey => ({
+                id: portfolioKey,
+                ...committeesData[key].portfolios[portfolioKey]
+              }))
             }))
-          }))
-          setCommittees(committeesArray)
+            setCommittees(committeesArray)
+          }
         }
         setLoading(false)
       } catch (err) {
-        console.error("Failed to load committees:", err)
+        console.error("Failed to load data:", err)
         setLoading(false)
       }
     }
 
-    fetchCommittees()
-  }, [])
+    fetchData()
+  }, [underMaintenance])
 
   if (!isMounted) return null
+
+  if (underMaintenance) {
+    return (
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4 text-center">
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="max-w-2xl mx-auto"
+        >
+          <div className="mb-8">
+            <Image 
+              src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" 
+              alt="KIMUN Logo" 
+              width={120} 
+              height={120} 
+              className="mx-auto"
+            />
+          </div>
+          <h1 className="text-4xl md:text-6xl font-bold text-amber-400 mb-6">
+            Under Maintenance
+          </h1>
+          <p className="text-xl md:text-2xl text-gray-300 mb-8">
+            We're currently performing scheduled maintenance. Please check back soon.
+          </p>
+          
+          <div className="bg-amber-900/20 border border-amber-800 rounded-xl p-6 mb-8">
+            <h2 className="text-2xl font-bold text-amber-300 mb-4">
+              Automatic Refresh In
+            </h2>
+            <div className="text-5xl font-mono font-bold text-white">
+              {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, '0')}
+            </div>
+            <p className="text-gray-400 mt-4">
+              The page will automatically refresh when maintenance is complete
+            </p>
+          </div>
+          
+          <Button 
+            onClick={() => window.location.reload()} 
+            className="bg-amber-500 hover:bg-amber-600 text-black font-bold px-8 py-6 text-lg rounded-full"
+          >
+            Refresh Now
+          </Button>
+        </motion.div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden">
