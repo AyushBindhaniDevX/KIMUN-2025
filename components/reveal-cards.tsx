@@ -13,23 +13,43 @@ import confetti from "canvas-confetti"
 const boardMembers = [
   {
     id: 1,
-    name: "Alex Johnson",
-    position: "Secretary General",
-    committee: "General Assembly",
-    image: "/placeholder.svg?height=400&width=300",
-    committeeIcon: "🌍",
-    instagram: "https://instagram.com/alexjohnson",
-    vibe: "✨ Conference visionary | Debate enthusiast ✨"
+    name: "Nishant Dash",
+    position: "Speaker",
+    committee: "Odisha Legislative Assembly",
+    image: "https://kimun497636615.wordpress.com/wp-content/uploads/2025/05/nishant-1.jpg",
+    committeeIcon: "",
+    instagram: "https://www.instagram.com/nishantd_14/",
+    vibe: ""
   },
   {
     id: 2,
-    name: "Priya Sharma",
-    position: "Director General",
-    committee: "Security Council",
-    image: "/placeholder.svg?height=400&width=300",
-    committeeIcon: "🛡️",
-    instagram: "https://instagram.com/priyasharma",
-    vibe: "💫 Crisis expert | Coffee addict 💫"
+    name: "Shrusti Nanda",
+    position: "Chairperson",
+    committee: "United Nations Human Rights Council",
+    image: "https://kimun497636615.wordpress.com/wp-content/uploads/2025/05/shrusti.jpg",
+    committeeIcon: "",
+    instagram: "https://www.instagram.com/definitelynotdimple/",
+    vibe: ""
+  },
+  {
+    id: 3,
+    name: "Devayush Das",
+    position: "Vice Chairperson",
+    committee: "e United Nations General Assembly Disarmament and International Security Committee",
+    image: "https://kimun497636615.wordpress.com/wp-content/uploads/2025/05/devayush.jpg",
+    committeeIcon: "",
+    instagram: "https://www.instagram.com/devayushdas/",
+    vibe: ""
+  },
+  {
+    id: 3,
+    name: "Suhani Mishra",
+    position: "Deputy Moderator",
+    committee: "All India Political Parties Meet",
+    image: "https://kimun497636615.wordpress.com/wp-content/uploads/2025/05/suhani.jpg",
+    committeeIcon: "",
+    instagram: "https://www.instagram.com/suhaani.16/",
+    vibe: ""
   },
   {
     id: 3,
@@ -37,30 +57,20 @@ const boardMembers = [
     position: "Deputy Secretary General",
     committee: "ECOSOC",
     image: "/placeholder.svg?height=400&width=300",
-    committeeIcon: "💼",
+    committeeIcon: "",
     instagram: "https://instagram.com/michaelchen",
-    vibe: "🌟 Policy wonk | Sneakerhead 🌟"
+    vibe: ""
   },
   {
-    id: 4,
-    name: "Aisha Patel",
-    position: "Chief of Staff",
-    committee: "Human Rights Council",
+    id: 3,
+    name: "Michael Chen",
+    position: "Deputy Secretary General",
+    committee: "ECOSOC",
     image: "/placeholder.svg?height=400&width=300",
-    committeeIcon: "✊",
-    instagram: "https://instagram.com/aishapatel",
-    vibe: "🌻 Human rights advocate | Plant mom 🌻"
-  },
-  {
-    id: 5,
-    name: "Raj Malhotra",
-    position: "USG for Logistics",
-    committee: "Crisis Committee",
-    image: "/placeholder.svg?height=400&width=300",
-    committeeIcon: "⚡",
-    instagram: "https://instagram.com/rajmalhotra",
-    vibe: "🚀 Event wizard | Midnight snacker 🚀"
-  },
+    committeeIcon: "",
+    instagram: "https://instagram.com/michaelchen",
+    vibe: ""
+  }
 ]
 
 const generateRandomPosition = () => {

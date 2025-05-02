@@ -39,6 +39,8 @@ type EBMember = {
   role: 'chair' | 'vice-chair' | 'rapporteur';
   email: string;
   bio?: string;
+  photourl?: string;      // Add this
+  instagram?: string;     // Add this
 };
 
 type Portfolio = {
@@ -166,12 +168,14 @@ export default function AdminDashboard() {
               : [],
           eb: committeesData[id].eb 
             ? Object.entries(committeesData[id].eb).map(([eid, e]: [string, any]) => ({
-                id: eid,
-                name: e.name || '',
-                role: e.role || 'chair',
-                email: e.email || '',
-                bio: e.bio || ''
-              })) 
+              id: eid,
+              name: e.name || '',
+              role: e.role || 'chair',
+              email: e.email || '',
+              bio: e.bio || '',
+              photourl: e.photourl || '',    // Add this
+              instagram: e.instagram || ''    // Add this
+            })) 
             : [],
           portfolios: committeesData[id].portfolios 
             ? Object.entries(committeesData[id].portfolios).map(([pid, p]: [string, any]) => ({
@@ -452,7 +456,9 @@ export default function AdminDashboard() {
       name: '',
       role: 'chair',
       email: '',
-      bio: ''
+      bio: '',
+      photourl: '',    // Explicitly initialize
+      instagram: ''    // all fields
     });
     setEditingCommittee(committees.find(c => c.id === committeeId) || null);
     setModalType('eb');
@@ -519,6 +525,38 @@ export default function AdminDashboard() {
     doc.save(`${fileName}.pdf`);
   };
 
+  const exportCommitteePortfoliosExcel = (committee: Committee) => {
+    const data = committee.portfolios.map(portfolio => ({
+      'Country': portfolio.country,
+      'Country Code': portfolio.countryCode,
+      'Status': portfolio.isVacant ? 'Vacant' : 'Occupied',
+      'Double Delegation': portfolio.isDoubleDelAllowed ? 'Allowed' : 'Not Allowed',
+      'Min Experience': portfolio.minExperience,
+      'Assigned Delegates': delegates
+        .filter(d => d.committeeId === committee.id && d.portfolioId === portfolio.id)
+        .map(d => d.name)
+        .join(', ') || 'None'
+    }));
+  
+    exportExcel(data, `${committee.name}_portfolios`);
+  };
+  
+  const exportCommitteePortfoliosPDF = (committee: Committee) => {
+    const headers = ['Country', 'Status', 'Double Delegation', 'Min Experience', 'Delegates'];
+    const body = committee.portfolios.map(portfolio => [
+      portfolio.country,
+      portfolio.isVacant ? 'Vacant' : 'Occupied',
+      portfolio.isDoubleDelAllowed ? 'Allowed' : 'Not Allowed',
+      portfolio.minExperience,
+      delegates
+        .filter(d => d.committeeId === committee.id && d.portfolioId === portfolio.id)
+        .map(d => d.name)
+        .join(', ') || 'None'
+    ]);
+  
+    exportPDF(body, headers, `${committee.name}_portfolios`);
+  };
+
   const filteredDelegates = delegates.filter(d => {
     const committeeMatch = selectedCommittee ? d.committeeId === selectedCommittee : true;
     
@@ -575,7 +613,9 @@ export default function AdminDashboard() {
         name: eb.name,
         role: eb.role,
         email: eb.email,
-        bio: eb.bio || ''
+        bio: eb.bio,
+        photourl: eb.photourl || null,  // Store null instead of empty string
+        instagram: eb.instagram || null // Store null instead of empty string
       };
 
       if (eb.id) {
@@ -1259,243 +1299,288 @@ export default function AdminDashboard() {
           )}
 
 
-          {/* Committees Tab */}
-          {activeTab === 'committees' && (
-            <div className="space-y-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold">Committees</h2>
-                  <Button 
-                    onClick={() => openCommitteeModal(null)}
-                    className="bg-orange-600 hover:bg-orange-700 text-white"
-                  >
-                    <Plus className="mr-2 h-5 w-5" /> Add Committee
-                  </Button>
-                </div>
+{/* Committees Tab */}
+{activeTab === 'committees' && (
+  <div className="space-y-6">
+    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl text-black font-semibold">Committees</h2>
+        <Button 
+          onClick={() => openCommitteeModal(null)}
+          className="bg-orange-600 hover:bg-orange-700 text-white"
+        >
+          <Plus className="mr-2 h-5 w-5" /> Add Committee
+        </Button>
+      </div>
 
-                <div className="space-y-4">
-                  {committees.map(committee => (
-                    <div key={committee.id} className="border rounded-lg overflow-hidden">
-                      <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
-                        <div className="flex items-center">
-                          <span className="text-2xl mr-3">{committee.emoji}</span>
-                          <h3 className="text-lg font-semibold">{committee.name}</h3>
-                          <span className="ml-3 px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 capitalize">
-                            {committee.type}
-                          </span>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openCommitteeModal(committee)}
-                            className="border-gray-300"
-                          >
-                            <Edit className="mr-2 h-4 w-4" /> Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openPortfolioModal(null, committee.id)}
-                            className="border-orange-300 text-orange-600 hover:bg-orange-50"
-                          >
-                            <Plus className="mr-2 h-4 w-4" /> Add Portfolio
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => deleteItem(`committees/${committee.id}`)}
-                            className="border-red-300 text-red-600 hover:bg-red-50"
-                          >
-                            <Trash className="mr-2 h-4 w-4" /> Delete
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="p-6">
-                        <p className="text-gray-600 mb-4">{committee.description}</p>
-                        
-                        <div className="mb-6">
-                          <h4 className="font-medium mb-2">Agenda Items:</h4>
-                          <ul className="list-disc pl-5 space-y-1 text-gray-600">
-                            {committee.topics.map((topic, i) => (
-                              <li key={i}>{topic}</li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        {committee.backgroundGuide && (
-                          <div className="mb-4">
-                            <h4 className="font-medium mb-2">Background Guide:</h4>
-                            <a 
-                              href={committee.backgroundGuide} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-orange-600 hover:underline"
-                            >
-                              View Background Guide
-                            </a>
-                          </div>
-                        )}
-
-                        {committee.rules && (
-                          <div className="mb-6">
-                            <h4 className="font-medium mb-2">Rules of Procedure:</h4>
-                            <a 
-                              href={committee.rules} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-orange-600 hover:underline"
-                            >
-                              View Rules
-                            </a>
-                          </div>
-                        )}
-
-                        <div className="mb-6">
-                          <div className="flex justify-between items-center mb-2">
-                            <h4 className="font-medium">Portfolios ({committee.portfolios.length})</h4>
-                            <span className="text-sm text-gray-500">
-                              {committee.portfolios.filter(p => !p.isVacant).length} assigned •{' '}
-                              {committee.portfolios.filter(p => p.isVacant).length} vacant
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {committee.portfolios.map(portfolio => {
-                              const FlagComponent = Flags[`${portfolio.countryCode}Flag` as keyof typeof Flags];
-                              return (
-                                <div key={portfolio.id} className="border rounded-lg p-3 flex justify-between items-center">
-                                  <div className="flex items-center">
-                                    {FlagComponent && (
-                                      <div className="w-6 h-6 mr-2 overflow-hidden rounded-sm">
-                                        <FlagComponent className="w-full h-full object-cover" />
-                                      </div>
-                                    )}
-                                    <div>
-                                      <p className="font-medium">{portfolio.country}</p>
-                                      <p className="text-xs text-gray-500">
-                                        {portfolio.isVacant ? 'Vacant' : 'Assigned'} •{' '}
-                                        {portfolio.isDoubleDelAllowed ? 'Double Del' : 'Single Del'}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex space-x-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => openPortfolioModal(portfolio, committee.id)}
-                                      className="text-gray-500 hover:text-gray-700"
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => deleteItem(`committees/${committee.id}/portfolios/${portfolio.id}`)}
-                                      className="text-red-500 hover:text-red-700"
-                                    >
-                                      <Trash className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+      <div className="space-y-4">
+        {committees.map(committee => (
+          <div key={committee.id} className="border rounded-lg overflow-hidden">
+            <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
+              <div className="flex items-center">
+                <span className="text-2xl mr-3">{committee.emoji}</span>
+                <h3 className="text-lg text-black font-semibold">{committee.name}</h3>
+                <span className="ml-3 px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 capitalize">
+                  {committee.type}
+                </span>
+              </div>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportCommitteePortfoliosExcel(committee)}
+                  className="border-green-500 text-green-600 hover:bg-green-50"
+                >
+                  <Download className="mr-2 h-4 w-4" /> Excel
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportCommitteePortfoliosPDF(committee)}
+                  className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                >
+                  <Download className="mr-2 h-4 w-4" /> PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openCommitteeModal(committee)}
+                  className="border-gray-300"
+                >
+                  <Edit className="mr-2 h-4 w-4" /> Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openPortfolioModal(null, committee.id)}
+                  className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Add Portfolio
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => deleteItem(`committees/${committee.id}`)}
+                  className="border-red-300 text-red-600 hover:bg-red-50"
+                >
+                  <Trash className="mr-2 h-4 w-4" /> Delete
+                </Button>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-600 mb-4">{committee.description}</p>
+              
+              <div className="mb-6">
+                <h4 className="font-medium mb-2 text-black">Agenda Items:</h4>
+                <ul className="list-disc pl-5 space-y-1 text-gray-600 text-black">
+                  {committee.topics.map((topic, i) => (
+                    <li key={i}>{topic}</li>
                   ))}
+                </ul>
+              </div>
+
+              {committee.backgroundGuide && (
+                <div className="mb-4">
+                  <h4 className="font-medium text-gray mb-2">Background Guide:</h4>
+                  <a 
+                    href={committee.backgroundGuide} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-orange-600 hover:underline"
+                  >
+                    View Background Guide
+                  </a>
+                </div>
+              )}
+
+              {committee.rules && (
+                <div className="mb-6">
+                  <h4 className="font-medium mb-2">Rules of Procedure:</h4>
+                  <a 
+                    href={committee.rules} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-orange-600 hover:underline"
+                  >
+                    View Rules
+                  </a>
+                </div>
+              )}
+
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="font-medium text-black">Portfolios ({committee.portfolios.length})</h4>
+                  <div className="flex items-center">
+                    <span className="text-sm text-gray-500 mr-4">
+                      {committee.portfolios.filter(p => !p.isVacant).length} assigned •{' '}
+                      {committee.portfolios.filter(p => p.isVacant).length} vacant
+                    </span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {committee.portfolios.map(portfolio => {
+                    const FlagComponent = Flags[`${portfolio.countryCode}Flag` as keyof typeof Flags];
+                    return (
+                      <div key={portfolio.id} className="border rounded-lg p-3 flex justify-between items-center">
+                        <div className="flex items-center">
+                          {FlagComponent && (
+                            <div className="w-6 h-6 mr-2 overflow-hidden rounded-sm">
+                              <FlagComponent className="w-full h-full object-cover" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-medium text-black">{portfolio.country}</p>
+                            <p className="text-xs text-gray-500">
+                              {portfolio.isVacant ? 'Vacant' : 'Assigned'} •{' '}
+                              {portfolio.isDoubleDelAllowed ? 'Double Del' : 'Single Del'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openPortfolioModal(portfolio, committee.id)}
+                            className="text-gray-500 hover:text-gray-700"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteItem(`committees/${committee.id}/portfolios/${portfolio.id}`)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
 
           {/* Executive Board Tab */}
-          {activeTab === 'eb' && (
-            <div className="space-y-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold">Executive Board</h2>
-                  <Select
-                    options={committees.map(c => ({ value: c.id, label: c.name }))}
-                    placeholder="Filter by Committee"
-                    onChange={(selected) => setSelectedCommittee(selected?.value || null)}
-                    isClearable
-                    className="react-select-container w-64"
-                    classNamePrefix="react-select"
-                  />
-                </div>
+{activeTab === 'eb' && (
+  <div className="space-y-6">
+    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-semibold text-black">Executive Board</h2>
+        <Select
+          options={committees.map(c => ({ value: c.id, label: c.name }))}
+          placeholder="Filter by Committee"
+          onChange={(selected) => setSelectedCommittee(selected?.value || null)}
+          isClearable
+          className="react-select-container w-64"
+          classNamePrefix="react-select"
+        />
+      </div>
 
-                <div className="space-y-4">
-                  {committees
-                    .filter(c => !selectedCommittee || c.id === selectedCommittee)
-                    .map(committee => (
-                      <div key={committee.id} className="border rounded-lg overflow-hidden">
-                        <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
-                          <div className="flex items-center">
-                            <span className="text-2xl mr-3">{committee.emoji}</span>
-                            <h3 className="text-lg font-semibold">{committee.name}</h3>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEBModal(null, committee.id)}
-                            className="border-orange-300 text-orange-600 hover:bg-orange-50"
-                          >
-                            <Plus className="mr-2 h-4 w-4" /> Add EB Member
-                          </Button>
-                        </div>
-                        <div className="p-6">
-                          {committee.eb.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                              {committee.eb.map(member => (
-                                <div key={member.id} className="border rounded-lg p-4">
-                                  <div className="flex justify-between items-start">
-                                    <div>
-                                      <h4 className="font-medium">{member.name}</h4>
-                                      <p className="text-sm text-gray-500 capitalize">{member.role}</p>
-                                    </div>
-                                    <div className="flex space-x-1">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => openEBModal(member, committee.id)}
-                                        className="text-gray-500 hover:text-gray-700"
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => deleteItem(`committees/${committee.id}/eb/${member.id}`)}
-                                        className="text-red-500 hover:text-red-700"
-                                      >
-                                        <Trash className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                  <div className="mt-3">
-                                    <p className="text-sm text-gray-600">
-                                      <a href={`mailto:${member.email}`} className="text-orange-600 hover:underline">
-                                        {member.email}
-                                      </a>
-                                    </p>
-                                    {member.bio && (
-                                      <p className="mt-2 text-sm text-gray-600">{member.bio}</p>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
+      <div className="space-y-4">
+        {committees
+          .filter(c => !selectedCommittee || c.id === selectedCommittee)
+          .map(committee => (
+            <div key={committee.id} className="border rounded-lg overflow-hidden">
+              <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
+                <div className="flex items-center">
+                  <span className="text-2xl mr-3">{committee.emoji}</span>
+                  <h3 className="text-lg font-semibold text-black">{committee.name}</h3>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openEBModal(null, committee.id)}
+                  className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Add EB Member
+                </Button>
+              </div>
+              
+              <div className="p-6">
+                {committee.eb.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {committee.eb.map(member => (
+                      <div key={member.id} className="border rounded-lg p-4">
+                        <div className="flex items-start space-x-4">
+                          {member.photourl && (
+                            <div className="flex-shrink-0">
+                              <img 
+                                src={member.photourl} 
+                                alt={member.name}
+                                className="h-12 w-12 rounded-full object-cover border-2 border-orange-100"
+                              />
                             </div>
-                          ) : (
-                            <p className="text-gray-500 text-center py-4">No EB members added yet</p>
                           )}
+                          <div className="flex-1">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="font-medium text-black">{member.name}</h4>
+                                <p className="text-sm text-gray-500 capitalize">{member.role}</p>
+                              </div>
+                              <div className="flex space-x-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openEBModal(member, committee.id)}
+                                  className="text-gray-500 hover:text-gray-700"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteItem(`committees/${committee.id}/eb/${member.id}`)}
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  <Trash className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="mt-3">
+                              <p className="text-sm text-gray-600">
+                                <a href={`mailto:${member.email}`} className="text-orange-600 hover:underline">
+                                  {member.email}
+                                </a>
+                              </p>
+                              {member.instagram && (
+                                <p className="mt-1 text-sm text-gray-600">
+                                  Instagram:{" "}
+                                  <a
+                                    href={`https://instagram.com/${member.instagram}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-orange-600 hover:underline"
+                                  >
+                                    @{member.instagram}
+                                  </a>
+                                </p>
+                              )}
+                              {member.bio && (
+                                <p className="mt-2 text-sm text-gray-600">{member.bio}</p>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}
-                </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No EB members added yet</p>
+                )}
               </div>
             </div>
-          )}
+          ))}
+      </div>
+    </div>
+  </div>
+)}
 
           {/* Resources Tab */}
           {activeTab === 'resources' && (
@@ -1804,6 +1889,26 @@ export default function AdminDashboard() {
                         <option value="rapporteur">Rapporteur</option>
                       </select>
                     </div>
+                    <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Photo URL</label>
+                    <input
+                      type="url"
+                      className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      value={editingEB.photourl}  // Remove || '' fallback
+                      onChange={(e) => setEditingEB({...editingEB, photourl: e.target.value})}
+                      placeholder="https://example.com/photo.jpg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Instagram</label>
+                    <input
+                      type="text"
+                      className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      value={editingEB.instagram}  // Remove || '' fallback
+                      onChange={(e) => setEditingEB({...editingEB, instagram: e.target.value})}
+                      placeholder="username"
+                    />
+                  </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                       <input
