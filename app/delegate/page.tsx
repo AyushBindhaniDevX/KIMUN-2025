@@ -80,6 +80,18 @@ type Resource = {
   format?: string
 }
 
+type Coupon = {
+  id: string
+  title: string
+  description: string
+  code: string
+  partner: string
+  logo: string
+  expiry: string
+  discount: string
+  terms: string
+}
+
 function DelegateDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -92,11 +104,13 @@ function DelegateDashboardContent() {
   const [committee, setCommittee] = useState<CommitteeData | null>(null)
   const [portfolio, setPortfolio] = useState<any>(null)
   const [resources, setResources] = useState<Resource[]>([])
+  const [coupons, setCoupons] = useState<Coupon[]>([])
   const [loading, setLoading] = useState({
     login: false,
     verify: false,
     data: false,
-    resources: false
+    resources: false,
+    coupons: false
   })
   const [error, setError] = useState({
     login: null as string | null,
@@ -147,6 +161,7 @@ function DelegateDashboardContent() {
       fetchCommitteeData(data.committeeId, data.portfolioId)
       fetchMarksData(data.committeeId, data.portfolioId)
       fetchResources()
+      fetchCoupons()
     } catch (error) {
       console.error('Error fetching delegate data:', error)
       handleLogout()
@@ -217,6 +232,28 @@ function DelegateDashboardContent() {
       console.error('Error fetching resources:', error)
     } finally {
       setLoading(prev => ({ ...prev, resources: false }))
+    }
+  }
+
+  const fetchCoupons = async () => {
+    try {
+      setLoading(prev => ({ ...prev, coupons: true }))
+      
+      const couponsRef = ref(db, 'coupons')
+      const couponsSnapshot = await get(couponsRef)
+      
+      if (couponsSnapshot.exists()) {
+        const couponsData = couponsSnapshot.val()
+        const couponsList = Object.keys(couponsData).map(key => ({
+          id: key,
+          ...couponsData[key]
+        })) as Coupon[]
+        setCoupons(couponsList)
+      }
+    } catch (error) {
+      console.error('Error fetching coupons:', error)
+    } finally {
+      setLoading(prev => ({ ...prev, coupons: false }))
     }
   }
 
@@ -294,6 +331,7 @@ function DelegateDashboardContent() {
     setCommittee(null)
     setPortfolio(null)
     setResources([])
+    setCoupons([])
     localStorage.removeItem('delegateLoggedIn')
     localStorage.removeItem('delegateEmail')
     router.push('/delegate')
@@ -589,89 +627,147 @@ function DelegateDashboardContent() {
           </div>
 
           {/* Performance Card */}
-<div 
-  className={`bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 transition-all ${expandedCard === 'performance' ? 'md:col-span-2 lg:col-span-1' : ''}`}
-  onClick={() => toggleCard('performance')}
->
-  <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30 flex justify-between items-center cursor-pointer">
-    <h2 className="text-xl font-bold text-amber-300 flex items-center">
-      <Award className="h-5 w-5 mr-2" /> 
-      Performance Metrics
-    </h2>
-    {expandedCard === 'performance' ? (
-      <ChevronUp className="text-amber-300 h-5 w-5" />
-    ) : (
-      <ChevronDown className="text-amber-300 h-5 w-5" />
-    )}
-  </div>
-  {delegate?.marks ? (
-    <div className="p-6 space-y-4">
-      <div>
-        <p className="text-sm text-amber-200/80">Total Score</p>
-        <p className="text-2xl font-bold text-amber-300">{delegate.marks.total}</p>
-      </div>
-      {expandedCard === 'performance' && (
-        <>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-              <p className="text-sm text-amber-200/80">General Speakers List</p>
-              <p className="text-lg font-medium text-amber-100">{delegate.marks.gsl}</p>
+          <div 
+            className={`bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 transition-all ${expandedCard === 'performance' ? 'md:col-span-2 lg:col-span-1' : ''}`}
+            onClick={() => toggleCard('performance')}
+          >
+            <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30 flex justify-between items-center cursor-pointer">
+              <h2 className="text-xl font-bold text-amber-300 flex items-center">
+                <Award className="h-5 w-5 mr-2" /> 
+                Performance Metrics
+              </h2>
+              {expandedCard === 'performance' ? (
+                <ChevronUp className="text-amber-300 h-5 w-5" />
+              ) : (
+                <ChevronDown className="text-amber-300 h-5 w-5" />
+              )}
             </div>
-            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-              <p className="text-sm text-amber-200/80">Moderated Caucus 1</p>
-              <p className="text-lg font-medium text-amber-100">{delegate.marks.mod1}</p>
-            </div>
-            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-              <p className="text-sm text-amber-200/80">Moderated Caucus 2</p>
-              <p className="text-lg font-medium text-amber-100">{delegate.marks.mod2}</p>
-            </div>
-            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-              <p className="text-sm text-amber-200/80">Moderated Caucus 3</p>
-              <p className="text-lg font-medium text-amber-100">{delegate.marks.mod3}</p>
-            </div>
-            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-              <p className="text-sm text-amber-200/80">Moderated Caucus 4</p>
-              <p className="text-lg font-medium text-amber-100">{delegate.marks.mod4}</p>
-            </div>
-            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-              <p className="text-sm text-amber-200/80">Lobbying</p>
-              <p className="text-lg font-medium text-amber-100">{delegate.marks.lobby}</p>
-            </div>
-            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-              <p className="text-sm text-amber-200/80">Chits</p>
-              <p className="text-lg font-medium text-amber-100">{delegate.marks.chits}</p>
-            </div>
-            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-              <p className="text-sm text-amber-200/80">Foreign Policy</p>
-              <p className="text-lg font-medium text-amber-100">{delegate.marks.fp}</p>
-            </div>
-            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-              <p className="text-sm text-amber-200/80">Resolution</p>
-              <p className="text-lg font-medium text-amber-100">{delegate.marks.doc}</p>
-            </div>
-            <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-              <p className="text-sm text-amber-200/80">Alternative Score</p>
-              <p className="text-lg font-medium text-amber-100">{delegate.marks.alt}</p>
-            </div>
+            {delegate?.marks ? (
+              <div className="p-6 space-y-4">
+                <div>
+                  <p className="text-sm text-amber-200/80">Total Score</p>
+                  <p className="text-2xl font-bold text-amber-300">{delegate.marks.total}</p>
+                </div>
+                {expandedCard === 'performance' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">General Speakers List</p>
+                        <p className="text-lg font-medium text-amber-100">{delegate.marks.gsl}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Moderated Caucus 1</p>
+                        <p className="text-lg font-medium text-amber-100">{delegate.marks.mod1}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Moderated Caucus 2</p>
+                        <p className="text-lg font-medium text-amber-100">{delegate.marks.mod2}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Moderated Caucus 3</p>
+                        <p className="text-lg font-medium text-amber-100">{delegate.marks.mod3}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Moderated Caucus 4</p>
+                        <p className="text-lg font-medium text-amber-100">{delegate.marks.mod4}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Lobbying</p>
+                        <p className="text-lg font-medium text-amber-100">{delegate.marks.lobby}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Chits</p>
+                        <p className="text-lg font-medium text-amber-100">{delegate.marks.chits}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Foreign Policy</p>
+                        <p className="text-lg font-medium text-amber-100">{delegate.marks.fp}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Resolution</p>
+                        <p className="text-lg font-medium text-amber-100">{delegate.marks.doc}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Alternative Score</p>
+                        <p className="text-lg font-medium text-amber-100">{delegate.marks.alt}</p>
+                      </div>
+                    </div>
+                    <div className="pt-2">
+                      <p className="text-xs text-amber-200/60">
+                        * Scores are out of 50 total points
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="p-6 text-amber-200/80">
+                {expandedCard === 'performance' ? (
+                  <p>Your detailed marks will appear here after committee sessions</p>
+                ) : (
+                  <p>Your marks will appear here after committee sessions</p>
+                )}
+              </div>
+            )}
           </div>
-          <div className="pt-2">
-            <p className="text-xs text-amber-200/60">
-              * Scores are out of 50 total points
-            </p>
+        </div>
+
+        {/* Partner Coupons Section */}
+        <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 mb-8">
+          <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
+            <h2 className="text-xl font-bold text-amber-300 flex items-center">
+              <Award className="h-5 w-5 mr-2" /> 
+              Partner Offers & Coupons
+            </h2>
           </div>
-        </>
-      )}
-    </div>
-  ) : (
-    <div className="p-6 text-amber-200/80">
-      {expandedCard === 'performance' ? (
-        <p>Your detailed marks will appear here after committee sessions</p>
-      ) : (
-        <p>Your marks will appear here after committee sessions</p>
-      )}
-    </div>
-  )}
-</div>
+          <div className="p-6">
+            {loading.coupons ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
+              </div>
+            ) : coupons.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {coupons.map((coupon) => (
+                  <div 
+                    key={coupon.id} 
+                    className="bg-gradient-to-br from-black to-amber-950/50 p-4 rounded-lg border border-amber-800/30 hover:border-amber-500 transition-colors"
+                  >
+                    <div className="flex items-center mb-3">
+                      {coupon.logo && (
+                        <div className="bg-white p-1 rounded-lg mr-3">
+                          <Image
+                            src={coupon.logo}
+                            alt={coupon.partner}
+                            width={40}
+                            height={40}
+                            className="rounded"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-medium text-amber-300">{coupon.partner}</h3>
+                        <p className="text-sm text-amber-100/80">Expires: {coupon.expiry}</p>
+                      </div>
+                    </div>
+                    <p className="text-lg font-bold text-amber-400 mb-2">{coupon.discount} OFF</p>
+                    <p className="text-sm text-amber-100 mb-3">{coupon.description}</p>
+                    
+                    <div className="bg-black/50 p-3 rounded-lg mb-3">
+                      <p className="text-xs text-amber-200/80 mb-1">Coupon Code</p>
+                      <p className="font-mono text-lg text-amber-300">{coupon.code}</p>
+                    </div>
+                    
+                    <p className="text-xs text-amber-200/60 italic">{coupon.terms}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-amber-200/80 mb-4">No partner offers available at this time</p>
+                <p className="text-sm text-amber-200/60">Check back later for exclusive discounts!</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Resources Section */}
@@ -796,5 +892,4 @@ export default function DelegateDashboard() {
       <DelegateDashboardContent />
     </Suspense>
   )
-
 }
