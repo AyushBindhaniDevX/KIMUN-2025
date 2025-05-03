@@ -526,7 +526,8 @@ export default function AdminDashboard() {
   };
 
   const exportCommitteePortfoliosExcel = (committee: Committee) => {
-    const data = committee.portfolios.map(portfolio => ({
+    // Portfolio data
+    const portfolioData = committee.portfolios.map(portfolio => ({
       'Country': portfolio.country,
       'Country Code': portfolio.countryCode,
       'Status': portfolio.isVacant ? 'Vacant' : 'Occupied',
@@ -538,23 +539,86 @@ export default function AdminDashboard() {
         .join(', ') || 'None'
     }));
   
-    exportExcel(data, `${committee.name}_portfolios`);
+    // Agenda items data
+    const agendaData = committee.topics.map((topic, index) => ({
+      'Agenda Item #': index + 1,
+      'Topic': topic
+    }));
+  
+    // EB members data
+    const ebData = committee.eb.map(member => ({
+      'Name': member.name,
+      'Role': member.role.toUpperCase(),
+      'Email': member.email,
+      'Instagram': member.instagram ? `@${member.instagram}` : 'N/A',
+      'Bio': member.bio || 'N/A'
+    }));
+  
+    // Create worksheets
+    const portfolioWS = XLSX.utils.json_to_sheet(portfolioData);
+    const agendaWS = XLSX.utils.json_to_sheet(agendaData);
+    const ebWS = XLSX.utils.json_to_sheet(ebData);
+  
+    // Create workbook with multiple sheets
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, portfolioWS, 'Portfolios');
+    XLSX.utils.book_append_sheet(workbook, agendaWS, 'Agenda Items');
+    XLSX.utils.book_append_sheet(workbook, ebWS, 'EB Members');
+  
+    XLSX.writeFile(workbook, `${committee.name}_details.xlsx`);
   };
   
   const exportCommitteePortfoliosPDF = (committee: Committee) => {
-    const headers = ['Country', 'Status', 'Double Delegation', 'Min Experience', 'Delegates'];
-    const body = committee.portfolios.map(portfolio => [
-      portfolio.country,
-      portfolio.isVacant ? 'Vacant' : 'Occupied',
-      portfolio.isDoubleDelAllowed ? 'Allowed' : 'Not Allowed',
-      portfolio.minExperience,
-      delegates
-        .filter(d => d.committeeId === committee.id && d.portfolioId === portfolio.id)
-        .map(d => d.name)
-        .join(', ') || 'None'
-    ]);
+    const doc = new jsPDF();
+    
+    // Add Committee Header
+    doc.setFontSize(18);
+    doc.text(`${committee.emoji} ${committee.name}`, 14, 20);
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text(`Type: ${committee.type.toUpperCase()}`, 14, 28);
   
-    exportPDF(body, headers, `${committee.name}_portfolios`);
+    // Portfolios Table
+    doc.autoTable({
+      startY: 35,
+      head: [['Country', 'Status', 'Double Del', 'Min Exp', 'Delegates']],
+      body: committee.portfolios.map(portfolio => [
+        portfolio.country,
+        portfolio.isVacant ? 'Vacant' : 'Occupied',
+        portfolio.isDoubleDelAllowed ? '✓' : '✗',
+        portfolio.minExperience,
+        delegates
+          .filter(d => d.committeeId === committee.id && d.portfolioId === portfolio.id)
+          .map(d => d.name)
+          .join(', ') || 'None'
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [245, 158, 11] } // Amber color
+    });
+  
+    // Agenda Items Section
+    doc.setFontSize(14).setTextColor(0);
+    doc.text('Agenda Items:', 14, doc.autoTable.previous.finalY + 15);
+    committee.topics.forEach((topic, index) => {
+      doc.setFontSize(12).setTextColor(50);
+      doc.text(`${index + 1}. ${topic}`, 16, doc.autoTable.previous.finalY + 25 + (index * 7));
+    });
+  
+    // EB Members Table
+    doc.autoTable({
+      startY: doc.autoTable.previous.finalY + 25 + (committee.topics.length * 7),
+      head: [['EB Member', 'Role', 'Email', 'Instagram']],
+      body: committee.eb.map(member => [
+        member.name,
+        member.role.toUpperCase(),
+        member.email,
+        member.instagram ? `@${member.instagram}` : 'N/A'
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [245, 158, 11] } // Amber color
+    });
+  
+    doc.save(`${committee.name}_details.pdf`);
   };
 
   const filteredDelegates = delegates.filter(d => {
@@ -2032,7 +2096,8 @@ export default function AdminDashboard() {
                       >
                         <option value="guide">Background Guide</option>
                         <option value="rules">Rules of Procedure</option>
-                        <option value="sample">Sample Documents</option>
+                        <option value="templates">Sample Documents</option>
+                        <option value="training">Other</option>
                         <option value="other">Other</option>
                       </select>
                     </div>
