@@ -1689,7 +1689,7 @@ export default function AdminDashboard() {
                               {resource.type}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap text-black">
                             {resource.committeeId 
                               ? committees.find(c => c.id === resource.committeeId)?.name 
                               : 'All Committees'}
