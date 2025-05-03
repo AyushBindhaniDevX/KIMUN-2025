@@ -2096,8 +2096,8 @@ export default function AdminDashboard() {
                       >
                         <option value="guide">Background Guide</option>
                         <option value="rules">Rules of Procedure</option>
-                        <option value="templates">Sample Documents</option>
-                        <option value="training">Other</option>
+                        <option value="templates">Templates</option>
+                        <option value="training">Training</option>
                         <option value="other">Other</option>
                       </select>
                     </div>
