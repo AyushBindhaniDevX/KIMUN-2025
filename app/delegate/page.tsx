@@ -537,11 +537,6 @@ function DelegateDashboardContent() {
                   <p className="text-sm text-amber-200/80">Committee</p>
                   <p className="font-medium text-amber-100">{committee.name}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-amber-200/80">Description</p>
-                  <p className="font-medium text-amber-100">{committee.description}</p>
-                </div>
-                {expandedCard === 'committee' && (
                   <>
                     <div>
                       <p className="text-sm text-amber-200/80">Topics</p>
@@ -562,7 +557,6 @@ function DelegateDashboardContent() {
                       </Link>
                     </div>
                   </>
-                )}
               </div>
             ) : (
               <div className="p-6 text-amber-200/80">No committee information available</div>
