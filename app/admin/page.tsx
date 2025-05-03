@@ -1651,7 +1651,7 @@ export default function AdminDashboard() {
             <div className="space-y-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold">Resources</h2>
+                  <h2 className="text-xl font-semibold text-black">Resources</h2>
                   <Button 
                     onClick={() => openResourceModal(null)}
                     className="bg-orange-600 hover:bg-orange-700 text-white"
