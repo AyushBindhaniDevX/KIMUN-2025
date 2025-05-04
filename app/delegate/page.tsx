@@ -707,62 +707,88 @@ function DelegateDashboardContent() {
         </div>
 
         {/* Partner Coupons Section */}
-        <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 mb-8">
-          <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
-            <h2 className="text-xl font-bold text-amber-300 flex items-center">
-              <Award className="h-5 w-5 mr-2" /> 
-              Partner Offers & Coupons
-            </h2>
-          </div>
-          <div className="p-6">
-            {loading.coupons ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
-              </div>
-            ) : coupons.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {coupons.map((coupon) => (
-                  <div 
-                    key={coupon.id} 
-                    className="bg-gradient-to-br from-black to-amber-950/50 p-4 rounded-lg border border-amber-800/30 hover:border-amber-500 transition-colors"
-                  >
-                    <div className="flex items-center mb-3">
-                      {coupon.logo && (
-                        <div className="bg-white p-1 rounded-lg mr-3">
-                          <Image
-                            src={coupon.logo}
-                            alt={coupon.partner}
-                            width={40}
-                            height={40}
-                            className="rounded"
-                          />
-                        </div>
-                      )}
-                      <div>
-                        <h3 className="font-medium text-amber-300">{coupon.partner}</h3>
-                        <p className="text-sm text-amber-100/80">Expires: {coupon.expiry}</p>
-                      </div>
-                    </div>
-                    <p className="text-lg font-bold text-amber-400 mb-2">{coupon.discount} OFF</p>
-                    <p className="text-sm text-amber-100 mb-3">{coupon.description}</p>
-                    
-                    <div className="bg-black/50 p-3 rounded-lg mb-3">
-                      <p className="text-xs text-amber-200/80 mb-1">Coupon Code</p>
-                      <p className="font-mono text-lg text-amber-300">{coupon.code}</p>
-                    </div>
-                    
-                    <p className="text-xs text-amber-200/60 italic">{coupon.terms}</p>
+<div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 mb-8">
+  <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
+    <h2 className="text-xl font-bold text-amber-300 flex items-center">
+      <Award className="h-5 w-5 mr-2" /> 
+      Partner Offers & Coupons
+    </h2>
+  </div>
+  <div className="p-6">
+    {loading.coupons ? (
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
+      </div>
+    ) : coupons.length > 0 ? (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {coupons.map((coupon) => (
+          <div 
+            key={coupon.id} 
+            className="group relative bg-gradient-to-br from-black/80 to-amber-950/70 p-6 rounded-2xl border-2 border-amber-800/40 hover:border-amber-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-amber-900/20"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-4">
+                {coupon.logo && (
+                  <div className="bg-white/90 p-1.5 rounded-xl shadow-sm">
+                    <Image
+                      src={coupon.logo}
+                      alt={coupon.partner}
+                      width={48}
+                      height={48}
+                      className="rounded-lg"
+                    />
                   </div>
-                ))}
+                )}
+                <div>
+                  <h3 className="text-lg font-bold text-amber-300">{coupon.partner}</h3>
+                  <div className="badge badge-outline border-amber-700/50 text-amber-300/80 text-xs mt-1">
+                    Expires: {coupon.expiry}
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-amber-200/80 mb-4">No partner offers available at this time</p>
-                <p className="text-sm text-amber-200/60">Check back later for exclusive discounts!</p>
+            </div>
+
+            <div className="mb-4">
+              <span className="text-2xl font-bold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
+                {coupon.discount} OFF
+              </span>
+              <p className="text-sm text-amber-100/90 mt-2 leading-relaxed">
+                {coupon.description}
+              </p>
+            </div>
+
+            <div className="bg-black/50 p-4 rounded-xl border border-amber-800/30 mb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-amber-400/80 mb-1">Coupon Code</p>
+                  <p className="font-mono text-xl text-amber-300 tracking-wider">
+                    {coupon.code}
+                  </p>
+                </div>
+                <QrCode className="text-amber-500/80 h-8 w-8 ml-2" />
               </div>
-            )}
+            </div>
+
+            <p className="text-xs text-amber-500/80 italic leading-snug">
+              {coupon.terms}
+            </p>
+
+            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="bg-amber-500/10 px-2 py-1 rounded-full text-xs text-amber-300/80">
+                Limited Offer
+              </div>
+            </div>
           </div>
-        </div>
+        ))}
+      </div>
+    ) : (
+      <div className="text-center py-8">
+        <p className="text-amber-200/80 mb-4">No partner offers available at this time</p>
+        <p className="text-sm text-amber-200/60">Check back later for exclusive discounts!</p>
+      </div>
+    )}
+  </div>
+</div>
 
         {/* Resources Section */}
         <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 mb-8">
