@@ -41,17 +41,18 @@ type Portfolio = {
 
 const sponsors = [
   {
-    name: "Gold Sponsor",
+    name: "Venue Partner",
     tier: "gold",
     logos: [
-      { url: "https://placehold.co/300x150/FFD700/000000?text=TBA", alt: "Gold Sponsor 1" }
+      { url: "https://www.asbm.ac.in/wp-content/uploads/2021/02/FINAL-LOGO-1.png", alt: "ASBMU" }
     ]
   },
   {
-    name: "Silver Sponsors",
+    name: "Coupon Partner",
     tier: "silver",
     logos: [
-      { url: "https://placehold.co/250x100/C0C0C0/000000?text=TBA", alt: "Silver Sponsor 1" }
+      { url: "https://upload.wikimedia.org/wikipedia/en/thumb/d/d3/Starbucks_Corporation_Logo_2011.svg/320px-Starbucks_Corporation_Logo_2011.svg.png", alt: "STBK" },
+      { url: "https://kimun497636615.wordpress.com/wp-content/uploads/2025/05/gali-no.-19-logo.png", alt: "G19" }
     ]
   }
 ]
@@ -458,6 +459,70 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Sponsors Section */}
+<section ref={ref3} className="py-20 bg-black relative overflow-hidden">
+  <div className="container mx-auto px-4 relative z-10">
+    <motion.div
+      initial={{ opacity: 0, y: 50 }}
+      animate={inView3 ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
+      transition={{ duration: 0.8 }}
+      className="mb-16 text-center"
+    >
+      <span className="text-amber-500 text-lg font-medium">Our Valued Partners</span>
+      <h2 className="text-4xl md:text-5xl font-bold text-white mt-2">Partners</h2>
+    
+    </motion.div>
+
+    <div className="space-y-16">
+      {sponsors.map((sponsor, index) => (
+        <motion.div
+          key={sponsor.name}
+          initial={{ opacity: 0, y: 30 }}
+          animate={inView3 ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+          transition={{ duration: 0.5, delay: 0.2 * index }}
+          className="text-center"
+        >
+          <h3 className={`text-2xl font-bold mb-8 ${
+            sponsor.tier === 'gold' ? 'text-gray-300' : 
+            sponsor.tier === 'silver' ? 'text-gray-300' : 'text-amber-600'
+          }`}>
+            {sponsor.name}
+          </h3>
+          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16">
+            {sponsor.logos.map((logo, logoIndex) => (
+              <motion.div
+                key={logo.alt}
+                whileHover={{ scale: 1.05 }}
+                transition={{ duration: 0.3 }}
+                className={`p-4 rounded-lg ${
+                  sponsor.tier === 'gold' ? 'bg-gray-900/20 border border-gray-800/30' :
+                  sponsor.tier === 'silver' ? 'bg-gray-900/20 border border-gray-800/30' : ''
+                }`}
+              >
+                <Image
+                  src={logo.url}
+                  alt={logo.alt}
+                  width={sponsor.tier === 'gold' ? 300 : 250}
+                  height={sponsor.tier === 'gold' ? 150 : 100}
+                  className="object-contain"
+                />
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      ))}
+    </div>
+
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={inView3 ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+      transition={{ duration: 0.5, delay: 0.6 }}
+      className="mt-16 text-center"
+    >
+    </motion.div>
+  </div>
+</section>
 
       {/* Committees Preview */}
       <section ref={ref2} className="py-20 bg-gradient-to-b from-amber-950/20 to-amber-950/20 relative overflow-hidden">
