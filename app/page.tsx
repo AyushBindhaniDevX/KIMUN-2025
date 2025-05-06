@@ -38,24 +38,35 @@ type Portfolio = {
   isVacant: boolean
   minExperience: number
 }
-
 const sponsors = [
   {
     name: "Venue Partner",
     tier: "gold",
     logos: [
-      { url: "https://www.asbm.ac.in/wp-content/uploads/2021/02/FINAL-LOGO-1.png", alt: "ASBMU" }
+      { 
+        url: "https://www.asbm.ac.in/wp-content/uploads/2021/02/FINAL-LOGO-1.png", 
+        alt: "ASBMU",
+        website: "https://www.asbm.ac.in" // ASBM University website
+      }
     ]
   },
   {
     name: "Coupon Partner",
     tier: "silver",
     logos: [
-      { url: "https://upload.wikimedia.org/wikipedia/en/thumb/d/d3/Starbucks_Corporation_Logo_2011.svg/320px-Starbucks_Corporation_Logo_2011.svg.png", alt: "STBK" },
-      { url: "https://kimun497636615.wordpress.com/wp-content/uploads/2025/05/gali-no.-19-logo.png", alt: "G19" }
+      { 
+        url: "https://upload.wikimedia.org/wikipedia/en/thumb/d/d3/Starbucks_Corporation_Logo_2011.svg/320px-Starbucks_Corporation_Logo_2011.svg.png", 
+        alt: "STBK",
+        website: "https://www.starbucks.in" // Starbucks India website
+      },
+      { 
+        url: "https://kimun497636615.wordpress.com/wp-content/uploads/2025/05/gali-no.-19-logo.png", 
+        alt: "G19",
+        website: "https://www.instagram.com/galino19_bbsr/" // Placeholder for Gali No. 19
+      }
     ]
   }
-]
+];
 
 export default function Home() {
   const { scrollY } = useScroll()
@@ -425,10 +436,17 @@ export default function Home() {
                   <Globe className="text-amber-400 h-5 w-5" />
                   <span className="text-amber-100">7 Committees</span>
                 </div>
-                <div className="flex items-center gap-3 bg-amber-900/20 px-4 py-3 rounded-full">
-                  <MapPin className="text-amber-400 h-5 w-5" />
-                  <span className="text-amber-100">Bhubaneswar, India</span>
-                </div>
+                <a
+  href="https://maps.app.goo.gl/2rP1Kp8fFzY8rABy6"
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <div className="flex items-center gap-3 bg-amber-900/20 px-4 py-3 rounded-full hover:bg-amber-800/30 transition">
+    <MapPin className="text-amber-400 h-5 w-5" />
+    <span className="text-amber-100">ASBMU Bhubaneswar, India</span>
+  </div>
+</a>
+
               </div>
             </motion.div>
 
@@ -463,50 +481,48 @@ export default function Home() {
       {/* Sponsors Section */}
 <section ref={ref3} className="py-20 bg-black relative overflow-hidden">
   <div className="container mx-auto px-4 relative z-10">
-    <motion.div
-      initial={{ opacity: 0, y: 50 }}
-      animate={inView3 ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
-      transition={{ duration: 0.8 }}
-      className="mb-16 text-center"
+    <motion.h2 
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8, ease: "easeOut" }}
+      className="text-4xl md:text-5xl font-bold text-center mb-12 text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-400"
     >
-      <span className="text-amber-500 text-lg font-medium">Our Valued Partners</span>
-      <h2 className="text-4xl md:text-5xl font-bold text-white mt-2">Partners</h2>
-    
-    </motion.div>
+      Our Partners
+    </motion.h2>
 
     <div className="space-y-16">
       {sponsors.map((sponsor, index) => (
         <motion.div
           key={sponsor.name}
           initial={{ opacity: 0, y: 30 }}
-          animate={inView3 ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-          transition={{ duration: 0.5, delay: 0.2 * index }}
-          className="text-center"
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: index * 0.2 }}
         >
-          <h3 className={`text-2xl font-bold mb-8 ${
-            sponsor.tier === 'gold' ? 'text-gray-300' : 
-            sponsor.tier === 'silver' ? 'text-gray-300' : 'text-amber-600'
-          }`}>
+          <h3 className="text-xl md:text-2xl font-semibold text-center mb-8 text-white">
             {sponsor.name}
           </h3>
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16">
             {sponsor.logos.map((logo, logoIndex) => (
               <motion.div
                 key={logo.alt}
-                whileHover={{ scale: 1.05 }}
-                transition={{ duration: 0.3 }}
-                className={`p-4 rounded-lg ${
-                  sponsor.tier === 'gold' ? 'bg-gray-900/20 border border-gray-800/30' :
-                  sponsor.tier === 'silver' ? 'bg-gray-900/20 border border-gray-800/30' : ''
-                }`}
+                initial={{ scale: 0.8, opacity: 0 }}
+                whileInView={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.5, delay: logoIndex * 0.1 }}
               >
-                <Image
-                  src={logo.url}
-                  alt={logo.alt}
-                  width={sponsor.tier === 'gold' ? 300 : 250}
-                  height={sponsor.tier === 'gold' ? 150 : 100}
-                  className="object-contain"
-                />
+                <a 
+                  href={logo.website} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="block hover:opacity-80 transition-opacity"
+                >
+                  <Image
+                    src={logo.url}
+                    alt={logo.alt}
+                    width={sponsor.tier === 'gold' ? 300 : 250}
+                    height={sponsor.tier === 'gold' ? 150 : 100}
+                    className="object-contain"
+                  />
+                </a>
               </motion.div>
             ))}
           </div>
@@ -515,11 +531,17 @@ export default function Home() {
     </div>
 
     <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      animate={inView3 ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-      transition={{ duration: 0.5, delay: 0.6 }}
-      className="mt-16 text-center"
+      initial={{ opacity: 0 }}
+      whileInView={{ opacity: 1 }}
+      transition={{ duration: 0.5, delay: 0.2 }}
+      className="text-center mt-16"
     >
+      <a
+        href="mailto:info@kimun.in.net"
+        className="inline-block px-8 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold rounded-lg hover:scale-105 transition-transform"
+      >
+        Become a Sponsor
+      </a>
     </motion.div>
   </div>
 </section>
