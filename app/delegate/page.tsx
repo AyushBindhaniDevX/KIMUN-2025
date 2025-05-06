@@ -5,7 +5,7 @@ import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, query, orderByChild, equalTo } from 'firebase/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Mail, Lock, User, FileText, Award, Download, QrCode, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import { Mail, Lock, User, FileText, Award, Download, QrCode, ChevronDown, ChevronUp, Loader2,Copy } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -750,7 +750,7 @@ function DelegateDashboardContent() {
 
             <div className="mb-4">
               <span className="text-2xl font-bold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
-                {coupon.discount} OFF
+                {coupon.discount}
               </span>
               <p className="text-sm text-amber-100/90 mt-2 leading-relaxed">
                 {coupon.description}
@@ -758,15 +758,32 @@ function DelegateDashboardContent() {
             </div>
 
             <div className="bg-black/50 p-4 rounded-xl border border-amber-800/30 mb-4">
-              <div className="flex items-center justify-between">
-                <div>
+              {coupon.code.startsWith('http') ? (
+                <a href={coupon.code} target="_blank" rel="noopener noreferrer">
+                  <Button className="w-full bg-amber-600 hover:bg-amber-700 text-black">
+                    <QrCode className="h-4 w-4 mr-2" />
+                    Click Me to Redeem
+                  </Button>
+                </a>
+              ) : (
+                <>
                   <p className="text-xs text-amber-400/80 mb-1">Coupon Code</p>
-                  <p className="font-mono text-xl text-amber-300 tracking-wider">
-                    {coupon.code}
-                  </p>
-                </div>
-                <QrCode className="text-amber-500/80 h-8 w-8 ml-2" />
-              </div>
+                  <div className="flex items-center justify-between">
+                    <p className="font-mono text-xl text-amber-300 tracking-wider">
+                      {coupon.code}
+                    </p>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(coupon.code);
+                        toast.success('Copied to clipboard!');
+                      }}
+                      className="text-amber-500/80 hover:text-amber-300 transition-colors"
+                    >
+                      <Copy className="h-5 w-5" />
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             <p className="text-xs text-amber-500/80 italic leading-snug">
