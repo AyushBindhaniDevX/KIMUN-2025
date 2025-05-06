@@ -108,7 +108,8 @@ const db = getDatabase(app)
 const VALID_COUPONS = {
   "BGUDELEGATION": 99,
   "RAVENSHAWDELEGATION": 99,
-  "SOADELEGATION": 99
+  "SOADELEGATION": 99,
+  "KIMUN2024RECVR1299": 1299,
 }
 
 export default function RegistrationPage() {
