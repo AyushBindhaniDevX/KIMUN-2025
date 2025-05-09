@@ -463,6 +463,52 @@ export default function RegistrationPage() {
   }
 
   return (
+      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-8 text-center">
+        <Lock className="w-12 h-12 text-amber-500 mb-4" />
+        <h1 className="text-3xl font-bold text-amber-300 mb-6">Registration Currently Closed</h1>
+        
+        <div className="max-w-md bg-black/30 border border-amber-800/30 rounded-xl p-6 space-y-6 mb-8">
+          <h2 className="text-xl font-semibold text-amber-300 mb-4">Upcoming Registration Phases</h2>
+          
+          <div className="space-y-4">
+            {REGISTRATION_PHASES.map((phase, index) => (
+              <div 
+                key={index} 
+                className={`p-4 rounded-lg border ${currentPhase?.name === phase.name ? 'border-amber-500 bg-amber-900/20' : 'border-amber-800/30'}`}
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-medium text-white">{phase.name}</h3>
+                  <span className="text-sm text-amber-300">
+                    {isDoubleDel ? `₹${phase.doublePrice}` : `₹${phase.singlePrice}`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <Calendar className="w-4 h-4" />
+                  <span>
+                    {formatDate(phase.startDate)} - {formatDate(phase.endDate)}
+                  </span>
+                </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  {new Date() < phase.startDate ? 'Starts soon' : 'Ended'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="text-gray-400 max-w-md mb-6">
+          Registration will open during the specified phases. Please check back during the active registration period.
+        </p>
+        
+        <div className="flex items-center gap-2 text-amber-300">
+          <Clock className="w-5 h-5" />
+          <span>Event Dates: July 5-6, 2024</span>
+        </div>
+      </div>
+    )
+  }
+
+  return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
       {showConfetti && <Confetti recycle={false} numberOfPieces={400} />}
 
@@ -528,6 +574,7 @@ export default function RegistrationPage() {
                     />
                     <div>
                       <h3 className="text-xl font-semibold text-white">Single Delegation</h3>
+                      
                     </div>
                   </label>
                 </motion.div>
@@ -548,8 +595,9 @@ export default function RegistrationPage() {
                     />
                     <div>
                       <h3 className="text-xl font-semibold text-white">Double Delegation</h3>
-                      <p className="text-gray-400">₹{currentPhase?.doublePrice} for two delegates</p>
+                     
                       {selectedCommittee?.isOnline && (
+                        <p className="text-xs text-red-400 mt-1">Not available for online committees</p>
                       )}
                     </div>
                   </label>
