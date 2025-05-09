@@ -528,7 +528,6 @@ export default function RegistrationPage() {
                     />
                     <div>
                       <h3 className="text-xl font-semibold text-white">Single Delegation</h3>
-                      <p className="text-gray-400">₹{currentPhase?.singlePrice} per delegate</p>
                     </div>
                   </label>
                 </motion.div>
