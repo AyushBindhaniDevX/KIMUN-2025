@@ -184,7 +184,7 @@ export default function RegistrationPage() {
             }
             
             if (committee.name === 'United Nations Security Council' || 
-                committee.name === 'United Nations Office on Drugs and Crime') {
+                committee.name === 'Mock War Cabinet') {
               return {
                 ...committee,
                 isOnline: true,
@@ -264,7 +264,7 @@ export default function RegistrationPage() {
     if (!currentPhase) return 0
     
     if (selectedCommittee?.isOnline) {
-      return 199 - discount
+      return 49 - discount
     }
     
     return (isDoubleDel ? currentPhase.doublePrice : currentPhase.singlePrice) - discount
@@ -707,7 +707,7 @@ export default function RegistrationPage() {
                         <p className="text-gray-400">
                           {committee.portfolios.filter(p => p.isVacant).length} portfolios available
                           {committee.isOnline && (
-                            <span className="text-blue-300 ml-2">₹199 per delegate</span>
+                            <span className="text-blue-300 ml-2">₹49 per delegate</span>
                           )}
                         </p>
                       </div>
@@ -787,7 +787,7 @@ export default function RegistrationPage() {
                           )}
                         </div>
                         {selectedCommittee.isOnline && (
-                          <p className="text-xs text-blue-300 mt-2">Online Committee - ₹199</p>
+                          <p className="text-xs text-blue-300 mt-2">Online Committee - ₹49</p>
                         )}
                       </motion.div>
                     ))}
@@ -858,7 +858,7 @@ export default function RegistrationPage() {
                   <div className="text-right">
                     {discount > 0 && (
                       <div className="text-sm text-gray-400 line-through">
-                        ₹{selectedCommittee?.isOnline ? 199 : (isDoubleDel ? currentPhase?.doublePrice : currentPhase?.singlePrice)}
+                        ₹{selectedCommittee?.isOnline ? 49 : (isDoubleDel ? currentPhase?.doublePrice : currentPhase?.singlePrice)}
                       </div>
                     )}
                     <p className="text-2xl font-bold text-amber-300">₹{calculatePrice()}</p>
