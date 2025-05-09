@@ -550,7 +550,6 @@ export default function RegistrationPage() {
                       <h3 className="text-xl font-semibold text-white">Double Delegation</h3>
                       <p className="text-gray-400">₹{currentPhase?.doublePrice} for two delegates</p>
                       {selectedCommittee?.isOnline && (
-                        <p className="text-xs text-red-400 mt-1">Not available for online committees</p>
                       )}
                     </div>
                   </label>
