@@ -61,14 +61,14 @@ const REGISTRATION_PHASES = [
   {
     name: "Early Bird",
     startDate: new Date('2025-04-20'),
-    endDate: new Date('2025-05-10'),
+    endDate: new Date('2025-05-11'),
     singlePrice: 1299,
     doublePrice: 2499,
     isActive: false
   },
   {
     name: "Phase 1",
-    startDate: new Date('2025-05-15'),
+    startDate: new Date('2025-05-12'),
     endDate: new Date('2025-05-29'),
     singlePrice: 1299,
     doublePrice: 2499,
