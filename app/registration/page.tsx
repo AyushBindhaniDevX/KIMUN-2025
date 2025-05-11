@@ -110,6 +110,7 @@ const VALID_COUPONS = {
   "RAVENSHAWDELEGATION": 99,
   "SOADELEGATION": 99,
   "KIMUN2024RECVR1299": 1299,
+  "KIMUN2025WINWAR": 100,
 }
 
 export default function RegistrationPage() {
