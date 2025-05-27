@@ -61,14 +61,14 @@ const REGISTRATION_PHASES = [
   {
     name: "Early Bird",
     startDate: new Date('2025-04-20'),
-    endDate: new Date('2025-05-10'),
+    endDate: new Date('2025-05-11'),
     singlePrice: 1299,
     doublePrice: 2499,
     isActive: false
   },
   {
     name: "Phase 1",
-    startDate: new Date('2025-05-15'),
+    startDate: new Date('2025-05-12'),
     endDate: new Date('2025-05-29'),
     singlePrice: 1299,
     doublePrice: 2499,
@@ -110,6 +110,7 @@ const VALID_COUPONS = {
   "RAVENSHAWDELEGATION": 99,
   "SOADELEGATION": 99,
   "KIMUN2024RECVR1299": 1299,
+  "KIMUN2025WINWAR": 100,
 }
 
 export default function RegistrationPage() {
