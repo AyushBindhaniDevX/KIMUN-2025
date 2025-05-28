@@ -1,15 +1,16 @@
-// app/eb-portal/page.tsx
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
 import { initializeApp } from 'firebase/app'
-import { getDatabase, ref, get, query, orderByChild, equalTo, set, update } from 'firebase/database'
+import { getDatabase, ref, get, query, orderByChild, equalTo, set, update, push } from 'firebase/database'
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { 
-  Mail, Lock, User, FileText, Award, Download, QrCode, ChevronDown, 
-  ChevronUp, Loader2, Copy, Users, CheckCircle, XCircle, Globe, 
-  Edit, Save, Plus, Trash2, Calendar, Clock, BookOpen, Search, Filter 
+  Mail, Lock, User, FileText, Award, Download, QrCode, 
+  Loader2, Copy, Users, CheckCircle, XCircle, Globe, 
+  Edit, Save, Plus, Trash2, Calendar, Clock, BookOpen, 
+  Search, Filter, Upload, FileUp
 } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import Link from 'next/link'
@@ -31,6 +32,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig)
 const db = getDatabase(app)
+const storage = getStorage(app)
 
 type Committee = {
   id: string
@@ -39,6 +41,8 @@ type Committee = {
   topics: string[]
   backgroundGuide: string
   rules: string
+  studyGuide?: string
+  trainingMaterials?: string[]
   portfolios: {
     [key: string]: {
       country: string
@@ -59,16 +63,6 @@ type Committee = {
       bio: string
     }
   }
-}
-
-type Portfolio = {
-  id: string
-  country: string
-  countryCode: string
-  isDoubleDelAllowed: boolean
-  isVacant: boolean
-  minExperience: number
-  email?: string
 }
 
 type Delegate = {
@@ -98,16 +92,19 @@ type Mark = {
   doc: number
   total: number
   email?: string
+  notes?: string
 }
 
 type Resource = {
   id: string
   title: string
   description: string
-  type: 'guide' | 'rules' | 'template' | 'training'
+  type: 'guide' | 'rules' | 'template' | 'training' | 'study' | 'rop'
   url: string
   committee?: string
   pages?: number
+  uploadedAt?: string
+  uploadedBy?: string
 }
 
 type Coupon = {
@@ -120,6 +117,7 @@ type Coupon = {
   expiry: string
   discount: string
   terms: string
+  isActive: boolean
 }
 
 function EBPortalContent() {
@@ -145,7 +143,8 @@ function EBPortalContent() {
     marks: false,
     resources: false,
     coupons: false,
-    saving: false
+    saving: false,
+    uploading: false
   })
   const [error, setError] = useState({
     login: null as string | null,
@@ -156,19 +155,23 @@ function EBPortalContent() {
   const [showFilters, setShowFilters] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [expandedCard, setExpandedCard] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('dashboard')
+  const [uploadingFile, setUploadingFile] = useState({
+    type: 'study' as 'study' | 'rop' | 'training',
+    file: null as File | null
+  })
 
   // Check for existing session on initial load
   useEffect(() => {
-    const storedLoggedIn = localStorage.getItem('ebLoggedIn') === 'true'
-    const storedEmail = localStorage.getItem('ebEmail')
-    
-    if (storedLoggedIn) {
-      setLoggedIn(true)
-      fetchEbData(storedEmail || '')
-    } else if (storedEmail) {
-      setEmail(storedEmail)
-      router.push('/eb-portal?step=verify')
+    const session = sessionStorage.getItem('ebSession')
+    if (session) {
+      const { loggedIn, email, ebMember } = JSON.parse(session)
+      if (loggedIn) {
+        setLoggedIn(true)
+        setEmail(email)
+        setEbMember(ebMember)
+        fetchEbData(email)
+      }
     }
   }, [router])
 
@@ -177,7 +180,6 @@ function EBPortalContent() {
     try {
       setLoading(prev => ({ ...prev, committees: true }))
       
-      // First find which committee this EB member belongs to
       const committeesRef = ref(db, 'committees')
       const committeesSnapshot = await get(committeesRef)
       
@@ -214,11 +216,16 @@ function EBPortalContent() {
         setCommittees(committeesArray)
         setSelectedCommittee(foundEbMember.committeeId)
         
-        // Load committee-specific data
         fetchDelegates(foundEbMember.committeeId)
         fetchMarks(foundEbMember.committeeId)
-        fetchResources()
+        fetchResources(foundEbMember.committeeId)
         fetchCoupons()
+
+        sessionStorage.setItem('ebSession', JSON.stringify({
+          loggedIn: true,
+          email,
+          ebMember: foundEbMember
+        }))
       }
     } catch (error) {
       console.error('Error fetching EB data:', error)
@@ -282,21 +289,93 @@ function EBPortalContent() {
     }
   }
 
-  const fetchResources = async () => {
+  const fetchResources = async (committeeId: string) => {
     try {
       setLoading(prev => ({ ...prev, resources: true }))
       
+      const committeeRef = ref(db, `committees/${committeeId}`)
+      const committeeSnapshot = await get(committeeRef)
+      const resourcesList: Resource[] = []
+      
+      if (committeeSnapshot.exists()) {
+        const committeeData = committeeSnapshot.val()
+        
+        // Add study guide
+        if (committeeData.studyGuide) {
+          resourcesList.push({
+            id: `study-${committeeId}`,
+            title: `${committeeData.name} Study Guide`,
+            description: `Study guide for ${committeeData.name}`,
+            type: 'study',
+            url: committeeData.studyGuide,
+            committee: committeeId,
+            uploadedAt: committeeData.updatedAt || new Date().toISOString(),
+            uploadedBy: 'EB Organizer'
+          })
+        }
+        
+        // Add rules of procedure
+        if (committeeData.rules) {
+          resourcesList.push({
+            id: `rules-${committeeId}`,
+            title: `Rules of Procedure`,
+            description: `Rules for ${committeeData.name}`,
+            type: 'rules',
+            url: committeeData.rules,
+            committee: committeeId,
+            uploadedAt: committeeData.updatedAt || new Date().toISOString(),
+            uploadedBy: 'EB Organizer'
+          })
+        }
+        
+        // Add training materials
+        if (committeeData.trainingMaterials && Array.isArray(committeeData.trainingMaterials)) {
+          committeeData.trainingMaterials.forEach((url: string, index: number) => {
+            resourcesList.push({
+              id: `training-${committeeId}-${index}`,
+              title: `Training Material ${index + 1}`,
+              description: `Training material for ${committeeData.name}`,
+              type: 'training',
+              url,
+              committee: committeeId,
+              uploadedAt: committeeData.updatedAt || new Date().toISOString(),
+              uploadedBy: 'EB Organizer'
+            })
+          })
+        }
+        
+        // Add background guide
+        if (committeeData.backgroundGuide) {
+          resourcesList.push({
+            id: `guide-${committeeId}`,
+            title: `Background Guide`,
+            description: `Background guide for ${committeeData.name}`,
+            type: 'guide',
+            url: committeeData.backgroundGuide,
+            committee: committeeId,
+            uploadedAt: committeeData.updatedAt || new Date().toISOString(),
+            uploadedBy: 'EB Organizer'
+          })
+        }
+      }
+      
+      // Fetch additional resources from resources node
       const resourcesRef = ref(db, 'resources')
       const resourcesSnapshot = await get(resourcesRef)
       
       if (resourcesSnapshot.exists()) {
         const resourcesData = resourcesSnapshot.val()
-        const resourcesList = Object.keys(resourcesData).map(key => ({
-          id: key,
-          ...resourcesData[key]
-        })) as Resource[]
-        setResources(resourcesList)
+        Object.keys(resourcesData).forEach(key => {
+          if (resourcesData[key].committee === committeeId) {
+            resourcesList.push({
+              id: key,
+              ...resourcesData[key]
+            })
+          }
+        })
       }
+      
+      setResources(resourcesList)
     } catch (error) {
       console.error('Error fetching resources:', error)
     } finally {
@@ -317,7 +396,7 @@ function EBPortalContent() {
           id: key,
           ...couponsData[key]
         })) as Coupon[]
-        setCoupons(couponsList)
+        setCoupons(couponsList.filter(c => c.isActive))
       }
     } catch (error) {
       console.error('Error fetching coupons:', error)
@@ -347,7 +426,7 @@ function EBPortalContent() {
         throw new Error(errorData.error || 'Failed to send OTP')
       }
       
-      localStorage.setItem('ebEmail', email)
+      sessionStorage.setItem('ebEmail', email)
       router.push('/eb-portal?step=verify')
       toast.success('OTP sent to your email')
     } catch (err: any) {
@@ -380,8 +459,7 @@ function EBPortalContent() {
       }
 
       setLoggedIn(true)
-      localStorage.setItem('ebLoggedIn', 'true')
-      localStorage.removeItem('ebEmail')
+      sessionStorage.removeItem('ebEmail')
       
       fetchEbData(email)
       router.push('/eb-portal')
@@ -402,14 +480,10 @@ function EBPortalContent() {
     setMarks([])
     setResources([])
     setCoupons([])
-    localStorage.removeItem('ebLoggedIn')
-    localStorage.removeItem('ebEmail')
+    sessionStorage.removeItem('ebSession')
+    sessionStorage.removeItem('ebEmail')
     router.push('/eb-portal')
     toast.info('Logged out successfully')
-  }
-
-  const toggleCard = (cardId: string) => {
-    setExpandedCard(expandedCard === cardId ? null : cardId)
   }
 
   const toggleCheckIn = async (delegateId: string, isCheckedIn: boolean) => {
@@ -450,7 +524,8 @@ function EBPortalContent() {
         chits: 0,
         fp: 0,
         doc: 0,
-        total: 0
+        total: 0,
+        notes: ''
       })
       setTempMark({
         portfolioId: '',
@@ -465,7 +540,8 @@ function EBPortalContent() {
         chits: 0,
         fp: 0,
         doc: 0,
-        total: 0
+        total: 0,
+        notes: ''
       })
     }
   }
@@ -506,14 +582,15 @@ function EBPortalContent() {
       
       const markData = {
         ...tempMark,
-        total: calculateTotal(tempMark)
+        total: calculateTotal(tempMark),
+        committeeId: selectedCommittee,
+        updatedAt: new Date().toISOString(),
+        updatedBy: ebMember?.name || 'EB Member'
       }
 
       if (editingMark.id) {
-        // Update existing mark
         await set(ref(db, `marksheets/${selectedCommittee}/marks/${editingMark.id}`), markData)
       } else {
-        // Create new mark
         const newMarkRef = ref(db, `marksheets/${selectedCommittee}/marks`)
         await push(newMarkRef, markData)
       }
@@ -558,11 +635,12 @@ function EBPortalContent() {
     doc.text(`Generated by ${ebMember.name} (${ebMember.role}) on ${new Date().toLocaleDateString()}`, 14, 22)
     
     const headers = [
-      'Country', 'Alt', 'GSL (10)', 'MOD 1 (5)', 'MOD 2 (5)', 'MOD 3 (5)', 
-      'MOD4 (5)', 'Lobby (5)', 'Chits (5)', 'FP (5)', 'DOC (5)', 'Total (50)', 'Award'
+      'Rank', 'Country', 'Alt', 'GSL (10)', 'MOD 1 (5)', 'MOD 2 (5)', 'MOD 3 (5)', 
+      'MOD4 (5)', 'Lobby (5)', 'Chits (5)', 'FP (5)', 'DOC (5)', 'Total (50)', 'Award', 'Notes'
     ]
     
     const data = sortedMarks.map((mark, index) => [
+      index + 1,
       mark.country,
       mark.alt,
       mark.gsl,
@@ -578,7 +656,8 @@ function EBPortalContent() {
       index === 0 ? 'Best Delegate' : 
       index === 1 ? 'High Commendation' : 
       index === 2 ? 'Special Mention' : 
-      index === 3 ? 'Verbal Mention' : ''
+      index === 3 ? 'Verbal Mention' : '',
+      mark.notes || ''
     ])
     
     ;(doc as any).autoTable({
@@ -592,18 +671,79 @@ function EBPortalContent() {
         fontStyle: 'bold'
       },
       columnStyles: {
-        0: { halign: 'left' },
-        1: { halign: 'center' },
-        11: { fontStyle: 'bold' },
-        12: { fontStyle: 'italic' }
+        0: { halign: 'center' },
+        1: { halign: 'left' },
+        2: { halign: 'center' },
+        13: { fontStyle: 'bold' },
+        14: { fontStyle: 'italic' },
+        15: { halign: 'left', cellWidth: 30 }
       }
     })
     
     doc.save(`${committee.name.replace(/[^a-z0-9]/gi, '_')}_Marksheet.pdf`)
   }
 
+  const handleFileUpload = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!uploadingFile.file || !selectedCommittee) {
+      toast.error('Please select a file and ensure a committee is selected')
+      return
+    }
+
+    try {
+      setLoading(prev => ({ ...prev, uploading: true }))
+      
+      const fileRef = storageRef(storage, `committees/${selectedCommittee}/${uploadingFile.type}/${uploadingFile.file.name}`)
+      const snapshot = await uploadBytes(fileRef, uploadingFile.file)
+      const downloadURL = await getDownloadURL(fileRef)
+      
+      const committeeRef = ref(db, `committees/${selectedCommittee}`)
+      const committeeSnapshot = await get(committeeRef)
+      
+      if (committeeSnapshot.exists()) {
+        const committeeData = committeeSnapshot.val()
+        let updateData = {}
+        
+        if (uploadingFile.type === 'study') {
+          updateData = { studyGuide: downloadURL }
+        } else if (uploadingFile.type === 'rop') {
+          updateData = { rules: downloadURL }
+        } else if (uploadingFile.type === 'training') {
+          const existingMaterials = committeeData.trainingMaterials || []
+          updateData = { trainingMaterials: [...existingMaterials, downloadURL] }
+        }
+        
+        await update(committeeRef, updateData)
+        
+        const newResourceRef = ref(db, 'resources')
+        const resourceData = {
+          title: `${committees.find(c => c.id === selectedCommittee)?.name} ${uploadingFile.type === 'study' ? 'Study Guide' : uploadingFile.type === 'rop' ? 'Rules of Procedure' : 'Training Material'}`,
+          description: `Uploaded by ${ebMember?.name}`,
+          type: uploadingFile.type === 'study' ? 'study' : uploadingFile.type === 'rop' ? 'rules' : 'training',
+          url: downloadURL,
+          committee: selectedCommittee,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: ebMember?.name || 'EB Member'
+        }
+        await push(newResourceRef, resourceData)
+        
+        toast.success('File uploaded successfully')
+        fetchEbData(email)
+        fetchResources(selectedCommittee)
+        setUploadingFile({ type: 'study', file: null })
+      } else {
+        toast.error('Committee not found')
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error)
+      toast.error('Failed to upload file')
+    } finally {
+      setLoading(prev => ({ ...prev, uploading: false }))
+    }
+  }
+
   const filteredDelegates = delegates.filter(delegate => {
-    // Search term filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
       return (
@@ -613,7 +753,6 @@ function EBPortalContent() {
       )
     }
     
-    // Status filter
     if (statusFilter !== 'all') {
       const desiredStatus = statusFilter === 'checkedIn'
       if (delegate.isCheckedIn !== desiredStatus) return false
@@ -623,7 +762,6 @@ function EBPortalContent() {
   })
 
   const filteredMarks = marks.filter(mark => {
-    // Search term filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
       return (
@@ -634,7 +772,7 @@ function EBPortalContent() {
     return true
   })
 
-  // Login form (step 1)
+  // Login form
   if (!loggedIn && step !== 'verify') {
     return (
       <div className="min-h-screen bg-gradient-to-b from-black to-amber-950/20 flex items-center justify-center p-4">
@@ -685,7 +823,7 @@ function EBPortalContent() {
     )
   }
 
-  // OTP verification form (step 2)
+  // OTP verification form
   if (!loggedIn && step === 'verify') {
     return (
       <div className="min-h-screen bg-gradient-to-b from-black to-amber-950/20 flex items-center justify-center p-4">
@@ -794,496 +932,618 @@ function EBPortalContent() {
           </div>
         </div>
 
-        {/* Committee Selection */}
-        <div className="mb-8">
-          <label className="block text-sm font-medium text-amber-300 mb-2">Select Committee</label>
-          <select
-            className="w-full bg-black/50 border border-amber-800/30 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
-            value={selectedCommittee}
-            onChange={(e) => {
-              setSelectedCommittee(e.target.value)
-              fetchDelegates(e.target.value)
-              fetchMarks(e.target.value)
-            }}
-            disabled={loading.committees}
+        {/* Navigation Tabs */}
+        <div className="flex border-b border-amber-800/30 mb-8">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`px-4 py-2 font-medium ${activeTab === 'dashboard' ? 'text-amber-300 border-b-2 border-amber-400' : 'text-amber-200/70 hover:text-amber-300'}`}
           >
-            {loading.committees ? (
-              <option>Loading committees...</option>
-            ) : (
-              <>
-                <option value="">Select a committee</option>
-                {committees.map(committee => (
-                  <option key={committee.id} value={committee.id}>
-                    {committee.name}
-                  </option>
-                ))}
-              </>
-            )}
-          </select>
+            Dashboard
+          </button>
+          <button
+            onClick={() => setActiveTab('delegates')}
+            className={`px-4 py-2 font-medium ${activeTab === 'delegates' ? 'text-amber-300 border-b-2 border-amber-400' : 'text-amber-200/70 hover:text-amber-300'}`}
+          >
+            Delegates
+          </button>
+          <button
+            onClick={() => setActiveTab('marks')}
+            className={`px-4 py-2 font-medium ${activeTab === 'marks' ? 'text-amber-300 border-b-2 border-amber-400' : 'text-amber-200/70 hover:text-amber-300'}`}
+          >
+            Marks Management
+          </button>
+          <button
+            onClick={() => setActiveTab('resources')}
+            className={`px-4 py-2 font-medium ${activeTab === 'resources' ? 'text-amber-300 border-b-2 border-amber-400' : 'text-amber-200/70 hover:text-amber-300'}`}
+          >
+            Resources
+          </button>
+          <button
+            onClick={() => setActiveTab('coupons')}
+            className={`px-4 py-2 font-medium ${activeTab === 'coupons' ? 'text-amber-300 border-b-2 border-amber-400' : 'text-amber-200/70 hover:text-amber-300'}`}
+          >
+            Partner Coupons
+          </button>
         </div>
 
-        {selectedCommittee && (
-          <>
-            {/* Dashboard Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {/* Committee Info Card */}
-              <div 
-                className={`bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 transition-all ${expandedCard === 'committee' ? 'md:col-span-2 lg:col-span-1' : ''}`}
-                onClick={() => toggleCard('committee')}
-              >
-                <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30 flex justify-between items-center cursor-pointer">
-                  <h2 className="text-xl font-bold text-amber-300 flex items-center">
-                    <Globe className="h-5 w-5 mr-2" /> 
-                    Committee Information
-                  </h2>
-                  {expandedCard === 'committee' ? (
-                    <ChevronUp className="text-amber-300 h-5 w-5" />
-                  ) : (
-                    <ChevronDown className="text-amber-300 h-5 w-5" />
-                  )}
+        {selectedCommittee && activeTab === 'dashboard' && (
+          <div className="space-y-6">
+            {/* Committee Overview */}
+            <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl p-6">
+              <h2 className="text-xl font-bold text-amber-300 mb-4 flex items-center">
+                <BookOpen className="h-5 w-5 mr-2" />
+                Committee Overview
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <p className="text-sm text-amber-200/80">Committee Name</p>
+                  <p className="text-lg font-bold text-amber-300">
+                    {committees.find(c => c.id === selectedCommittee)?.name}
+                  </p>
                 </div>
-                {selectedCommittee ? (
-                  <div className="p-6 space-y-4">
-                    <div>
-                      <p className="text-sm text-amber-200/80">Committee</p>
-                      <p className="font-medium text-amber-100">
-                        {committees.find(c => c.id === selectedCommittee)?.name}
-                      </p>
-                    </div>
-                    {expandedCard === 'committee' && (
-                      <>
-                        <div>
-                          <p className="text-sm text-amber-200/80">Description</p>
-                          <p className="text-amber-100">
-                            {committees.find(c => c.id === selectedCommittee)?.description}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-amber-200/80">Topics</p>
-                          <div className="mt-2 space-y-2">
-                            {committees.find(c => c.id === selectedCommittee)?.topics
-                              .filter(t => t && t !== 'TBA')
-                              .map((topic, i) => (
-                                <div key={i} className="bg-amber-900/20 px-3 py-2 rounded-lg border border-amber-800/30">
-                                  <p className="text-amber-100">{topic}</p>
-                                </div>
-                              ))}
-                          </div>
-                        </div>
-                        <div className="pt-4">
-                          <Link 
-                            href={committees.find(c => c.id === selectedCommittee)?.backgroundGuide || '#'} 
-                            target="_blank"
-                          >
-                            <Button className="w-full bg-amber-600 hover:bg-amber-700 text-black">
-                              <BookOpen className="mr-2 h-4 w-4" />
-                              View Background Guide
-                            </Button>
-                          </Link>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <div className="p-6 text-amber-200/80">No committee selected</div>
-                )}
-              </div>
-
-              {/* Delegates Card */}
-              <div 
-                className={`bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 transition-all ${expandedCard === 'delegates' ? 'md:col-span-2 lg:col-span-1' : ''}`}
-                onClick={() => toggleCard('delegates')}
-              >
-                <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30 flex justify-between items-center cursor-pointer">
-                  <h2 className="text-xl font-bold text-amber-300 flex items-center">
-                    <Users className="h-5 w-5 mr-2" /> 
-                    Delegates
-                  </h2>
-                  {expandedCard === 'delegates' ? (
-                    <ChevronUp className="text-amber-300 h-5 w-5" />
-                  ) : (
-                    <ChevronDown className="text-amber-300 h-5 w-5" />
-                  )}
+                <div>
+                  <p className="text-sm text-amber-200/80">Total Delegates</p>
+                  <p className="text-lg font-bold text-amber-300">{delegates.length}</p>
                 </div>
-                <div className="p-6">
-                  {loading.delegates ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-                        <div className="relative flex-1">
-                          <input
-                            type="text"
-                            placeholder="Search delegates..."
-                            className="w-full pl-10 pr-4 py-2 bg-black/50 border border-amber-800/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                          />
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-400" />
-                        </div>
-                        <Button 
-                          onClick={() => setShowFilters(!showFilters)}
-                          className="bg-amber-900/30 hover:bg-amber-800/50 text-amber-300"
-                        >
-                          <Filter className="h-4 w-4 mr-2" />
-                          {showFilters ? 'Hide Filters' : 'Show Filters'}
-                        </Button>
-                      </div>
-
-                      {showFilters && (
-                        <div className="mb-4 p-4 bg-black/30 border border-amber-800/20 rounded-lg">
-                          <label className="block text-sm font-medium text-amber-300 mb-2">Status</label>
-                          <select
-                            className="w-full bg-black/50 border border-amber-800/30 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                          >
-                            <option value="all">All Statuses</option>
-                            <option value="checkedIn">Checked In Only</option>
-                            <option value="notCheckedIn">Not Checked In</option>
-                          </select>
-                        </div>
-                      )}
-
-                      <div className="space-y-4 max-h-[400px] overflow-y-auto">
-                        {filteredDelegates.length > 0 ? (
-                          filteredDelegates.map(delegate => (
-                            <div 
-                              key={delegate.id} 
-                              className="flex items-center justify-between p-4 bg-black/50 rounded
-                                                            -lg border border-amber-800/30 hover:bg-amber-900/20 transition-colors"
-                            >
-                              <div className="flex-1">
-                                <h3 className="font-medium text-amber-100">{delegate.name}</h3>
-                                <p className="text-sm text-amber-200/80">{delegate.email}</p>
-                                {delegate.institution && (
-                                  <p className="text-xs mt-1 text-amber-400/80">
-                                    {delegate.institution} ({delegate.experence || 0} confs)
-                                  </p>
-                                )}
-                              </div>
-                              <Button
-                                size="sm"
-                                variant={delegate.isCheckedIn ? "default" : "outline"}
-                                className="h-8 px-3"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  toggleCheckIn(delegate.id, delegate.isCheckedIn)
-                                }}
-                              >
-                                {delegate.isCheckedIn ? (
-                                  <CheckCircle className="h-4 w-4 mr-2" />
-                                ) : (
-                                  <XCircle className="h-4 w-4 mr-2" />
-                                )}
-                                {delegate.isCheckedIn ? "Checked In" : "Check In"}
-                              </Button>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-center py-6 text-amber-200/80">
-                            No delegates found
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Marks Card */}
-              <div 
-                className={`bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 transition-all ${expandedCard === 'marks' ? 'md:col-span-2' : ''}`}
-                onClick={() => toggleCard('marks')}
-              >
-                <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30 flex justify-between items-center cursor-pointer">
-                  <h2 className="text-xl font-bold text-amber-300 flex items-center">
-                    <Award className="h-5 w-5 mr-2" /> 
-                    Marks Management
-                  </h2>
-                  {expandedCard === 'marks' ? (
-                    <ChevronUp className="text-amber-300 h-5 w-5" />
-                  ) : (
-                    <ChevronDown className="text-amber-300 h-5 w-5" />
-                  )}
-                </div>
-                <div className="p-6">
-                  {loading.marks ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      <div className="flex justify-between items-center">
-                        <Button 
-                          onClick={() => startEditingMark()}
-                          className="bg-amber-600 hover:bg-amber-700 text-black"
-                        >
-                          <Plus className="h-4 w-4 mr-2" /> Add Marks
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          onClick={downloadMarksheetPDF}
-                          className="border-amber-500 text-amber-300 hover:bg-amber-900/30"
-                        >
-                          <Download className="h-4 w-4 mr-2" /> PDF
-                        </Button>
-                      </div>
-
-                      {editingMark && (
-                        <div className="bg-black/50 p-4 rounded-lg border border-amber-800/30">
-                          <h3 className="text-lg font-bold mb-4 text-amber-300">
-                            {editingMark.id ? "Edit Marks" : "Add New Marks"}
-                          </h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-sm text-amber-200/80">Country</label>
-                              <input
-                                type="text"
-                                value={tempMark.country || ''}
-                                onChange={(e) => handleMarkChange('country', e.target.value)}
-                                className="w-full bg-black/30 border border-amber-800/30 rounded-md p-2 text-white"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-sm text-amber-200/80">Alternative</label>
-                              <select
-                                value={tempMark.alt || 'p'}
-                                onChange={(e) => handleMarkChange('alt', e.target.value)}
-                                className="w-full bg-black/30 border border-amber-800/30 rounded-md p-2 text-white"
-                              >
-                                <option value="p">Prime</option>
-                                <option value="a">Alternative</option>
-                              </select>
-                            </div>
-                            {['gsl', 'mod1', 'mod2', 'mod3', 'mod4', 'lobby', 'chits', 'fp', 'doc'].map((field) => (
-                              <div key={field}>
-                                <label className="text-sm text-amber-200/80 capitalize">
-                                  {field} ({field === 'gsl' ? 10 : 5})
-                                </label>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={field === 'gsl' ? 10 : 5}
-                                  step={0.1}
-                                  value={tempMark[field as keyof Mark] || 0}
-                                  onChange={(e) => handleMarkChange(field as keyof Mark, e.target.value)}
-                                  className="w-full bg-black/30 border border-amber-800/30 rounded-md p-2 text-white"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                          <div className="mt-4 flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              onClick={cancelEditingMark}
-                              className="border-amber-500 text-amber-300"
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              onClick={saveMark}
-                              className="bg-amber-600 hover:bg-amber-700 text-black"
-                              disabled={loading.saving}
-                            >
-                              {loading.saving ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Save className="h-4 w-4 mr-2" />
-                              )}
-                              Save Marks
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead className="bg-amber-900/20">
-                            <tr>
-                              <th className="p-3 text-left text-sm text-amber-300">Country</th>
-                              <th className="p-3 text-sm text-amber-300">Alt</th>
-                              {['GSL', 'MOD1', 'MOD2', 'MOD3', 'MOD4', 'Lobby', 'Chits', 'FP', 'DOC', 'Total'].map((h) => (
-                                <th key={h} className="p-3 text-sm text-amber-300">{h}</th>
-                              ))}
-                              <th className="p-3 text-sm text-amber-300">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filteredMarks.map((mark) => (
-                              <tr key={mark.id} className="border-b border-amber-800/30 hover:bg-amber-900/10">
-                                <td className="p-3">{mark.country}</td>
-                                <td className="p-3 text-center">{mark.alt?.toUpperCase()}</td>
-                                <td className="p-3 text-center">{mark.gsl}</td>
-                                <td className="p-3 text-center">{mark.mod1}</td>
-                                <td className="p-3 text-center">{mark.mod2}</td>
-                                <td className="p-3 text-center">{mark.mod3}</td>
-                                <td className="p-3 text-center">{mark.mod4}</td>
-                                <td className="p-3 text-center">{mark.lobby}</td>
-                                <td className="p-3 text-center">{mark.chits}</td>
-                                <td className="p-3 text-center">{mark.fp}</td>
-                                <td className="p-3 text-center">{mark.doc}</td>
-                                <td className="p-3 text-center font-bold text-amber-300">
-                                  {mark.total.toFixed(1)}
-                                </td>
-                                <td className="p-3 flex gap-2">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => startEditingMark(mark)}
-                                    className="text-amber-300 hover:bg-amber-900/30"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => mark.id && deleteMark(mark.id)}
-                                    className="text-red-400 hover:bg-red-900/30"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Resources Card */}
-              <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10">
-                <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
-                  <h2 className="text-xl font-bold text-amber-300 flex items-center">
-                    <FileText className="h-5 w-5 mr-2" /> 
-                    Conference Resources
-                  </h2>
-                </div>
-                <div className="p-6">
-                  {loading.resources ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {resources.map((resource) => (
-                        <div
-                          key={resource.id}
-                          className="p-4 bg-black/50 rounded-lg border border-amber-800/30 hover:bg-amber-900/20 transition-colors"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className="font-medium text-amber-100">{resource.title}</h3>
-                              <p className="text-sm text-amber-200/80">{resource.description}</p>
-                              {resource.pages && (
-                                <span className="text-xs text-amber-400/80 mt-1">
-                                  {resource.pages} pages
-                                </span>
-                              )}
-                            </div>
-                            <Button
-                              asChild
-                              variant="outline"
-                              className="border-amber-500 text-amber-300 hover:bg-amber-900/30"
-                            >
-                              <Link href={resource.url} target="_blank">
-                                <Download className="h-4 w-4 mr-2" />
-                                Download
-                              </Link>
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Coupons Card */}
-              <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10">
-                <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
-                  <h2 className="text-xl font-bold text-amber-300 flex items-center">
-                    <QrCode className="h-5 w-5 mr-2" /> 
-                    Partner Coupons
-                  </h2>
-                </div>
-                <div className="p-6">
-                  {loading.coupons ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {coupons.map((coupon) => (
-                        <div
-                          key={coupon.id}
-                          className="p-4 bg-black/50 rounded-lg border border-amber-800/30 hover:bg-amber-900/20 transition-colors"
-                        >
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              {coupon.logo && (
-                                <Image
-                                  src={coupon.logo}
-                                  alt={coupon.partner}
-                                  width={40}
-                                  height={40}
-                                  className="rounded-lg"
-                                />
-                              )}
-                              <div>
-                                <h3 className="font-medium text-amber-100">{coupon.title}</h3>
-                                <p className="text-sm text-amber-200/80">{coupon.partner}</p>
-                              </div>
-                            </div>
-                            <span className="text-sm bg-amber-900/30 px-2 py-1 rounded-md text-amber-300">
-                              {coupon.discount} off
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-xs text-amber-400/80">
-                                Expires: {new Date(coupon.expiry).toLocaleDateString()}
-                              </p>
-                              <p className="text-xs text-amber-400/80 mt-1">{coupon.terms}</p>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                navigator.clipboard.writeText(coupon.code)
-                                toast.success('Coupon code copied!')
-                              }}
-                              className="border-amber-500 text-amber-300 hover:bg-amber-900/30"
-                            >
-                              <Copy className="h-4 w-4 mr-2" />
-                              {coupon.code}
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                <div className="md:col-span-2">
+                  <p className="text-sm text-amber-200/80">Agenda</p>
+                  <ul className="list-disc pl-5 text-amber-100">
+                    {committees.find(c => c.id === selectedCommittee)?.topics.map((topic, index) => (
+                      <li key={index} className="text-sm">{topic}</li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </div>
-          </>
+
+            {/* File Upload Section */}
+            <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl p-6">
+              <h2 className="text-xl font-bold text-amber-300 mb-4 flex items-center">
+                <FileUp className="h-5 w-5 mr-2" />
+                Upload Committee Documents
+              </h2>
+              <div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Study Guide Upload */}
+                <div className="bg-black/50 p-4 rounded-lg border border-amber-800/20">
+                  <h3 className="text-amber-300 mb-2">Study Guide</h3>
+                  <form onSubmit={handleFileUpload} className="flex flex-col gap-2">
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      key={uploadingFile.file?.name || 'study-input'}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file && file.type === 'application/pdf') {
+                          setUploadingFile({ type: 'study', file })
+                        } else {
+                          toast.error('Please select a valid PDF file')
+                        }
+                      }}
+                      className="file-input file-input-bordered file-input-sm w-full bg-black/30 border-amber-800/30 text-amber-100"
+                    />
+                    <Button 
+                      type="submit"
+                      className="bg-amber-600-400 hover:bg-amber-700 600 text-black"
+                      disabled={!uploadingFile.file || uploadingFile.type !== 'study' || loading.uploading}
+                    >
+                      {loading.uploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>Upload Study Guide</>
+                      )}
+                    </Button>
+                  </form>
+                </div>
+
+                {/* Rules of Procedure Upload */}
+                <div className="bg-black/50 p-4 rounded-lg border border-amber-800/30">
+                  <h3 className="text-amber-300 mb-2">Rules of Procedure</h3>
+                  <form onSubmit={handleFileUpload} className="flex flex-col gap-2">
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      onChange={(e) => {
+                        const file = e.target?.files?.[0]
+                        if (file && file.type === 'application/pdf') {
+                          setUploadingFile({ type: 'rop', file })
+                        } else {
+                          toast.error('Please select a valid PDF file')
+                        }
+                      }}
+                      className="file-input file-input-bordered file-input-sm w-full bg-black/30 border-amber-800/30 text-amber-100"
+                    />
+                    <Button 
+                      type="submit"
+                      className="bg-amber-600 hover:bg-amber-700 text-black"
+                      disabled={loading.uploading || !uploadingFile.file || uploadingFile.type !== 'rop'}
+                    >
+                      {loading.uploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>Upload RoP</>
+                      )}
+                    </Button>
+                  </form>
+                </div>
+
+                {/* Training Materials Upload */}
+                <div className="bg-black/50 p-4 rounded-lg border border-amber-800/30">
+                  <h3 className="text-amber-300 mb-2">Training Materials</h3>
+                  <form onSubmit={handleFileUpload} className="flex flex-col gap-2">
+                    <input
+                      type="file"
+                      accept=".pdf,.ppt,.pptx"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file && ['application/pdf', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument'.includes(file.type) {
+                          setUploadingFile({ type: 'training', file })
+                        } else {
+                          toast.error('Please select a valid PDF or PPT file')
+                        }
+                      }}
+                      className="file-input file-input-bordered file-input-sm w-full bg-black/30 border-amber-800/30 text-amber-100"
+                    />
+                    <Button 
+                      type="submit" 
+                      className="bg-amber-600 hover:bg-amber-700 text-black"
+                      disabled={loading.uploading || !uploadingFile.file || uploadingFile.type !== 'training'}
+                    >
+                      {loading.uploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>Upload Training Material</>
+                      )}
+                    </Button>
+                  </form>
+                </div>
+              </div>
+
+            {/* Quick Stats Section */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 p-6 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-amber-200/80">Total Delegates</p>
+                    <p className="text-3xl font-bold text-amber-300">{delegates.length}</p>
+                  </div>
+                  <Users className="h-8 w-8 text-amber-400/80" />
+                </div>
+              </div>
+              <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 p-6 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-amber-200/80">Checked In</p>
+                    <p className="text-3xl font-bold text-amber-300">
+                      {delegates.filter(d => d.isCheckedIn).length}
+                    </p>
+                  </div>
+                  <CheckCircle className="h-8 w-8 text-green-400/80" />
+                </div>
+              </div>
+              <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 p-6 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-amber-200/80">Available Resources</p>
+                    <p className="text-3xl font-bold text-amber-300">
+                      {resources.length}
+                    </p>
+                  </div>
+                  <FileText className="h-8 w-8 text-amber-400/80" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delegates Tab */}
+        {activeTab === 'delegates' && (
+          <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10">
+            <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
+              <h2 className="text-xl font-bold text-amber-300 flex items-center">
+                <Users className="h-5 w-5 mr-2" />
+                Delegates Management
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder="Search delegates..."
+                    className="w-full pl-10 pr-4 py-2 bg-black/50 border border-amber-800/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-400" />
+                </div>
+                <Button 
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="bg-amber-900/30 hover:bg-amber-800/30 text-amber-300"
+                >
+                  <Filter className="h-4 w-4 mr-2" />
+                  {showFilters ? 'Hide Filters' : 'Show Filters'}
+                </Button>
+              </div>
+
+              {showFilters && (
+                <div className="mb-4 p-4 bg-black/30 border border-amber-800/30 rounded-lg">
+                  <label className="block text-sm font-medium text-amber-300 mb-2">Status</label>
+                  <select
+                    className="w-full bg-black/50 border border-amber-800/30 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-amber-500"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="checkedIn">Checked In</option>
+                    <option value="notCheckedIn">Not Checked In</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="space-y-4 max-h-[600px] overflow-y-auto">
+                {filteredDelegates.length > 0 ? (
+                  filteredDelegates.map(delegate => (
+                    <div 
+                      key={delegate.id} 
+                      className="flex items-center justify-between p-4 bg-black/50 rounded-lg border border-amber-800/30 hover:bg-amber-900/20 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <h3 className="font-medium text-amber-100">{delegate.name}</h3>
+                        <p className="text-sm text-amber-200/80">{delegate.email}</p>
+                        {delegate.institution && (
+                          <p className="text-xs mt-1 text-amber-400/80">
+                            {delegate.institution} ({delegate.experience || 0} confs)
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        onClick={() => toggleCheckIn(delegate.id, delegate.isCheckedIn)}
+                        className={`${
+                          delegate.isCheckedIn 
+                            ? 'bg-green-900/30 text-green-400 hover:bg-green-800/30' 
+                            : 'bg-amber-900/30 text-amber-300 hover:bg-amber-800/30'
+                        }`}
+                      >
+                        {delegate.isCheckedIn ? (
+                          <>
+                            <CheckCircle className="h-4 w-4 mr-2" /> Checked In
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="h-4 w-4 mr-2" /> Check In
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-6 text-amber-200/80">
+                    No delegates found
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Marks Management Tab */}
+        {activeTab === 'marks' && (
+          <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10">
+            <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
+              <h2 className="text-xl font-bold text-amber-300 flex items-center">
+                <Award className="h-5 w-5 mr-2" />
+                Marks Management System
+              </h2>
+            </div>
+            <div className="p-6 space-y-6">
+              <div className="flex justify-between items-center">
+                <Button 
+                  onClick={() => startEditingMark()}
+                  className="bg-amber-600 hover:bg-amber-700 text-black"
+                >
+                  <Plus className="h-4 w-4 mr-2" /> Add New Marks
+                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={downloadMarksheetPDF}
+                    class="border-amber-500 text-amber-300 hover:bg-amber-900/30"
+                  >
+                    <Download className="h-4 w-4 mr-2" /> Export PDF
+                  </Button>
+                </div>
+              </div>
+
+              {editingMark && (
+                <div className="bg-black/30 p-4 rounded-lg border border-amber-800/30">
+                  <h3 className="text-lg font-bold mb-4 text-amber-300">
+                    {editingMark.id ? "Edit Marks" : "Add New Marks"}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm text-amber-200/80">Country</label>
+                      <input
+                        type="text"
+                        value={tempMark.country || ''}                        onChange={(e) => handleMarkChange('country', e.target.value)}
+                        className="w-full bg-black/30 border border-amber-800/30 rounded-md p-2 text-white"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm text-amber-200/80">Alternative</label>
+                      <select
+                        value={tempMark.alt || ''}                        onChange={(e) => handleMarkChange('alt', e.target.value)}
+                        className="w-full bg-black/30 border border-amber-800/30 rounded-md p-2 text-white"
+                      >
+                        <option value="p">Prime</option>
+                        <option value="a">Alternative</option>
+                      </select>
+                    </div>
+                    {['gsl', 'mod1', 'mod2', 'mod2', 'mod3', 'mod4', 'lobby', 'chits', 'fp', 'doc'].map((field) => (
+                      <div key={field}>
+                        <label className="text-sm text-amber-200/80 capitalize">
+                          {field} ({field === 'gsl' ? 10 : 5})
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={field === 'gsl' ? 10 : 5}
+                          step={0.1}
+                          value={tempMark[field as keyof Mark] || 0}                          onChange={(e) => handleMarkChange(field as keyof Mark, e.target.value)}
+                          className="w-full bg-black/30 border border-amber-800/30 rounded-md p-2 text-white"
+                        />
+                      </div>
+                    ))}
+                    <div className="col-span-full">
+                      <label className="text-sm text-amber-200/80">Notes</label>
+                      <textarea
+                        value={tempMark.notes || ''}
+                        onChange={(e) => handleMarkChange('notes', e.target.value)}
+                        className="w-full bg-black/30 border border-amber-800/30 rounded-md p-2 text-white"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={cancelEditingMark}
+                      className="border-amber-500 text-amber-300"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={saveMark}
+                      className="bg-amber-600 hover:bg-amber-700 text-black"
+                      disabled={loading.saving}
+                    >
+                      {loading.saving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
+                      Save Marks
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-amber-900/30">
+                    <tr>
+                      <th className="p-3 text-left text-sm text-amber-300">Country</th>
+                      <th className="p-3 text-sm text-amber-300">Alt</th>
+                      {['GSL', 'MOD1', 'MOD2', 'MOD3', 'MOD4', 'Lobby', 'Chits', 'FP', 'DOC', 'Total'].map((h) => (
+                        <th key={h} className="p-3 text-sm text-amber-300">{h}</th>
+                      ))}
+                      <th className="p-3 text-sm text-amber-300">Notes</th>
+                      <th className="p-3 text-sm text-amber-300">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMarks.map((mark) => (
+                      <tr key={mark.id} className="border-b border-amber-800/30 hover:bg-amber-900/10">
+                        <td className="p-3">{mark.country}</td>
+                        <td className="p-3 text-center">{mark.alt?.toUpperCase()}</td>
+                        <td className="p-3 text-center">{mark.gsl}</td>
+                        <td><className="p-3">text-center<td>{mark.mod1}</td>
+                        <td><className="p-3">text-center<td>{mark.mod2}</td>
+                        <td><className="p-3 text-center">{mark.mod3}</td>
+                        <td><className="p-3">text-center<td>{mark.mod4}</td>
+                        <td><td className="p-3 text-center">{mark.lobby}</td>
+                        <td><td className="p-3 text-center">{mark.chits}</td>
+                        <td><td className="p-3 text-center">{mark.fp}</td>
+                        <td><td className="p-3 text-center">{mark.doc}</td>
+                        <td className="p-3 text-center font-bold text-amber-300">{mark.total.toFixed(1)}</td>
+                        <td className="p-3 max-w-[200px] truncate">{mark.notes}</td>
+                        <td className="p-3 flex flex-wrap gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => startEditingMark(mark)}
+                            className="text-amber-300 hover:bg-amber-900/30"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => mark.id && deleteMark(mark.id)}
+                            className="text-red-400 hover:bg-red-900/30"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        {/* Resources Tab */}
+        {activeTab === 'resources' && (
+          <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10">
+            <div className="bg-gradient-to-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
+              <h2 className="text-xl font-bold text-amber-300 flex items-center">
+                <FileText className="h-5 w-5 mr-amber-2" />
+                Committee Resources
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder="Search resources..."
+                    className="w-full pl-10 pr-4 py-2 bg-black/50 border border-amber-800/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-amber-500 focus:border-amber-500"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-400" />
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => fetchResources(selectedCommittee)}
+                    className="border-amber-500 text-amber-300 hover:bg-amber-900/30"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Refresh
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {resources.filter(r => searchTerm ? r.title.toLowerCase().includes(searchTerm.toLowerCase()) : true).map((resource) => (
+                  <div 
+                    key={resource.id} 
+                    className="bg-black/50 p-4 rounded-lg border border-amber-800/30 hover:border-amber-500 transition-colors"
+                  >
+                    <div className="flex items-start mb-3">
+                      <div className="bg-amber-900/30 p-2 rounded-lg mr-3">
+                        {resource.type === 'study' && <BookOpen className="h-5 w-5 text-amber-400" />}
+                        {resource.type === 'rules' && <FileText className="h-5 w-5 text-amber-400" />}
+                        {resource.type === 'training' && <Award className="h-5 w-5 text-amber-400" />}
+                        {resource.type === 'guide' && <FileText className="h-5 w-5 text-amber-400" />}
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-amber-300">{resource.title}</h3>
+                        <p className="text-sm text-amber-100/80">{resource.description}</p>
+                        <p className="text-xs text-amber-500/80 mt-1">
+                          Uploaded by {resource.uploadedBy} • {new Date(resource.uploadedAt || '').toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs bg-amber-900/30 px-2 py-1 rounded-full text-amber-300">
+                        {resource.type.toUpperCase()}
+                      </span>
+                      <Button 
+                        asChild
+                        variant="outline"
+                        className="border-amber-500 text-amber-300 hover:bg-amber-900/30"
+                      >
+                        <Link href={resource.url} target="_blank">
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {resources.length === 0 && (
+                  <div className="col-span-full text-center py-6 text-amber-200/80">
+                    No resources available
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Coupons Tab */}
+        {activeTab === 'coupons' && (
+          <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10">
+            <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
+              <h2 className="text-xl font-bold text-amber-300 flex items-center">
+                <QrCode className="h-5 w-5 mr-2" />
+                Partner Coupons Management
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {coupons.map((coupon) => (
+                  <div 
+                    key={coupon.id} 
+                    className="bg-black/50 p-4 rounded-lg border border-amber-800/30 hover:border-amber-500 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        {coupon.logo && (
+                          <Image
+                            src={coupon.logo}
+                            alt={coupon.partner}
+                            width={40}
+                            height={40}
+                            className="rounded-lg object-cover"
+                          />
+                        )}
+                        <div>
+                          <h3 className="font-medium text-amber-300">{coupon.title}</h3>
+                          <p className="text-sm text-amber-200/80">{coupon.partner}</p>
+                        </div>
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        coupon.isActive ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
+                      }`}>
+                        {coupon.isActive ? 'Active' : 'Expired'}
+                      </span>
+                    </div>
+                    <div className="mb-4">
+                      <p className="text-sm text-amber-200/80 mb-2">{coupon.description}</p>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-amber-500/80">
+                            Expires: {new Date(coupon.expiry).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <span className="text-lg font-bold text-amber-400">
+                          {coupon.discount}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="bg-black/30 p-3 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-amber-300">{coupon.code}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(coupon.code)
+                            toast.success('Coupon code copied!')
+                          }}
+                          className="text-amber-300 hover:bg-amber-900/30"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>
   )
 }
 
-export default function EBPortal() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center">
-      <Loader2 className="h-12 w-12 animate-spin text-amber-500" />
-    </div>}>
-      <EBPortalContent />
-    </Suspense>
-  )
+export default function Page() {
+  return <Suspense fallback={<div>Loading...</div>}>
+          <EBPortalContent />
+         </Suspense>
 }
