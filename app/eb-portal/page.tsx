@@ -2,7 +2,8 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { initializeApp } from 'firebase/app'
-import { getDatabase, ref, get, query, orderByChild, equalTo, set, update, push } from 'firebase/database'
+// Relevant imports and fetchCoupons for page.tsx
+import { getDatabase, ref, get, query, orderByChild, equalTo, set, update, push, onValue } from 'firebase/database';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -107,17 +108,17 @@ type Resource = {
   uploadedBy?: string
 }
 
-type Coupon = {
-  id: string
-  title: string
-  description: string
-  code: string
-  partner: string
-  logo: string
-  expiry: string
-  discount: string
-  terms: string
-  isActive: boolean
+interface Coupon {
+  id: string;
+  title: string;
+  partner: string;
+  description: string;
+  discount: string;
+  expiry: string;
+  code: string;
+  logo: string;
+  terms: string;
+  isActive: boolean;
 }
 
 function EBPortalContent() {
@@ -134,7 +135,7 @@ function EBPortalContent() {
   const [delegates, setDelegates] = useState<Delegate[]>([])
   const [marks, setMarks] = useState<Mark[]>([])
   const [resources, setResources] = useState<Resource[]>([])
-  const [coupons, setCoupons] = useState<Coupon[]>([])
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState({
     login: false,
     verify: false,
@@ -144,8 +145,9 @@ function EBPortalContent() {
     resources: false,
     coupons: false,
     saving: false,
-    uploading: false
-  })
+    uploading: false,
+  });
+  const [couponError, setCouponError] = useState<string | null>(null); // New state for coupon fetch errors
   const [error, setError] = useState({
     login: null as string | null,
     verify: null as string | null
@@ -384,26 +386,68 @@ function EBPortalContent() {
   }
 
   const fetchCoupons = async () => {
-    try {
-      setLoading(prev => ({ ...prev, coupons: true }))
-      
-      const couponsRef = ref(db, 'coupons')
-      const couponsSnapshot = await get(couponsRef)
-      
-      if (couponsSnapshot.exists()) {
-        const couponsData = couponsSnapshot.val()
-        const couponsList = Object.keys(couponsData).map(key => ({
-          id: key,
-          ...couponsData[key]
-        })) as Coupon[]
-        setCoupons(couponsList.filter(c => c.isActive))
+  try {
+    setLoading((prev) => ({ ...prev, coupons: true }));
+    setCouponError(null);
+
+    const couponsRef = ref(db, 'coupons');
+    const unsubscribe = onValue(
+      couponsRef,
+      (snapshot) => {
+        const data = snapshot.val();
+        console.log('Coupons data:', data); // Debug log
+        if (data) {
+          const couponsList: Coupon[] = Object.entries(data).map(([id, coupon]: [string, any]) => {
+            let expiryDate: Date;
+            try {
+              if (coupon.expiry.includes('-')) {
+                expiryDate = new Date(coupon.expiry);
+              } else {
+                expiryDate = new Date(coupon.expiry.replace(',', ''));
+              }
+              if (isNaN(expiryDate.getTime())) throw new Error('Invalid date');
+            } catch (error) {
+              console.error(`Invalid date format for coupon ${id}: ${coupon.expiry}`, error);
+              expiryDate = new Date();
+            }
+
+            const isActive = !coupon.isUsed && expiryDate >= new Date();
+
+            return {
+              id,
+              title: coupon.title || 'Untitled Coupon',
+              description: coupon.description || 'No description',
+              code: coupon.code || 'No code',
+              partner: coupon.partner || 'Unknown Partner',
+              logo: coupon.logo || '',
+              expiry: coupon.expiry,
+              discount: coupon.discount || 'N/A',
+              terms: coupon.terms || 'No terms specified',
+              isActive,
+            };
+          });
+          setCoupons(couponsList);
+        } else {
+          setCoupons([]);
+        }
+        setLoading((prev) => ({ ...prev, coupons: false }));
+      },
+      (error) => {
+        console.error('Error fetching coupons:', error);
+        setCouponError('Failed to load coupons. Please try again.');
+        setLoading((prev) => ({ ...prev, coupons: false }));
+        toast.error('Failed to load coupons');
       }
-    } catch (error) {
-      console.error('Error fetching coupons:', error)
-    } finally {
-      setLoading(prev => ({ ...prev, coupons: false }))
-    }
+    );
+    return unsubscribe;
+  } catch (error) {
+    console.error('Error setting up coupon listener:', error);
+    setCouponError('Failed to load coupons. Please try again.');
+    setLoading((prev) => ({ ...prev, coupons: false }));
+    toast.error('Failed to load coupons');
+    return () => {};
   }
+};
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -967,428 +1011,195 @@ function EBPortalContent() {
         </div>
 
         {selectedCommittee && activeTab === 'dashboard' && (
-          <div className="space-y-6">
-            {/* Committee Overview */}
-            <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl p-6">
-              <h2 className="text-xl font-bold text-amber-300 mb-4 flex items-center">
-                <BookOpen className="h-5 w-5 mr-2" />
-                Committee Overview
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <p className="text-sm text-amber-200/80">Committee Name</p>
-                  <p className="text-lg font-bold text-amber-300">
-                    {committees.find(c => c.id === selectedCommittee)?.name}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-amber-200/80">Total Delegates</p>
-                  <p className="text-lg font-bold text-amber-300">{delegates.length}</p>
-                </div>
-                <div className="md:col-span-2">
-                  <p className="text-sm text-amber-200/80">Agenda</p>
-                  <ul className="list-disc pl-5 text-amber-100">
-                    {committees.find(c => c.id === selectedCommittee)?.topics.map((topic, index) => (
-                      <li key={index} className="text-sm">{topic}</li>
-                    ))}
-                  </ul>
-                </div>
+  <div className="space-y-6">
+    {/* Committee Overview */}
+    <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl p-6">
+      <h2 className="text-xl font-bold text-amber-300 mb-4 flex items-center">
+        <BookOpen className="h-5 w-5 mr-2" />
+        Committee Overview
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <p className="text-sm text-amber-200/80">Committee Name</p>
+          <p className="text-lg font-bold text-amber-300">
+            {committees.find(c => c.id === selectedCommittee)?.name}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-amber-200/80">Total Delegates</p>
+          <p className="text-lg font-bold text-amber-300">{delegates.length}</p>
+        </div>
+        <div className="md:col-span-2">
+          <p className="text-sm text-amber-200/80">Agenda</p>
+          <ul className="list-disc pl-5 text-amber-100">
+            {committees.find(c => c.id === selectedCommittee)?.topics.map((topic, index) => (
+              <li key={index} className="text-sm">{topic}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    {/* File Upload Section */}
+    <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl p-6">
+      <h2 className="text-xl font-bold text-amber-300 mb-4 flex items-center">
+        <FileUp className="h-5 w-5 mr-2" />
+        Upload Committee Documents
+      </h2>
+      <div className="bg-black/30 p-4 rounded-lg border border-amber-800/30">
+        <p className="text-amber-300 text-sm">
+          Resource uploads are currently disabled. Please email your resources to{' '}
+          <a 
+            href="mailto:info@kimun.in.net" 
+            className="text-amber-400 hover:text-amber-500 underline"
+          >
+            info@kimun.in.net
+          </a>.
+        </p>
+      </div>
+    </div>
+
+    {/* Quick Stats Section */}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 p-6 rounded-xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-amber-200/80">Total Delegates</p>
+            <p className="text-3xl font-bold text-amber-300">{delegates.length}</p>
+          </div>
+          <Users className="h-8 w-8 text-amber-400/80" />
+        </div>
+      </div>
+      <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 p-6 rounded-xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-amber-200/80">Checked In</p>
+            <p className="text-3xl font-bold text-amber-300">
+              {delegates.filter(d => d.isCheckedIn).length}
+            </p>
+          </div>
+          <CheckCircle className="h-8 w-8 text-green-400/80" />
+        </div>
+      </div>
+      <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 p-6 rounded-xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-amber-200/80">Available Resources</p>
+            <p className="text-3xl font-bold text-amber-300">
+              {resources.length}
+            </p>
+          </div>
+          <FileText className="h-8 w-8 text-amber-400/80" />
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+{activeTab === 'delegates' && (
+  <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10">
+    <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
+      <h2 className="text-xl font-bold text-amber-300 flex items-center">
+        <Users className="h-5 w-5 mr-2" />
+        Delegates Management
+      </h2>
+    </div>
+    <div className="p-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            placeholder="Search delegates..."
+            className="w-full pl-10 pr-4 py-2 bg-black/50 border border-amber-800/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-400" />
+        </div>
+        <Button 
+          onClick={() => setShowFilters(!showFilters)}
+          className="bg-amber-900/30 hover:bg-amber-800/30 text-amber-300"
+        >
+          <Filter className="h-4 w-4 mr-2" />
+          {showFilters ? 'Hide Filters' : 'Show Filters'}
+        </Button>
+      </div>
+
+      {showFilters && (
+        <div className="mb-4 p-4 bg-black/30 border border-amber-800/30 rounded-lg">
+          <label className="block text-sm font-medium text-amber-300 mb-2">Status</label>
+          <select
+            className="w-full bg-black/50 border border-amber-800/30 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-amber-500"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">All Statuses</option>
+            <option value="checkedIn">Checked In</option>
+            <option value="notCheckedIn">Not Checked In</option>
+          </select>
+        </div>
+      )}
+
+      <div className="space-y-4 max-h-[600px] overflow-y-auto">
+        {filteredDelegates.length > 0 ? (
+          filteredDelegates.map(delegate => (
+            <div 
+              key={delegate.id} 
+              className="flex items-center justify-between p-4 bg-black/50 rounded-lg border border-amber-800/30 hover:bg-amber-900/20 transition-colors"
+            >
+              <div className="flex-1">
+                <h3 className="font-medium text-amber-100">{delegate.name}</h3>
+                <p className="text-sm text-amber-200/80">{delegate.email}</p>
+                {delegate.institution && (
+  <div className="mt-1 space-y-1">
+    <span className="inline-block px-2 py-1 text-xs font-medium text-amber-300 bg-amber-900/30 border border-amber-800/50 rounded-full">
+      {delegate.institution}
+    </span>
+    <span className="inline-block px-2 py-1 text-xs font-medium text-amber-300 bg-amber-900/30 border border-amber-800/50 rounded-full">
+      MUNs Attended: {delegate.experience || 0}
+    </span>
+  </div>
+)}
               </div>
+             
             </div>
-
-            {/* File Upload Section */}
-            <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl p-6">
-              <h2 className="text-xl font-bold text-amber-300 mb-4 flex items-center">
-                <FileUp className="h-5 w-5 mr-2" />
-                Upload Committee Documents
-              </h2>
-              <div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Study Guide Upload */}
-                <div className="bg-black/50 p-4 rounded-lg border border-amber-800/20">
-                  <h3 className="text-amber-300 mb-2">Study Guide</h3>
-                  <form onSubmit={handleFileUpload} className="flex flex-col gap-2">
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      key={uploadingFile.file?.name || 'study-input'}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file && file.type === 'application/pdf') {
-                          setUploadingFile({ type: 'study', file })
-                        } else {
-                          toast.error('Please select a valid PDF file')
-                        }
-                      }}
-                      className="file-input file-input-bordered file-input-sm w-full bg-black/30 border-amber-800/30 text-amber-100"
-                    />
-                    <Button 
-                      type="submit"
-                      className="bg-amber-600-400 hover:bg-amber-700 600 text-black"
-                      disabled={!uploadingFile.file || uploadingFile.type !== 'study' || loading.uploading}
-                    >
-                      {loading.uploading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <>Upload Study Guide</>
-                      )}
-                    </Button>
-                  </form>
-                </div>
-
-                {/* Rules of Procedure Upload */}
-                <div className="bg-black/50 p-4 rounded-lg border border-amber-800/30">
-                  <h3 className="text-amber-300 mb-2">Rules of Procedure</h3>
-                  <form onSubmit={handleFileUpload} className="flex flex-col gap-2">
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => {
-                        const file = e.target?.files?.[0]
-                        if (file && file.type === 'application/pdf') {
-                          setUploadingFile({ type: 'rop', file })
-                        } else {
-                          toast.error('Please select a valid PDF file')
-                        }
-                      }}
-                      className="file-input file-input-bordered file-input-sm w-full bg-black/30 border-amber-800/30 text-amber-100"
-                    />
-                    <Button 
-                      type="submit"
-                      className="bg-amber-600 hover:bg-amber-700 text-black"
-                      disabled={loading.uploading || !uploadingFile.file || uploadingFile.type !== 'rop'}
-                    >
-                      {loading.uploading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <>Upload RoP</>
-                      )}
-                    </Button>
-                  </form>
-                </div>
-
-                {/* Training Materials Upload */}
-                <div className="bg-black/50 p-4 rounded-lg border border-amber-800/30">
-                  <h3 className="text-amber-300 mb-2">Training Materials</h3>
-                  <form onSubmit={handleFileUpload} className="flex flex-col gap-2">
-                    <input
-                      type="file"
-                      accept=".pdf,.ppt,.pptx"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file && ['application/pdf', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument'.includes(file.type) {
-                          setUploadingFile({ type: 'training', file })
-                        } else {
-                          toast.error('Please select a valid PDF or PPT file')
-                        }
-                      }}
-                      className="file-input file-input-bordered file-input-sm w-full bg-black/30 border-amber-800/30 text-amber-100"
-                    />
-                    <Button 
-                      type="submit" 
-                      className="bg-amber-600 hover:bg-amber-700 text-black"
-                      disabled={loading.uploading || !uploadingFile.file || uploadingFile.type !== 'training'}
-                    >
-                      {loading.uploading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <>Upload Training Material</>
-                      )}
-                    </Button>
-                  </form>
-                </div>
-              </div>
-
-            {/* Quick Stats Section */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 p-6 rounded-xl">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-amber-200/80">Total Delegates</p>
-                    <p className="text-3xl font-bold text-amber-300">{delegates.length}</p>
-                  </div>
-                  <Users className="h-8 w-8 text-amber-400/80" />
-                </div>
-              </div>
-              <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 p-6 rounded-xl">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-amber-200/80">Checked In</p>
-                    <p className="text-3xl font-bold text-amber-300">
-                      {delegates.filter(d => d.isCheckedIn).length}
-                    </p>
-                  </div>
-                  <CheckCircle className="h-8 w-8 text-green-400/80" />
-                </div>
-              </div>
-              <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 p-6 rounded-xl">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-amber-200/80">Available Resources</p>
-                    <p className="text-3xl font-bold text-amber-300">
-                      {resources.length}
-                    </p>
-                  </div>
-                  <FileText className="h-8 w-8 text-amber-400/80" />
-                </div>
-              </div>
-            </div>
+          ))
+        ) : (
+          <div className="text-center py-6 text-amber-200/80">
+            No delegates found
           </div>
         )}
-
-        {/* Delegates Tab */}
-        {activeTab === 'delegates' && (
-          <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10">
-            <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
-              <h2 className="text-xl font-bold text-amber-300 flex items-center">
-                <Users className="h-5 w-5 mr-2" />
-                Delegates Management
-              </h2>
-            </div>
-            <div className="p-6">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    placeholder="Search delegates..."
-                    className="w-full pl-10 pr-4 py-2 bg-black/50 border border-amber-800/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-400" />
-                </div>
-                <Button 
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="bg-amber-900/30 hover:bg-amber-800/30 text-amber-300"
-                >
-                  <Filter className="h-4 w-4 mr-2" />
-                  {showFilters ? 'Hide Filters' : 'Show Filters'}
-                </Button>
-              </div>
-
-              {showFilters && (
-                <div className="mb-4 p-4 bg-black/30 border border-amber-800/30 rounded-lg">
-                  <label className="block text-sm font-medium text-amber-300 mb-2">Status</label>
-                  <select
-                    className="w-full bg-black/50 border border-amber-800/30 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-amber-500"
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="checkedIn">Checked In</option>
-                    <option value="notCheckedIn">Not Checked In</option>
-                  </select>
-                </div>
-              )}
-
-              <div className="space-y-4 max-h-[600px] overflow-y-auto">
-                {filteredDelegates.length > 0 ? (
-                  filteredDelegates.map(delegate => (
-                    <div 
-                      key={delegate.id} 
-                      className="flex items-center justify-between p-4 bg-black/50 rounded-lg border border-amber-800/30 hover:bg-amber-900/20 transition-colors"
-                    >
-                      <div className="flex-1">
-                        <h3 className="font-medium text-amber-100">{delegate.name}</h3>
-                        <p className="text-sm text-amber-200/80">{delegate.email}</p>
-                        {delegate.institution && (
-                          <p className="text-xs mt-1 text-amber-400/80">
-                            {delegate.institution} ({delegate.experience || 0} confs)
-                          </p>
-                        )}
-                      </div>
-                      <Button
-                        onClick={() => toggleCheckIn(delegate.id, delegate.isCheckedIn)}
-                        className={`${
-                          delegate.isCheckedIn 
-                            ? 'bg-green-900/30 text-green-400 hover:bg-green-800/30' 
-                            : 'bg-amber-900/30 text-amber-300 hover:bg-amber-800/30'
-                        }`}
-                      >
-                        {delegate.isCheckedIn ? (
-                          <>
-                            <CheckCircle className="h-4 w-4 mr-2" /> Checked In
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="h-4 w-4 mr-2" /> Check In
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-6 text-amber-200/80">
-                    No delegates found
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Marks Management Tab */}
-        {activeTab === 'marks' && (
-          <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10">
-            <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
-              <h2 className="text-xl font-bold text-amber-300 flex items-center">
-                <Award className="h-5 w-5 mr-2" />
-                Marks Management System
-              </h2>
-            </div>
-            <div className="p-6 space-y-6">
-              <div className="flex justify-between items-center">
-                <Button 
-                  onClick={() => startEditingMark()}
-                  className="bg-amber-600 hover:bg-amber-700 text-black"
-                >
-                  <Plus className="h-4 w-4 mr-2" /> Add New Marks
-                </Button>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={downloadMarksheetPDF}
-                    class="border-amber-500 text-amber-300 hover:bg-amber-900/30"
-                  >
-                    <Download className="h-4 w-4 mr-2" /> Export PDF
-                  </Button>
-                </div>
-              </div>
-
-              {editingMark && (
-                <div className="bg-black/30 p-4 rounded-lg border border-amber-800/30">
-                  <h3 className="text-lg font-bold mb-4 text-amber-300">
-                    {editingMark.id ? "Edit Marks" : "Add New Marks"}
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm text-amber-200/80">Country</label>
-                      <input
-                        type="text"
-                        value={tempMark.country || ''}                        onChange={(e) => handleMarkChange('country', e.target.value)}
-                        className="w-full bg-black/30 border border-amber-800/30 rounded-md p-2 text-white"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-amber-200/80">Alternative</label>
-                      <select
-                        value={tempMark.alt || ''}                        onChange={(e) => handleMarkChange('alt', e.target.value)}
-                        className="w-full bg-black/30 border border-amber-800/30 rounded-md p-2 text-white"
-                      >
-                        <option value="p">Prime</option>
-                        <option value="a">Alternative</option>
-                      </select>
-                    </div>
-                    {['gsl', 'mod1', 'mod2', 'mod2', 'mod3', 'mod4', 'lobby', 'chits', 'fp', 'doc'].map((field) => (
-                      <div key={field}>
-                        <label className="text-sm text-amber-200/80 capitalize">
-                          {field} ({field === 'gsl' ? 10 : 5})
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          max={field === 'gsl' ? 10 : 5}
-                          step={0.1}
-                          value={tempMark[field as keyof Mark] || 0}                          onChange={(e) => handleMarkChange(field as keyof Mark, e.target.value)}
-                          className="w-full bg-black/30 border border-amber-800/30 rounded-md p-2 text-white"
-                        />
-                      </div>
-                    ))}
-                    <div className="col-span-full">
-                      <label className="text-sm text-amber-200/80">Notes</label>
-                      <textarea
-                        value={tempMark.notes || ''}
-                        onChange={(e) => handleMarkChange('notes', e.target.value)}
-                        className="w-full bg-black/30 border border-amber-800/30 rounded-md p-2 text-white"
-                        rows={3}
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-4 flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={cancelEditingMark}
-                      className="border-amber-500 text-amber-300"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={saveMark}
-                      className="bg-amber-600 hover:bg-amber-700 text-black"
-                      disabled={loading.saving}
-                    >
-                      {loading.saving ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Save className="h-4 w-4 mr-2" />
-                      )}
-                      Save Marks
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-amber-900/30">
-                    <tr>
-                      <th className="p-3 text-left text-sm text-amber-300">Country</th>
-                      <th className="p-3 text-sm text-amber-300">Alt</th>
-                      {['GSL', 'MOD1', 'MOD2', 'MOD3', 'MOD4', 'Lobby', 'Chits', 'FP', 'DOC', 'Total'].map((h) => (
-                        <th key={h} className="p-3 text-sm text-amber-300">{h}</th>
-                      ))}
-                      <th className="p-3 text-sm text-amber-300">Notes</th>
-                      <th className="p-3 text-sm text-amber-300">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredMarks.map((mark) => (
-                      <tr key={mark.id} className="border-b border-amber-800/30 hover:bg-amber-900/10">
-                        <td className="p-3">{mark.country}</td>
-                        <td className="p-3 text-center">{mark.alt?.toUpperCase()}</td>
-                        <td className="p-3 text-center">{mark.gsl}</td>
-                        <td><className="p-3">text-center<td>{mark.mod1}</td>
-                        <td><className="p-3">text-center<td>{mark.mod2}</td>
-                        <td><className="p-3 text-center">{mark.mod3}</td>
-                        <td><className="p-3">text-center<td>{mark.mod4}</td>
-                        <td><td className="p-3 text-center">{mark.lobby}</td>
-                        <td><td className="p-3 text-center">{mark.chits}</td>
-                        <td><td className="p-3 text-center">{mark.fp}</td>
-                        <td><td className="p-3 text-center">{mark.doc}</td>
-                        <td className="p-3 text-center font-bold text-amber-300">{mark.total.toFixed(1)}</td>
-                        <td className="p-3 max-w-[200px] truncate">{mark.notes}</td>
-                        <td className="p-3 flex flex-wrap gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => startEditingMark(mark)}
-                            className="text-amber-300 hover:bg-amber-900/30"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => mark.id && deleteMark(mark.id)}
-                            className="text-red-400 hover:bg-red-900/30"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+      </div>
+    </div>
+  </div>
+)}
+{activeTab === 'marks' && (
+  <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10">
+    <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
+      <h2 className="text-xl font-bold text-amber-300 flex items-center">
+        <Award className="h-5 w-5 mr-2" />
+        Marks Management System
+      </h2>
+    </div>
+    <div className="p-6">
+      <div className="bg-black/30 p-4 rounded-lg border border-amber-800/30">
+        <p className="text-amber-300 text-sm">
+          Marks cannot be updated at the moment. Please contact the admin at{' '}
+          <a 
+            href="mailto:info@kimun.in.net" 
+            className="text-amber-400 hover:text-amber-500 underline"
+          >
+            info@kimun.in.net
+          </a>.
+        </p>
+      </div>
+    </div>
+  </div>
+)}
 
         {/* Resources Tab */}
         {activeTab === 'resources' && (
           <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10">
-            <div className="bg-gradient-to-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
-              <h2 className="text-xl font-bold text-amber-300 flex items-center">
+<div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">              <h2 className="text-xl font-bold text-amber-300 flex items-center">
                 <FileText className="h-5 w-5 mr-amber-2" />
                 Committee Resources
               </h2>
@@ -1464,20 +1275,25 @@ function EBPortalContent() {
           </div>
         )}
 
-        {/* Coupons Tab */}
         {activeTab === 'coupons' && (
-          <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10">
-            <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
-              <h2 className="text-xl font-bold text-amber-300 flex items-center">
-                <QrCode className="h-5 w-5 mr-2" />
-                Partner Coupons Management
-              </h2>
-            </div>
-            <div className="p-6">
+        <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10">
+          <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
+            <h2 className="text-xl font-bold text-amber-300 flex items-center">
+              <QrCode className="h-5 w-5 mr-2" />
+              Partner Coupons Management
+            </h2>
+          </div>
+          <div className="p-6">
+            {loading ? (
+              <div className="text-center py-6 text-amber-200/80">
+                <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                Loading coupons...
+              </div>
+            ) : coupons.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {coupons.map((coupon) => (
-                  <div 
-                    key={coupon.id} 
+                  <div
+                    key={coupon.id}
                     className="bg-black/50 p-4 rounded-lg border border-amber-800/30 hover:border-amber-500 transition-colors"
                   >
                     <div className="flex items-center justify-between mb-3">
@@ -1496,9 +1312,11 @@ function EBPortalContent() {
                           <p className="text-sm text-amber-200/80">{coupon.partner}</p>
                         </div>
                       </div>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        coupon.isActive ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
-                      }`}>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full ${
+                          coupon.isActive ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
+                        }`}
+                      >
                         {coupon.isActive ? 'Active' : 'Expired'}
                       </span>
                     </div>
@@ -1507,23 +1325,37 @@ function EBPortalContent() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-xs text-amber-500/80">
-                            Expires: {new Date(coupon.expiry).toLocaleDateString()}
+                            Expires:{' '}
+                            {new Date(
+                              coupon.expiry.includes('-')
+                                ? coupon.expiry
+                                : coupon.expiry.replace(',', '')
+                            ).toLocaleDateString()}
                           </p>
                         </div>
-                        <span className="text-lg font-bold text-amber-400">
-                          {coupon.discount}
-                        </span>
+                        <span className="text-lg font-bold text-amber-400">{coupon.discount}</span>
                       </div>
                     </div>
                     <div className="bg-black/30 p-3 rounded-lg">
                       <div className="flex items-center justify-between">
-                        <span className="font-mono text-amber-300">{coupon.code}</span>
+                        {coupon.code.startsWith('http') ? (
+                          <a
+                            href={coupon.code}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-amber-300 hover:underline"
+                          >
+                            {coupon.code.slice(0, 20)}...
+                          </a>
+                        ) : (
+                          <span className="font-mono text-amber-300">{coupon.code}</span>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            navigator.clipboard.writeText(coupon.code)
-                            toast.success('Coupon code copied!')
+                            navigator.clipboard.writeText(coupon.code);
+                            toast.success('Coupon code copied!');
                           }}
                           className="text-amber-300 hover:bg-amber-900/30"
                         >
@@ -1534,9 +1366,14 @@ function EBPortalContent() {
                   </div>
                 ))}
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-6 text-amber-200/80">
+                No coupons available
+              </div>
+            )}
           </div>
-        )}
+        </div>
+      )}
       </main>
     </div>
   )
