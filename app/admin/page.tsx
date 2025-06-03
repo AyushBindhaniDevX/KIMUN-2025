@@ -201,7 +201,23 @@ export default function AdminDashboard() {
   useEffect(() => {
     emailjs.init(process.env.NEXT_PUBLIC_EMAILJS_USER_ID || '');
   }, []);
-
+const generateBarcodeDataURL = (text: string): Promise<string> => {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 120;
+    canvas.height = 40;
+    const ctx = canvas.getContext('2d');
+    
+    // Create a temporary image to draw the barcode
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.src = `https://quickchart.io/barcode?type=code128&text=${encodeURIComponent(text)}&width=120&height=40&includeText=false`;
+  });
+};
   const checkAllPayoutStatuses = async () => {
     try {
       setLoadingPayouts(true);
@@ -808,22 +824,78 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
     }).format(amount);
   };
 
-  const exportExcel = (data: any[], fileName: string) => {
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Data');
-    XLSX.writeFile(workbook, `${fileName}.xlsx`);
-  };
+const loadImage = (url: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => resolve(url);
+    img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+    img.src = url;
+  });
+};
 
-  const exportPDF = (data: any[], headers: string[], fileName: string) => {
-    const doc = new jsPDF();
-    doc.autoTable({
-      head: [headers],
-      body: data,
-      theme: 'grid'
-    });
-    doc.save(`${fileName}.pdf`);
-  };
+const exportPDF = async (data: any[], headers: string[], fileName: string) => {
+  const doc = new jsPDF();
+
+  const logoUrl = 'https://i.ibb.co/xqSCdHHm/KIMUN-Logo-Color.png';
+  const signatureUrl = 'https://kimun497636615.wordpress.com/wp-content/uploads/2025/06/null.png';
+
+  try {
+    await loadImage(logoUrl);
+    doc.addImage(logoUrl, 'PNG', 14, 10, 30, 30);
+  } catch (error) {
+    console.warn(`Logo image could not be loaded: ${error.message}`);
+    doc.setFontSize(12);
+    doc.setTextColor(255, 0, 0);
+    doc.text('Logo unavailable', 14, 20);
+  }
+
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text(fileName.replace('.pdf', ''), 50, 20);
+
+  doc.setDrawColor(245, 158, 11);
+  doc.setLineWidth(1);
+  doc.roundedRect(150, 10, 50, 20, 3, 3, 'S');
+  doc.setTextColor(245, 158, 11);
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('KIMUN 2025', 160, 20);
+  doc.setFontSize(8);
+  doc.text('Official', 165, 25);
+
+  doc.autoTable({
+    head: [headers],
+    body: data,
+    theme: 'grid',
+    startY: 40,
+    headStyles: { fillColor: [245, 158, 11], textColor: [255, 255, 255] },
+    styles: { fontSize: 10, textColor: [33, 33, 33] },
+    margin: { left: 14, right: 14 },
+  });
+
+  const finalY = doc.lastAutoTable.finalY || 40;
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+  doc.text('Digitally Signed by:', 14, finalY + 20);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Ayush Bindhani, Founder', 14, finalY + 28);
+
+  try {
+    await loadImage(signatureUrl);
+  } catch (error) {
+    console.warn(`Signature image could not be loaded: ${error.message}`);
+    doc.setFontSize(10);
+    doc.setTextColor(255, 0, 0);
+    doc.text('Signature unavailable', 14, finalY + 40);
+  }
+
+  doc.setFontSize(40);
+  doc.setTextColor(200, 200, 200, 0.3);
+  doc.setFont('helvetica', 'bold');
+  doc.save(`${fileName}`);
+};
 
   const exportCommitteePortfoliosExcel = (committee: Committee) => {
     const portfolioData = committee.portfolios.map(portfolio => ({
@@ -1301,6 +1373,7 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
                     </div>
                   </div>
                 </div>
+                
                 <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-blue-700">
                   <div className="flex items-center space-x-4">
                     <div className="p-3 rounded-full bg-blue-100 text-blue-600">
@@ -1311,7 +1384,30 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
                       <p className="text-2xl font-bold text-white">{formatCurrency(amountReceived)}</p>
                     </div>
                   </div>
+                  
                 </div>
+                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-blue-700">
+    <div className="flex items-center space-x-4">
+      <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+        <User className="h-6 w-6" />
+      </div>
+      <div>
+        <p className="text-sm text-gray-300">Single Delegates</p>
+        <p className="text-2xl font-bold text-white">{singleDelegates} / 80</p>
+      </div>
+    </div>
+  </div>
+  <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-purple-700">
+    <div className="flex items-center space-x-4">
+      <div className="p-3 rounded-full bg-purple-100 text-purple-600">
+        <Users className="h-6 w-6" />
+      </div>
+      <div>
+        <p className="text-sm text-gray-300">Double Delegates</p>
+        <p className="text-2xl font-bold text-white">{doubleDelegates} / 20</p>
+      </div>
+    </div>
+  </div>
                 <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-purple-700">
                   <div className="flex items-center space-x-4">
                     <div className="p-3 rounded-full bg-purple-100 text-purple-600">
@@ -1418,6 +1514,7 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
                     <thead className="bg-gray-700">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Delegate</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Phone</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Committee</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Portfolio</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Time</th>
@@ -1662,16 +1759,17 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
                       variant="outline"
                       onClick={() => exportPDF(
                         filteredDelegates.map(d => [
-                          d.id,
+                          d.email, // Used to generate barcode in exportPDF
                           d.name,
+                          d.phone,
                           committees.find(c => c.id === d.committeeId)?.name || 'N/A',
                           committees.find(c => c.id === d.committeeId)?.portfolios.find(p => p.id === d.portfolioId)?.country || 'N/A',
                           d.isCheckedIn ? 'Yes' : 'No'
                         ]),
-                        ['ID', 'Name', 'Committee', 'Portfolio', 'Checked In'],
-                        'delegates'
+                        ['Email', 'Name', 'Phone Number', 'Committee', 'Portfolio', 'Checked In'], // Updated ID to Barcode
+                        'DelegateList'
                       )}
-                      className="border-red-500 text-red-400 hover:bg-red-900"
+                      className="border-red-600 text-red-400 hover:bg-red-900"
                     >
                       <Download className="mr-2 h-5 w-5" /> PDF
                     </Button>
@@ -1684,6 +1782,7 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">ID</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Phone</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Committee</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Portfolio</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Status</th>
@@ -1696,6 +1795,7 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
                           <tr key={delegate.id} className="hover:bg-gray-700">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{delegate.id}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{delegate.name}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{delegate.phone}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                               {committees.find(c => c.id === delegate.committeeId)?.name || 'N/A'}
                             </td>
