@@ -49,6 +49,34 @@ type DelegateInfo = {
   }
 }
 
+type BlacklistEntry = {
+  email: string
+  phone: string
+  name: string
+  reason: string
+}
+
+const BLACKLIST: BlacklistEntry[] = [
+  {
+    email: "deku.shreayansh@gmail.com",
+    phone: "8280883762",
+    name: "Shreayansh Agrawal",
+    reason: "BLACKLISTED FROM PARTNER CONFERENCE"
+  },
+  {
+    email: "deku.shreayansh@gmail.com",
+    phone: "+918280883762",
+    name: "Shreayansh Agrawal",
+    reason: "BLACKLISTED FROM PARTNER CONFERENCE"
+  },
+  {
+    email: "test.user@example.com",
+    phone: "5555555555",
+    name: "Test User",
+    reason: "Fraudulent registration attempt"
+  }
+]
+
 const REGISTRATION_PHASES = [
   {
     name: "Pre Early Bird",
@@ -220,6 +248,7 @@ export default function RegistrationPage() {
   }
 
   const validateStep = () => {
+    // Basic field validation
     const baseValidation = (
       delegateInfo.delegate1.name.trim() !== '' &&
       delegateInfo.delegate1.email.trim() !== '' &&
@@ -230,8 +259,9 @@ export default function RegistrationPage() {
       delegateInfo.delegate1.experience.trim() !== ''
     )
 
+    let doubleDelValidation = true
     if (isDoubleDel) {
-      return baseValidation && 
+      doubleDelValidation = (
         delegateInfo.delegate2?.name.trim() !== '' &&
         delegateInfo.delegate2?.email.trim() !== '' &&
         delegateInfo.delegate2?.phone.trim() !== '' &&
@@ -239,8 +269,32 @@ export default function RegistrationPage() {
         delegateInfo.delegate2?.year.trim() !== '' &&
         delegateInfo.delegate2?.course.trim() !== '' &&
         delegateInfo.delegate2?.experience.trim() !== ''
+      )
     }
-    return baseValidation
+
+    // Blacklist validation
+    const checkBlacklist = (delegate: 'delegate1' | 'delegate2') => {
+      const info = delegateInfo[delegate]
+      if (!info) return false
+
+      const blacklisted = BLACKLIST.find(entry => 
+        entry.email.toLowerCase() === info.email.toLowerCase() ||
+        entry.phone === info.phone ||
+        entry.name.toLowerCase().replace(/\s+/g, '') === info.name.toLowerCase().replace(/\s+/g, '')
+      )
+
+      if (blacklisted) {
+        setError(`Registration blocked: ${blacklisted.reason}`)
+        return true
+      }
+      return false
+    }
+
+    if (checkBlacklist('delegate1') || (isDoubleDel && delegateInfo.delegate2 && checkBlacklist('delegate2'))) {
+      return false
+    }
+
+    return baseValidation && doubleDelValidation
   }
 
   const applyCoupon = () => {
@@ -336,7 +390,6 @@ export default function RegistrationPage() {
 
     const amount = calculatePrice() * 100
     if (!validateStep()) {
-      setError('Please fill all required fields')
       return
     }
 
@@ -654,7 +707,7 @@ export default function RegistrationPage() {
                   Back
                 </Button>
                 <Button
-                  onClick={() => validateStep() ? setStep(3) : setError('Please fill all fields')}
+                  onClick={() => validateStep() ? setStep(3) : null}
                   className="flex-1 bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
                 >
                   Next: Committee Selection
@@ -878,115 +931,116 @@ export default function RegistrationPage() {
                   </div>
                 )}
 
-                              <div className="space-y-4">
-                <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Primary Delegate:</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-gray-400">Name</p>
-                    <p className="text-white">{delegateInfo.delegate1.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Email</p>
-                    <p className="text-white">{delegateInfo.delegate1.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Phone</p>
-                    <p className="text-white">{delegateInfo.delegate1.phone}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Experience</p>
-                    <p className="text-white">{delegateInfo.delegate1.experience || '0'} MUNs</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Institution</p>
-                    <p className="text-white">{delegateInfo.delegate1.institution}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Year</p>
-                    <p className="text-white">{delegateInfo.delegate1.year}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400">Course</p>
-                    <p className="text-white">{delegateInfo.delegate1.course}</p>
-                  </div>
-                </div>
-              </div>
-              
-              {isDoubleDel && delegateInfo.delegate2 && (
                 <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Secondary Delegate:</h4>
+                  <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Primary Delegate:</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-gray-400">Name</p>
-                      <p className="text-white">{delegateInfo.delegate2.name}</p>
+                      <p className="text-white">{delegateInfo.delegate1.name}</p>
                     </div>
                     <div>
                       <p className="text-gray-400">Email</p>
-                      <p className="text-white">{delegateInfo.delegate2.email}</p>
+                      <p className="text-white">{delegateInfo.delegate1.email}</p>
                     </div>
                     <div>
                       <p className="text-gray-400">Phone</p>
-                      <p className="text-white">{delegateInfo.delegate2.phone}</p>
+                      <p className="text-white">{delegateInfo.delegate1.phone}</p>
                     </div>
                     <div>
                       <p className="text-gray-400">Experience</p>
-                      <p className="text-white">{delegateInfo.delegate2.experience || '0'} MUNs</p>
+                      <p className="text-white">{delegateInfo.delegate1.experience || '0'} MUNs</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Institution</p>
+                      <p className="text-white">{delegateInfo.delegate1.institution}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Year</p>
+                      <p className="text-white">{delegateInfo.delegate1.year}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Course</p>
+                      <p className="text-white">{delegateInfo.delegate1.course}</p>
                     </div>
                   </div>
                 </div>
-              )}
+                
+                {isDoubleDel && delegateInfo.delegate2 && (
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Secondary Delegate:</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-gray-400">Name</p>
+                        <p className="text-white">{delegateInfo.delegate2.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Email</p>
+                        <p className="text-white">{delegateInfo.delegate2.email}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Phone</p>
+                        <p className="text-white">{delegateInfo.delegate2.phone}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Experience</p>
+                        <p className="text-white">{delegateInfo.delegate2.experience || '0'} MUNs</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-              {isDoubleDel && (
-                <div className="pt-4">
-                  <p className="text-gray-400">Average Experience</p>
-                  <p className="text-white">{getAverageExperience()} MUNs</p>
+                {isDoubleDel && (
+                  <div className="pt-4">
+                    <p className="text-gray-400">Average Experience</p>
+                    <p className="text-white">{getAverageExperience()} MUNs</p>
+                  </div>
+                )}
+
+                <div className="pt-4 border-t border-amber-800/30">
+                  <p className="text-gray-400">Committee</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-white">{selectedCommittee?.name}</p>
+                    {selectedCommittee?.isOnline && (
+                      <span className="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full text-xs">
+                        Online
+                      </span>
+                    )}
+                  </div>
                 </div>
-              )}
 
-              <div className="pt-4 border-t border-amber-800/30">
-                <p className="text-gray-400">Committee</p>
-                <div className="flex items-center gap-2">
-                  <p className="text-white">{selectedCommittee?.name}</p>
-                  {selectedCommittee?.isOnline && (
-                    <span className="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full text-xs">
-                      Online
-                    </span>
-                  )}
+                <div>
+                  <p className="text-gray-400">Portfolio</p>
+                  <div className="flex items-center gap-2">
+                    {selectedPortfolio?.countryCode && Flags[selectedPortfolio.countryCode] && React.createElement(
+                      Flags[selectedPortfolio.countryCode], 
+                      { className: 'w-6 h-6 rounded-sm' }
+                    )}
+                    <p className="text-white">{selectedPortfolio?.country}</p>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <p className="text-gray-400">Portfolio</p>
-                <div className="flex items-center gap-2">
-                  {selectedPortfolio?.countryCode && Flags[selectedPortfolio.countryCode] && React.createElement(
-                    Flags[selectedPortfolio.countryCode], 
-                    { className: 'w-6 h-6 rounded-sm' }
-                  )}
-                  <p className="text-white">{selectedPortfolio?.country}</p>
-                </div>
+              <div className="flex gap-4">
+                <Button
+                  onClick={() => setStep(4)}
+                  variant="outline"
+                  className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
+                >
+                  Back
+                </Button>
+                <Button
+                  onClick={initiatePayment}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 rounded-xl text-lg group"
+                >
+                  Pay & Confirm Registration
+                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </Button>
               </div>
-            </div>
-
-            <div className="flex gap-4">
-              <Button
-                onClick={() => setStep(4)}
-                variant="outline"
-                className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
-              >
-                Back
-              </Button>
-              <Button
-                onClick={initiatePayment}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 rounded-xl text-lg group"
-              >
-                Pay & Confirm Registration
-                <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </motion.div>
+            </motion.div>
+          )}
+        </motion.div>
+      </div>
     </div>
-  </div>
-)
+  )
 }
+
