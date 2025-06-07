@@ -874,27 +874,27 @@ function DelegateDashboardContent() {
                   day: "Day 1",
                   date: "August 5, 2023",
                   events: [
-                    { time: "08:00 - 09:00", title: "Registration", location: "BMPS Main Hall" },
-                    { time: "09:00 - 10:30", title: "Opening Ceremony", location: "BMPS Auditorium" },
-                    { time: "10:30 - 11:00", title: "Coffee Break", location: "BMPS Lounge" },
-                    { time: "11:00 - 13:00", title: "Committee Session I", location: "Assigned Rooms" },
-                    { time: "13:00 - 14:00", title: "Lunch Break", location: "BMPS Dining Hall" },
-                    { time: "14:00 - 16:00", title: "Committee Session II", location: "Assigned Rooms" },
-                    { time: "16:00 - 16:30", title: "Coffee Break", location: "BMPS Lounge" },
-                    { time: "16:30 - 18:00", title: "Committee Session III", location: "Assigned Rooms" }
+                    { time: "08:00 - 09:00", title: "Registration", location: "" },
+                    { time: "09:00 - 10:30", title: "Opening Ceremony", location: "" },
+                    { time: "10:30 - 11:00", title: "Coffee Break", location: "" },
+                    { time: "11:00 - 13:00", title: "Committee Session I", location: "" },
+                    { time: "13:00 - 14:00", title: "Lunch Break", location: "" },
+                    { time: "14:00 - 16:00", title: "Committee Session II", location: "" },
+                    { time: "16:00 - 16:30", title: "Coffee Break", location: "" },
+                    { time: "16:30 - 18:00", title: "Committee Session III", location: "" }
                   ]
                 },
                 {
                   day: "Day 2",
                   date: "August 6, 2023",
                   events: [
-                    { time: "09:00 - 11:00", title: "Committee Session IV", location: "Assigned Rooms" },
-                    { time: "11:00 - 11:30", title: "Coffee Break", location: "BMPS Lounge" },
-                    { time: "11:30 - 13:30", title: "Committee Session V", location: "Assigned Rooms" },
-                    { time: "13:30 - 14:30", title: "Lunch Break", location: "BMPS Dining Hall" },
-                    { time: "14:30 - 16:30", title: "Committee Session VI", location: "Assigned Rooms" },
-                    { time: "16:30 - 17:00", title: "Coffee Break", location: "BMPS Lounge" },
-                    { time: "17:00 - 18:30", title: "Closing Ceremony", location: "BMPS Auditorium" }
+                    { time: "09:00 - 11:00", title: "Committee Session IV", location: "" },
+                    { time: "11:00 - 11:30", title: "Coffee Break", location: "" },
+                    { time: "11:30 - 13:30", title: "Committee Session V", location: "" },
+                    { time: "13:30 - 14:30", title: "Lunch Break", location: "" },
+                    { time: "14:30 - 16:30", title: "Committee Session VI", location: "" },
+                    { time: "16:30 - 17:00", title: "Coffee Break", location: "" },
+                    { time: "17:00 - 18:30", title: "Closing Ceremony", location: "" }
                   ]
                 }
               ].map((daySchedule, dayIndex) => (
