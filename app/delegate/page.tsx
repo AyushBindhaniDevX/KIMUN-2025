@@ -548,14 +548,7 @@ function DelegateDashboardContent() {
                         ))}
                       </div>
                     </div>
-                    <div className="pt-4">
-                      <Link href={committee.backgroundGuide || '#'} target="_blank">
-                        <Button className="w-full bg-amber-600 hover:bg-amber-700 text-black">
-                          <FileText className="mr-2 h-4 w-4" />
-                          View Background Guide
-                        </Button>
-                      </Link>
-                    </div>
+                    
                   </>
               </div>
             ) : (
