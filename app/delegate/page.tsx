@@ -865,7 +865,7 @@ function DelegateDashboardContent() {
               {[
                 {
                   day: "Day 1",
-                  date: "August 5, 2023",
+                  date: "July 5, 2025",
                   events: [
                     { time: "08:00 - 09:00", title: "Registration", location: "" },
                     { time: "09:00 - 10:30", title: "Opening Ceremony", location: "" },
@@ -879,7 +879,7 @@ function DelegateDashboardContent() {
                 },
                 {
                   day: "Day 2",
-                  date: "August 6, 2023",
+                  date: "July 6, 2025",
                   events: [
                     { time: "09:00 - 11:00", title: "Committee Session IV", location: "" },
                     { time: "11:00 - 11:30", title: "Coffee Break", location: "" },
