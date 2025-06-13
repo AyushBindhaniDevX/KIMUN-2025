@@ -5,10 +5,13 @@ import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, query, orderByChild, equalTo } from 'firebase/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Mail, Lock, User, FileText, Award, Download, QrCode, ChevronDown, ChevronUp, Loader2,Copy } from 'lucide-react'
+import { Mail, Lock, User, FileText, Award, Download, QrCode, ChevronDown, ChevronUp, Loader2,Copy,Eye } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import Link from 'next/link'
 import Image from 'next/image'
+import { generateCertificate } from '@/components/CertificateGenerator'
+import { CertificatePreview } from '@/components/CertificatePreview'
+
 
 // Firebase configuration
 const firebaseConfig = {
@@ -96,7 +99,44 @@ function DelegateDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const step = searchParams.get('step')
+  const [previewCertificate, setPreviewCertificate] = useState<{
+  show: boolean
+  imageUrl: string
+  name: string
+}>({
+  show: false,
+  imageUrl: '',
+  name: ''
+})
+const handleDownloadCertificate = async () => {
+  if (!delegate || !committee) return
 
+  try {
+    const doc = await generateCertificate(delegate, committee, portfolio)
+    doc.save(`KIMUN_Certificate_${delegate.name.replace(/\s+/g, '_')}.pdf`)
+  } catch (error) {
+    console.error('Failed to generate certificate:', error)
+    toast.error('Failed to generate certificate. Please try again.')
+  }
+}
+const handlePreviewCertificate = async () => {
+  if (!delegate || !committee) return
+
+  try {
+    setLoading(prev => ({ ...prev, certificate: true }))
+    const { imageDataUrl } = await generateCertificate(delegate, committee, portfolio, true)
+    setPreviewCertificate({
+      show: true,
+      imageUrl: imageDataUrl,
+      name: delegate.name
+    })
+  } catch (error) {
+    console.error('Failed to preview certificate:', error)
+    toast.error('Failed to preview certificate. Please try again.')
+  } finally {
+    setLoading(prev => ({ ...prev, certificate: false }))
+  }
+}
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
   const [loggedIn, setLoggedIn] = useState(false)
@@ -110,7 +150,9 @@ function DelegateDashboardContent() {
     verify: false,
     data: false,
     resources: false,
-    coupons: false
+    coupons: false,
+    certificate: false
+
   })
   const [error, setError] = useState({
     login: null as string | null,
@@ -585,28 +627,33 @@ function DelegateDashboardContent() {
                     {delegate?.isCheckedIn ? 'Checked In' : 'Not Checked In'}
                   </p>
                 </div>
-                {expandedCard === 'portfolio' && (
-                  <>
-                    <div>
-                      <p className="text-sm text-amber-200/80">Experience Level</p>
-                      <p className="font-medium text-amber-100">
-                        {portfolio.minExperience === 0 ? 'Beginner' : 
-                         portfolio.minExperience === 1 ? 'Intermediate' : 
-                         portfolio.minExperience >= 2 ? 'Advanced' : 'Not specified'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-amber-200/80">Institution</p>
-                      <p className="font-medium text-amber-100">{delegate?.institution || 'Not specified'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-amber-200/80">MUN Experience</p>
-                      <p className="font-medium text-amber-100">
-                        {delegate?.experience || 0} {delegate?.experience === 1 ? 'conference' : 'conferences'}
-                      </p>
-                    </div>
-                  </>
-                )}
+                {delegate?.isCheckedIn && (
+  <div className="mt-4 flex gap-3">
+       <Button 
+      onClick={handleDownloadCertificate}
+      className="bg-amber-600 hover:bg-amber-700 text-black"
+      disabled={loading.certificate}
+    >
+      <Download className="h-4 w-4 mr-2" />
+      Download Certificate of Participation
+    </Button>
+  </div>
+)}
+               {expandedCard === 'portfolio' && (
+  <>
+    <div>
+      <p className="text-sm text-amber-200/80">Experience Level</p>
+      <p className="font-medium text-amber-100">
+        {portfolio.minExperience === 0 ? 'Beginner' : 
+         portfolio.minExperience === 1 ? 'Intermediate' : 
+         portfolio.minExperience >= 2 ? 'Advanced' : 'Not specified'}
+      </p>
+    </div>
+    
+  </>
+)}
+                
+
               </div>
             ) : (
               <div className="p-6 text-amber-200/80">No portfolio information available</div>
