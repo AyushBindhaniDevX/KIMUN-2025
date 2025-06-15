@@ -1,12 +1,12 @@
 // app/verify/[id]/page.tsx
-'use client'; // Add this at the top to make it a client component
+'use client';
 
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, get } from 'firebase/database';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Download, QrCode, Award, Share2 } from 'lucide-react';
+import { Download, QrCode, Award, Share2, Loader2 } from 'lucide-react';
 import { generateCertificate } from '@/components/CertificateGenerator';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -226,7 +226,149 @@ export default function VerifyCertificate({ params }: { params: { id: string } }
         <div className="p-6 md:p-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="md:col-span-2 space-y-6">
-              {/* ... (previous delegate information sections remain the same) ... */}
+              <div>
+                <h2 className="text-xl font-bold text-amber-300 mb-4">Delegate Information</h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-amber-200/80">Registration ID</p>
+                    <p className="font-mono text-amber-300">{registrationId}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-amber-200/80">Registration Date</p>
+                    <p className="text-amber-100">{formattedDate}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-amber-200/80">Committee</p>
+                    <p className="text-amber-100">{committeeData.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-amber-200/80">Portfolio</p>
+                    <p className="text-amber-100">{portfolio?.country || portfolioId}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-bold text-amber-300 mb-3">Primary Delegate</h3>
+                <div className="bg-black/30 p-4 rounded-lg border border-amber-800/30">
+                  <p className="text-xl font-bold text-amber-100 mb-2">
+                    {registrationData.delegateInfo.delegate1.name}
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-sm text-amber-200/80">Email</p>
+                      <p className="text-amber-100">{registrationData.delegateInfo.delegate1.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-amber-200/80">Phone</p>
+                      <p className="text-amber-100">{registrationData.delegateInfo.delegate1.phone}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-amber-200/80">Institution</p>
+                      <p className="text-amber-100">{registrationData.delegateInfo.delegate1.institution}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-amber-200/80">Experience</p>
+                      <p className="text-amber-100">
+                        {registrationData.delegateInfo.delegate1.experience} MUNs
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {isDoubleDel && registrationData.delegateInfo.delegate2 && (
+                <div>
+                  <h3 className="text-lg font-bold text-amber-300 mb-3">Secondary Delegate</h3>
+                  <div className="bg-black/30 p-4 rounded-lg border border-amber-800/30">
+                    <p className="text-xl font-bold text-amber-100 mb-2">
+                      {registrationData.delegateInfo.delegate2.name}
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-sm text-amber-200/80">Email</p>
+                        <p className="text-amber-100">{registrationData.delegateInfo.delegate2.email}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-amber-200/80">Phone</p>
+                        <p className="text-amber-100">{registrationData.delegateInfo.delegate2.phone}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-amber-200/80">Institution</p>
+                        <p className="text-amber-100">{registrationData.delegateInfo.delegate2.institution}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-amber-200/80">Experience</p>
+                        <p className="text-amber-100">
+                          {registrationData.delegateInfo.delegate2.experience} MUNs
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Marks Section */}
+              <div>
+                <h3 className="text-lg font-bold text-amber-300 mb-3 flex items-center">
+                  <Award className="h-5 w-5 mr-2" />
+                  Performance Marks
+                </h3>
+                {marks ? (
+                  <div className="bg-black/30 p-4 rounded-lg border border-amber-800/30">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Total Score</p>
+                        <p className="text-xl font-bold text-amber-300">{marks.total}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">GSL</p>
+                        <p className="text-lg text-amber-100">{marks.gsl}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Moderated 1</p>
+                        <p className="text-lg text-amber-100">{marks.mod1}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Moderated 2</p>
+                        <p className="text-lg text-amber-100">{marks.mod2}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Moderated 3</p>
+                        <p className="text-lg text-amber-100">{marks.mod3}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Moderated 4</p>
+                        <p className="text-lg text-amber-100">{marks.mod4}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Lobbying</p>
+                        <p className="text-lg text-amber-100">{marks.lobby}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Chits</p>
+                        <p className="text-lg text-amber-100">{marks.chits}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Foreign Policy</p>
+                        <p className="text-lg text-amber-100">{marks.fp}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Resolution</p>
+                        <p className="text-lg text-amber-100">{marks.doc}</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-black/30 p-4 rounded-lg border border-amber-800/30 text-center">
+                    <p className="text-amber-200/80">Marks not yet updated by committee</p>
+                    <p className="text-sm text-amber-200/60 mt-1">
+                      Check back later after committee sessions
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="space-y-6">
