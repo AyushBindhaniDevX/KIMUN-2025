@@ -4,7 +4,7 @@ import { getDatabase, ref, get } from 'firebase/database'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
-import { Download, QrCode } from 'lucide-react'
+import { Download, QrCode, Award } from 'lucide-react'
 
 // Firebase configuration
 const firebaseConfig = {
@@ -29,6 +29,20 @@ type DelegateInfo = {
   course: string
   year: string
   experience: string
+}
+
+type Mark = {
+  total: number
+  gsl: number
+  mod1: number
+  mod2: number
+  mod3: number
+  mod4: number
+  lobby: number
+  chits: number
+  fp: number
+  doc: number
+  alt: string
 }
 
 type RegistrationData = {
@@ -74,6 +88,22 @@ export default async function VerifyCertificate({ params }: { params: { id: stri
   const committeeRef = ref(db, `committees/${committeeId}`)
   const committeeSnapshot = await get(committeeRef)
   const committeeData = committeeSnapshot.val() as CommitteeData
+
+  // Fetch marks data
+  const marksRef = ref(db, `marksheets/${committeeId}/marks`)
+  const marksSnapshot = await get(marksRef)
+  let marks: Mark | null = null
+
+  if (marksSnapshot.exists()) {
+    const marksData = marksSnapshot.val()
+    const foundMarks = Object.values(marksData).find(
+      (mark: any) => mark.portfolioId === portfolioId
+    ) as Mark | undefined
+    
+    if (foundMarks) {
+      marks = foundMarks
+    }
+  }
 
   // Get portfolio details
   const portfolio = committeeData.portfolios[portfolioId]
@@ -179,6 +209,67 @@ export default async function VerifyCertificate({ params }: { params: { id: stri
                   </div>
                 </div>
               )}
+
+              {/* Marks Section */}
+              <div>
+                <h3 className="text-lg font-bold text-amber-300 mb-3 flex items-center">
+                  <Award className="h-5 w-5 mr-2" />
+                  Performance Marks
+                </h3>
+                {marks ? (
+                  <div className="bg-black/30 p-4 rounded-lg border border-amber-800/30">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Total Score</p>
+                        <p className="text-xl font-bold text-amber-300">{marks.total}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">GSL</p>
+                        <p className="text-lg text-amber-100">{marks.gsl}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Moderated 1</p>
+                        <p className="text-lg text-amber-100">{marks.mod1}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Moderated 2</p>
+                        <p className="text-lg text-amber-100">{marks.mod2}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Moderated 3</p>
+                        <p className="text-lg text-amber-100">{marks.mod3}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Moderated 4</p>
+                        <p className="text-lg text-amber-100">{marks.mod4}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Lobbying</p>
+                        <p className="text-lg text-amber-100">{marks.lobby}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Chits</p>
+                        <p className="text-lg text-amber-100">{marks.chits}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Foreign Policy</p>
+                        <p className="text-lg text-amber-100">{marks.fp}</p>
+                      </div>
+                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
+                        <p className="text-sm text-amber-200/80">Resolution</p>
+                        <p className="text-lg text-amber-100">{marks.doc}</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-black/30 p-4 rounded-lg border border-amber-800/30 text-center">
+                    <p className="text-amber-200/80">Marks not yet updated by committee</p>
+                    <p className="text-sm text-amber-200/60 mt-1">
+                      Check back later after committee sessions
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="space-y-6">
