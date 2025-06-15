@@ -100,43 +100,43 @@ function DelegateDashboardContent() {
   const searchParams = useSearchParams()
   const step = searchParams.get('step')
   const [previewCertificate, setPreviewCertificate] = useState<{
-  show: boolean
-  imageUrl: string
-  name: string
-}>({
-  show: false,
-  imageUrl: '',
-  name: ''
-})
-const handleDownloadCertificate = async () => {
-  if (!delegate || !committee) return
+    show: boolean
+    imageUrl: string
+    name: string
+  }>({
+    show: false,
+    imageUrl: '',
+    name: ''
+  })
+  const handleDownloadCertificate = async () => {
+    if (!delegate || !committee) return
 
-  try {
-    const doc = await generateCertificate(delegate, committee, portfolio)
-    doc.save(`KIMUN_Certificate_${delegate.name.replace(/\s+/g, '_')}.pdf`)
-  } catch (error) {
-    console.error('Failed to generate certificate:', error)
-    toast.error('Failed to generate certificate. Please try again.')
+    try {
+      const doc = await generateCertificate(delegate, committee, portfolio)
+      doc.save(`KIMUN_Certificate_${delegate.name.replace(/\s+/g, '_')}.pdf`)
+    } catch (error) {
+      console.error('Failed to generate certificate:', error)
+      toast.error('Failed to generate certificate. Please try again.')
+    }
   }
-}
-const handlePreviewCertificate = async () => {
-  if (!delegate || !committee) return
+  const handlePreviewCertificate = async () => {
+    if (!delegate || !committee) return
 
-  try {
-    setLoading(prev => ({ ...prev, certificate: true }))
-    const { imageDataUrl } = await generateCertificate(delegate, committee, portfolio, true)
-    setPreviewCertificate({
-      show: true,
-      imageUrl: imageDataUrl,
-      name: delegate.name
-    })
-  } catch (error) {
-    console.error('Failed to preview certificate:', error)
-    toast.error('Failed to preview certificate. Please try again.')
-  } finally {
-    setLoading(prev => ({ ...prev, certificate: false }))
+    try {
+      setLoading(prev => ({ ...prev, certificate: true }))
+      const { imageDataUrl } = await generateCertificate(delegate, committee, portfolio, true)
+      setPreviewCertificate({
+        show: true,
+        imageUrl: imageDataUrl,
+        name: delegate.name
+      })
+    } catch (error) {
+      console.error('Failed to preview certificate:', error)
+      toast.error('Failed to preview certificate. Please try again.')
+    } finally {
+      setLoading(prev => ({ ...prev, certificate: false }))
+    }
   }
-}
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
   const [loggedIn, setLoggedIn] = useState(false)
@@ -152,7 +152,6 @@ const handlePreviewCertificate = async () => {
     resources: false,
     coupons: false,
     certificate: false
-
   })
   const [error, setError] = useState({
     login: null as string | null,
@@ -179,33 +178,55 @@ const handlePreviewCertificate = async () => {
       setLoading(prev => ({ ...prev, data: true }))
       
       const delegatesRef = ref(db, 'registrations')
-      const delegateQuery = query(
-        delegatesRef, 
-        orderByChild('delegateInfo/delegate1/email'), 
-        equalTo(email)
-      )
-      const snapshot = await get(delegateQuery)
+      const snapshot = await get(delegatesRef)
 
       if (!snapshot.exists()) {
         throw new Error('No delegate found with this email')
       }
 
-      const [key] = Object.keys(snapshot.val())
-      const data = snapshot.val()[key]
-      
-      setDelegate({
-        id: key,
-        ...data.delegateInfo.delegate1,
-        committeeId: data.committeeId,
-        portfolioId: data.portfolioId
-      })
+      // Search through all registrations for matching email
+      const registrations = snapshot.val()
+      let foundDelegate = null
+      let registrationKey = ''
 
-      fetchCommitteeData(data.committeeId, data.portfolioId)
-      fetchMarksData(data.committeeId, data.portfolioId)
+      for (const key in registrations) {
+        const registration = registrations[key]
+        // Check delegate1
+        if (registration.delegateInfo?.delegate1?.email === email) {
+          foundDelegate = {
+            id: key,
+            ...registration.delegateInfo.delegate1,
+            committeeId: registration.committeeId,
+            portfolioId: registration.portfolioId
+          }
+          registrationKey = key
+          break
+        }
+        // Check delegate2
+        if (registration.delegateInfo?.delegate2?.email === email) {
+          foundDelegate = {
+            id: key,
+            ...registration.delegateInfo.delegate2,
+            committeeId: registration.committeeId,
+            portfolioId: registration.portfolioId
+          }
+          registrationKey = key
+          break
+        }
+      }
+
+      if (!foundDelegate) {
+        throw new Error('No delegate found with this email')
+      }
+
+      setDelegate(foundDelegate)
+      fetchCommitteeData(foundDelegate.committeeId, foundDelegate.portfolioId)
+      fetchMarksData(foundDelegate.committeeId, foundDelegate.portfolioId)
       fetchResources()
       fetchCoupons()
     } catch (error) {
       console.error('Error fetching delegate data:', error)
+      toast.error('Failed to fetch delegate data. Please try again.')
       handleLogout()
     } finally {
       setLoading(prev => ({ ...prev, data: false }))
