@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button';
-import { Edit, Plus, X, Trash, ChartBar, Users, CheckCircle, Download, UserCheck, QrCode, Cog, CreditCard, User, UserPlus, Briefcase, Coins, BookOpen, FileText, Award, Settings, LogOut, Ban, RefreshCw, Send, Loader2, Ticket  } from 'lucide-react';
+import { Edit, Plus, X, Trash, ChartBar, Users, CheckCircle, Download, UserCheck, QrCode, Cog, CreditCard, User, UserPlus, Briefcase, Coins, BookOpen, Printer, FileText, Award, Settings, LogOut, Ban, RefreshCw, Send, Loader2, Ticket } from 'lucide-react';
 import * as Flags from 'country-flag-icons/react/3x2';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, get, push, update, remove, onValue } from 'firebase/database';
@@ -173,7 +173,7 @@ export default function AdminDashboard() {
   const [payoutStatus, setPayoutStatus] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle');
   const checkCashgramStatus = async (cashgramId: string) => {
     try {
-      const response = await fetch(`	https://sandbox.cashfree.com/payout/v1/cashgramStatus/${cashgramId}`, {
+      const response = await fetch(`https://sandbox.cashfree.com/payout/v1/cashgramStatus/${cashgramId}`, {
         headers: {
           'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CASHGRAM_API_KEY}`
         }
@@ -193,7 +193,91 @@ export default function AdminDashboard() {
     messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   };
+  const padPhoneNumber = (phone: string): string => {
+    // Remove any non-digit characters
+    const digits = phone.replace(/\D/g, '');
+    // Ensure the phone number is 12 digits by padding with leading zeros
+    return digits.padStart(12, '0');
+  };
+  const generateBarcodeLabelsPDF = async (delegates: Delegate[]) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    // Load KIMUN logo
+    const logoUrl = 'https://i.ibb.co/xqSCdHHm/KIMUN-Logo-Color.png';
+    
+    try {
+      await loadImage(logoUrl);
+      doc.addImage(logoUrl, 'PNG', pageWidth/2 - 30, 10, 60, 30);
+    } catch (error) {
+      console.warn('Logo could not be loaded:', error);
+      doc.setFontSize(12);
+      doc.text('KIMUN 2025', pageWidth/2 - 20, 20);
+    }
 
+    // PDF title
+    doc.setFontSize(16);
+    doc.setTextColor(0, 0, 0);
+    
+    // Table settings
+    const margin = 10;
+    const rowHeight = 30;
+    const cols = 2;
+    const cardWidth = (pageWidth - margin * 2) / cols - margin;
+    const cardHeight = 60;
+    
+    let x = margin;
+    let y = 60;
+    let page = 1;
+
+    for (let i = 0; i < delegates.length; i++) {
+      const delegate = delegates[i];
+      const committee = committees.find(c => c.id === delegate.committeeId);
+      const portfolio = committee?.portfolios.find(p => p.id === delegate.portfolioId);
+      const paddedPhone = padPhoneNumber(delegate.phone);
+      
+      // Add new page if needed
+      if (y + cardHeight > pageHeight - margin) {
+        doc.addPage();
+        page++;
+        y = margin;
+      }
+      
+      // Card border
+      doc.setDrawColor(200, 200, 200);
+      doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'S');
+      
+      // Delegate info
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Name: ${delegate.name}`, x + 5, y + 10);
+      doc.text(`Committee: ${committee?.name || 'N/A'}`, x + 5, y + 17);
+      doc.text(`Portfolio: ${portfolio?.country || 'N/A'}`, x + 5, y + 24);
+      
+      // Barcode using EAN-13
+      const barcodeUrl = `https://quickchart.io/barcode?type=ean13&text=${encodeURIComponent(paddedPhone)}&width=100&height=30`;
+      
+      try {
+        await loadImage(barcodeUrl);
+        doc.addImage(barcodeUrl, 'PNG', x + cardWidth - 80, y + 30, 60, 15);
+      } catch (error) {
+        console.warn('Barcode could not be generated:', error);
+        doc.text(`Phone: ${delegate.phone}`, x + cardWidth - 80, y + 30);
+      }
+      
+      // Move to next position
+      x += cardWidth + margin;
+      
+      if (x + cardWidth > pageWidth) {
+        x = margin;
+        y += cardHeight + margin;
+      }
+    }
+
+    // Save the PDF
+    doc.save(`KIMUN_Delegate_ID_Cards.pdf`);
+  };
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const auth = getAuth(app);
@@ -201,23 +285,23 @@ export default function AdminDashboard() {
   useEffect(() => {
     emailjs.init(process.env.NEXT_PUBLIC_EMAILJS_USER_ID || '');
   }, []);
-const generateBarcodeDataURL = (text: string): Promise<string> => {
-  return new Promise((resolve) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 120;
-    canvas.height = 40;
-    const ctx = canvas.getContext('2d');
-    
-    // Create a temporary image to draw the barcode
-    const img = new Image();
-    img.crossOrigin = 'Anonymous';
-    img.onload = () => {
-      ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL('image/png'));
-    };
-    img.src = `https://quickchart.io/barcode?type=code128&text=${encodeURIComponent(text)}&width=120&height=40&includeText=false`;
-  });
-};
+  const generateBarcodeDataURL = (text: string): Promise<string> => {
+    const paddedText = padPhoneNumber(text);
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 120;
+      canvas.height = 40;
+      const ctx = canvas.getContext('2d');
+      
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.src = `https://quickchart.io/barcode?type=ean13&text=${encodeURIComponent(paddedText)}&width=120&height=40&includeText=false`;
+    });
+  };
   const checkAllPayoutStatuses = async () => {
     try {
       setLoadingPayouts(true);
@@ -420,7 +504,6 @@ const generateBarcodeDataURL = (text: string): Promise<string> => {
       ${payout.referenceId ? `Reference ID: ${payout.referenceId}` : ''}
     `);
   };
-
   useEffect(() => {
     if (!accessGranted) return;
 
@@ -526,8 +609,6 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
     setCoupons([]);
   }
 });
-
-
     const resourcesRef = ref(db, 'resources');
     const resourcesUnsubscribe = onValue(resourcesRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -703,8 +784,7 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
     if (!barcodeInput) return;
   
     const delegate = delegates.find(d => 
-      d.id.includes(barcodeInput) || 
-      d.phone === barcodeInput || 
+      padPhoneNumber(d.phone) === padPhoneNumber(barcodeInput) || 
       d.email === barcodeInput
     );
   
@@ -833,68 +913,128 @@ const loadImage = (url: string): Promise<string> => {
     img.src = url;
   });
 };
+const exportExcel = (data: any[], headers: string[], fileName: string) => {
+  // Prepare data for Excel, excluding the barcode image column
+  const excelData = data.map(row => {
+    const committee = committees.find(c => c.id === row[4]); // Committee ID is 5th column (index 4)
+    const portfolio = committee?.portfolios.find(p => p.id === row[5]); // Portfolio ID is 6th column (index 5)
+    return {
+      ID: row[1], // Delegate ID
+      Name: row[2], // Name
+      Email: row[3], // Email
+      Phone: row[0], // Phone (barcode column, but we use the raw phone number)
+      Committee: committee?.name || 'N/A',
+      Portfolio: portfolio?.country || 'N/A',
+      'Check-In Status': row[6] ? 'Checked In' : 'Not Checked In', // isCheckedIn is 7th column (index 6)
+      'Check-In Time': row[7] || 'N/A', // checkInTime is 8th column (index 7)
+      'Double Delegation': row[8] ? 'Yes' : 'No', // isDoubleDel is 9th column (index 8)
+      'Payment ID': row[9] || 'N/A', // paymentId is 10th column (index 9)
+      'Registration Time': new Date(row[10]).toLocaleString() // timestamp is 11th column (index 10)
+    };
+  });
 
+  // Convert to worksheet
+  const worksheet = XLSX.utils.json_to_sheet(excelData);
+  
+  // Create workbook and append worksheet
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Delegates');
+
+  // Save file
+  XLSX.writeFile(workbook, `${fileName}.xlsx`);
+};
 const exportPDF = async (data: any[], headers: string[], fileName: string) => {
   const doc = new jsPDF();
 
+  // Load logo
   const logoUrl = 'https://i.ibb.co/xqSCdHHm/KIMUN-Logo-Color.png';
-  const signatureUrl = 'https://kimun497636615.wordpress.com/wp-content/uploads/2025/06/null.png';
-
   try {
     await loadImage(logoUrl);
     doc.addImage(logoUrl, 'PNG', 14, 10, 30, 30);
   } catch (error) {
-    console.warn(`Logo image could not be loaded: ${error.message}`);
+    console.warn('Logo could not be loaded:', error);
     doc.setFontSize(12);
-    doc.setTextColor(255, 0, 0);
-    doc.text('Logo unavailable', 14, 20);
+    doc.text('KIMUN 2025', 14, 20);
   }
 
+  // Header
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text(fileName.replace('.pdf', ''), 50, 20);
+  doc.text('Delegate List with Barcodes', 50, 20);
 
-  doc.setDrawColor(245, 158, 11);
-  doc.setLineWidth(1);
-  doc.roundedRect(150, 10, 50, 20, 3, 3, 'S');
-  doc.setTextColor(245, 158, 11);
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.text('KIMUN 2025', 160, 20);
-  doc.setFontSize(8);
-  doc.text('Official', 165, 25);
-
-  doc.autoTable({
-    head: [headers],
-    body: data,
-    theme: 'grid',
-    startY: 40,
-    headStyles: { fillColor: [245, 158, 11], textColor: [255, 255, 255] },
-    styles: { fontSize: 10, textColor: [33, 33, 33] },
-    margin: { left: 14, right: 14 },
+  // Preload barcode images
+  const barcodePromises = data.map(async (row) => {
+    const delegatePhone = padPhoneNumber(row[3]); // Assuming phone is the 4th column
+    const barcodeUrl = `https://quickchart.io/barcode?type=ean13&text=${encodeURIComponent(delegatePhone)}&width=100&height=30`;
+    try {
+      await loadImage(barcodeUrl);
+      return { phone: delegatePhone, barcodeUrl };
+    } catch (error) {
+      console.warn(`Failed to load barcode for ${delegatePhone}:`, error);
+      return { phone: delegatePhone, barcodeUrl: null };
+    }
   });
 
+  const barcodeResults = await Promise.all(barcodePromises);
+
+  // Prepare data for the table
+  const tableData = data.map((row, index) => {
+    const delegatePhone = barcodeResults[index].phone;
+    return [
+      delegatePhone, // Barcode column
+      ...row,
+    ];
+  });
+
+  // Create table
+  doc.autoTable({
+    head: [['Barcode', ...headers]],
+    body: tableData,
+    startY: 40,
+    headStyles: {
+      fillColor: [245, 158, 11],
+      textColor: [255, 255, 255],
+      fontSize: 10,
+    },
+    styles: {
+      fontSize: 8,
+      cellPadding: 2,
+      overflow: 'linebreak',
+    },
+    columnStyles: {
+      0: { cellWidth: 30 }, // Barcode column width
+      1: { cellWidth: 'auto' }, // ID column
+    },
+    margin: { top: 40 },
+    didDrawCell: (data) => {
+      if (data.column.index === 0 && data.cell.raw) {
+        const barcode = barcodeResults.find((b) => b.phone === data.cell.raw);
+        if (barcode?.barcodeUrl) {
+          try {
+            doc.addImage(barcode.barcodeUrl, 'PNG', data.cell.x + 2, data.cell.y + 2, 25, 10);
+          } catch (error) {
+            console.warn(`Error adding barcode for ${data.cell.raw}:`, error);
+            doc.setFontSize(6);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`ID: ${data.cell.raw}`, data.cell.x + 2, data.cell.y + 8);
+          }
+        } else {
+          // Fallback if barcode failed to load
+          doc.setFontSize(6);
+          doc.setTextColor(0, 0, 0);
+          doc.text(`ID: ${data.cell.raw}`, data.cell.x + 2, data.cell.y + 8);
+        }
+      }
+    },
+  });
+
+  // Footer
   const finalY = doc.lastAutoTable.finalY || 40;
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(0, 0, 0);
-  doc.text('Digitally Signed by:', 14, finalY + 20);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Ayush Bindhani, Founder', 14, finalY + 28);
+  doc.setFontSize(10);
+  doc.text('Digitally Signed by: Ayush Bindhani, Founder', 14, finalY + 20);
 
-  try {
-    await loadImage(signatureUrl);
-  } catch (error) {
-    console.warn(`Signature image could not be loaded: ${error.message}`);
-    doc.setFontSize(10);
-    doc.setTextColor(255, 0, 0);
-    doc.text('Signature unavailable', 14, finalY + 40);
-  }
-
-  doc.setFontSize(40);
-  doc.setTextColor(200, 200, 200, 0.3);
-  doc.setFont('helvetica', 'bold');
-  doc.save(`${fileName}`);
+  // Save PDF
+  doc.save(fileName);
 };
 
   const exportCommitteePortfoliosExcel = (committee: Committee) => {
@@ -1737,42 +1877,51 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                   </h3>
                   <div className="flex space-x-2">
                     <Button
-                      variant="outline"
-                      onClick={() => exportExcel(
-                        filteredDelegates.map(d => ({
-                          ID: d.id,
-                          Name: d.name,
-                          Email: d.email,
-                          Phone: d.phone,
-                          Committee: committees.find(c => c.id === d.committeeId)?.name,
-                          Portfolio: committees.find(c => c.id === d.committeeId)?.portfolios.find(p => p.id === d.portfolioId)?.country,
-                          Status: d.isCheckedIn ? 'Checked In' : 'Not Checked In',
-                          'Check-in Time': d.checkInTime || 'N/A'
-                        })),
-                        'delegates'
-                      )}
-                      className="border-green-500 text-green-400 hover:bg-green-900"
-                    >
-                      <Download className="mr-2 h-5 w-5" /> Excel
-                    </Button>
+  variant="outline"
+  onClick={() => exportExcel(
+    filteredDelegates.map(d => [
+      d.phone, // Barcode column
+      d.id,
+      d.name,
+      d.email,
+      d.committeeId,
+      d.portfolioId,
+      d.isCheckedIn,
+      d.checkInTime,
+      d.isDoubleDel,
+      d.paymentId,
+      d.timestamp
+    ]),
+    ['Barcode', 'ID', 'Name', 'Email', 'Committee', 'Portfolio', 'Checked In', 'Check-In Time', 'Double Del', 'Payment ID', 'Timestamp'],
+    'KIMUN_Delegates'
+  )}
+  className="border-green-500 text-green-400 hover:bg-green-900"
+>
+  <Download className="mr-2 h-5 w-5" /> Export Excel
+</Button>
                     <Button
-                      variant="outline"
-                      onClick={() => exportPDF(
-                        filteredDelegates.map(d => [
-                          d.email, // Used to generate barcode in exportPDF
-                          d.name,
-                          d.phone,
-                          committees.find(c => c.id === d.committeeId)?.name || 'N/A',
-                          committees.find(c => c.id === d.committeeId)?.portfolios.find(p => p.id === d.portfolioId)?.country || 'N/A',
-                          d.isCheckedIn ? 'Yes' : 'No'
-                        ]),
-                        ['Email', 'Name', 'Phone Number', 'Committee', 'Portfolio', 'Checked In'], // Updated ID to Barcode
-                        'DelegateList'
-                      )}
-                      className="border-red-600 text-red-400 hover:bg-red-900"
-                    >
-                      <Download className="mr-2 h-5 w-5" /> PDF
-                    </Button>
+  variant="outline"
+  onClick={() => generateBarcodeLabelsPDF(filteredDelegates)}
+  className="border-purple-500 text-purple-400 hover:bg-purple-900"
+>
+  <Printer className="mr-2 h-5 w-5" /> Print All IDs
+</Button>
+                    <Button
+  onClick={() => exportPDF(
+    filteredDelegates.map(d => [
+      d.id, // First item must be the ID for barcode
+      d.name,
+      d.phone,
+      committees.find(c => c.id === d.committeeId)?.name || 'N/A',
+      committees.find(c => c.id === d.committeeId)?.portfolios.find(p => p.id === d.portfolioId)?.country || 'N/A',
+      d.isCheckedIn ? 'Yes' : 'No'
+    ]),
+    ['ID', 'Name', 'Phone', 'Committee', 'Portfolio', 'Checked In'],
+    'DelegateListWithBarcodes.pdf'
+  )}
+>
+  Generate PDF with Barcodes
+</Button>
                   </div>
                 </div>
 
