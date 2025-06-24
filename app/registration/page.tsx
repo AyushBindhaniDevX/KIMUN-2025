@@ -168,6 +168,7 @@ export default function RegistrationPage() {
   const [discount, setDiscount] = useState(0)
   const [couponApplied, setCouponApplied] = useState(false)
   const [couponError, setCouponError] = useState('')
+  const [whatsappRegistration, setWhatsappRegistration] = useState(false)
 
   useEffect(() => {
     const checkRegistrationPhase = () => {
@@ -248,7 +249,6 @@ export default function RegistrationPage() {
   }
 
   const validateStep = () => {
-    // Basic field validation
     const baseValidation = (
       delegateInfo.delegate1.name.trim() !== '' &&
       delegateInfo.delegate1.email.trim() !== '' &&
@@ -272,7 +272,6 @@ export default function RegistrationPage() {
       )
     }
 
-    // Blacklist validation
     const checkBlacklist = (delegate: 'delegate1' | 'delegate2') => {
       const info = delegateInfo[delegate]
       if (!info) return false
@@ -332,6 +331,51 @@ export default function RegistrationPage() {
     return Math.round((exp1 + exp2) / 2)
   }
 
+  const generateWhatsAppMessage = () => {
+    if (!selectedCommittee || !selectedPortfolio || !currentPhase) return ''
+    
+    const delegate1 = delegateInfo.delegate1
+    const delegate2 = delegateInfo.delegate2
+    
+    let message = `*KIMUN Registration Request*%0A%0A`
+    message += `*Committee:* ${selectedCommittee.name}%0A`
+    message += `*Portfolio:* ${selectedPortfolio.country}%0A`
+    message += `*Delegation Type:* ${isDoubleDel ? 'Double' : 'Single'}%0A`
+    message += `*Registration Phase:* ${currentPhase.name}%0A`
+    message += `*Total Fee:* ₹${calculatePrice()}${discount > 0 ? ` (₹${discount} discount applied)` : ''}%0A%0A`
+    
+    message += `*Primary Delegate:*%0A`
+    message += `Name: ${delegate1.name}%0A`
+    message += `Email: ${delegate1.email}%0A`
+    message += `Phone: ${delegate1.phone}%0A`
+    message += `Institution: ${delegate1.institution}%0A`
+    message += `Year: ${delegate1.year}%0A`
+    message += `Course: ${delegate1.course}%0A`
+    message += `Experience: ${delegate1.experience || '0'} MUNs%0A%0A`
+    
+    if (isDoubleDel && delegate2) {
+      message += `*Secondary Delegate:*%0A`
+      message += `Name: ${delegate2.name}%0A`
+      message += `Email: ${delegate2.email}%0A`
+      message += `Phone: ${delegate2.phone}%0A`
+      message += `Institution: ${delegate2.institution}%0A`
+      message += `Year: ${delegate2.year}%0A`
+      message += `Course: ${delegate2.course}%0A`
+      message += `Experience: ${delegate2.experience || '0'} MUNs%0A%0A`
+    }
+    
+    if (couponApplied) {
+      message += `*Coupon Code:* ${couponCode} (₹${discount} discount)%0A%0A`
+    }
+    
+    message += `*Average Experience:* ${getAverageExperience()} MUNs%0A`
+    message += `*Committee Type:* ${selectedCommittee.isOnline ? 'Online' : 'Offline'}%0A%0A`
+    
+    message += `Please confirm this registration and provide payment details.`
+    
+    return message
+  }
+
   const saveRegistration = async (paymentId: string) => {
     if (!selectedCommittee || !selectedPortfolio) {
       throw new Error('Committee or portfolio not selected')
@@ -350,7 +394,8 @@ export default function RegistrationPage() {
         registrationPhase: currentPhase?.name || 'Unknown',
         isOnlineCommittee: selectedCommittee.isOnline || false,
         couponCode: couponApplied ? couponCode : null,
-        discountApplied: couponApplied ? discount : 0
+        discountApplied: couponApplied ? discount : 0,
+        viaWhatsApp: whatsappRegistration
       })
 
       const portfolioRef = ref(db, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
@@ -366,7 +411,8 @@ export default function RegistrationPage() {
         phase: currentPhase?.name || 'Unknown',
         isOnline: selectedCommittee.isOnline || false,
         couponCode: couponApplied ? couponCode : null,
-        discount: couponApplied ? discount : 0
+        discount: couponApplied ? discount : 0,
+        viaWhatsApp: whatsappRegistration
       };
 
       await fetch('/api/sendEmail', {
@@ -388,11 +434,17 @@ export default function RegistrationPage() {
       return
     }
 
-    const amount = calculatePrice() * 100
     if (!validateStep()) {
       return
     }
 
+    if (whatsappRegistration) {
+      const message = generateWhatsAppMessage()
+      window.open(`https://wa.me/918249979557?text=${message}`, '_blank')
+      return
+    }
+
+    const amount = calculatePrice() * 100
     const script = document.createElement('script')
     script.src = 'https://checkout.razorpay.com/v1/checkout.js'
     script.async = true
@@ -931,6 +983,43 @@ export default function RegistrationPage() {
                   </div>
                 )}
 
+                {/* WhatsApp Registration Toggle */}
+                <div className="bg-black/30 border border-amber-800/30 rounded-xl p-4">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={whatsappRegistration}
+                        onChange={() => setWhatsappRegistration(!whatsappRegistration)}
+                        className="sr-only"
+                      />
+                      <div className={`block w-14 h-8 rounded-full ${whatsappRegistration ? 'bg-green-500' : 'bg-gray-600'}`}></div>
+                      <div
+                        className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition ${
+                          whatsappRegistration ? 'transform translate-x-6' : ''
+                        }`}
+                      ></div>
+                    </div>
+                    <div>
+                      <p className="font-medium text-white">Register via WhatsApp</p>
+                      <p className="text-xs text-gray-400">
+                        {whatsappRegistration 
+                          ? "You'll be redirected to WhatsApp to complete registration" 
+                          : "Toggle to register via WhatsApp instead of online payment"}
+                      </p>
+                    </div>
+                  </label>
+                  
+                  {whatsappRegistration && (
+                    <div className="mt-3 p-3 bg-green-900/20 border border-green-800/30 rounded-lg">
+                      <p className="text-sm text-green-300">
+                        After confirmation, you'll be redirected to WhatsApp to complete your registration with our team.
+                        Payment will be collected via bank transfer or UPI.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-4">
                   <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Primary Delegate:</h4>
                   <div className="grid grid-cols-2 gap-4">
@@ -1032,7 +1121,7 @@ export default function RegistrationPage() {
                   onClick={initiatePayment}
                   className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 rounded-xl text-lg group"
                 >
-                  Pay & Confirm Registration
+                  {whatsappRegistration ? 'Complete Registration via WhatsApp' : 'Pay & Confirm Registration'}
                   <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Button>
               </div>
@@ -1043,4 +1132,3 @@ export default function RegistrationPage() {
     </div>
   )
 }
-
