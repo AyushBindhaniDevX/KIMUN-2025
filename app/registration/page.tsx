@@ -168,7 +168,7 @@ export default function RegistrationPage() {
   const [discount, setDiscount] = useState(0)
   const [couponApplied, setCouponApplied] = useState(false)
   const [couponError, setCouponError] = useState('')
-  const [whatsappRegistration, setWhatsappRegistration] = useState(false)
+  const [whatsappRegistration, setWhatsappRegistration] = useState(true) // Default to WhatsApp registration
 
   useEffect(() => {
     const checkRegistrationPhase = () => {
@@ -441,6 +441,15 @@ export default function RegistrationPage() {
     if (whatsappRegistration) {
       const message = generateWhatsAppMessage()
       window.open(`https://wa.me/918249979557?text=${message}`, '_blank')
+      
+      // Save registration with a placeholder payment ID
+      try {
+        const registrationKey = await saveRegistration('whatsapp-pending')
+        router.push(`/registration-success?paymentId=whatsapp-pending&registrationId=${registrationKey}`)
+      } catch (err) {
+        console.error('Registration error:', err)
+        setError('Failed to complete registration. Please contact support.')
+      }
       return
     }
 
@@ -665,6 +674,9 @@ export default function RegistrationPage() {
               <div className="bg-amber-900/20 border border-amber-800/30 rounded-lg p-4 text-center">
                 <p className="text-sm text-amber-300">
                   Current Phase: <span className="font-semibold">{currentPhase?.name}</span> (ends {formatDate(currentPhase?.endDate || new Date())})
+                </p>
+                <p className="text-xs text-amber-200 mt-1">
+                  Note: Registration completes via WhatsApp by default
                 </p>
               </div>
 
@@ -983,7 +995,7 @@ export default function RegistrationPage() {
                   </div>
                 )}
 
-                {/* WhatsApp Registration Toggle */}
+                {/* WhatsApp Registration Toggle - Set as default */}
                 <div className="bg-black/30 border border-amber-800/30 rounded-xl p-4">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <div className="relative">
@@ -1001,11 +1013,11 @@ export default function RegistrationPage() {
                       ></div>
                     </div>
                     <div>
-                      <p className="font-medium text-white">Register via WhatsApp</p>
+                      <p className="font-medium text-white">Register via WhatsApp (Recommended)</p>
                       <p className="text-xs text-gray-400">
                         {whatsappRegistration 
-                          ? "You'll be redirected to WhatsApp to complete registration" 
-                          : "Toggle to register via WhatsApp instead of online payment"}
+                          ? "Default option - Complete registration via WhatsApp" 
+                          : "Toggle off for online payment"}
                       </p>
                     </div>
                   </label>
@@ -1013,8 +1025,8 @@ export default function RegistrationPage() {
                   {whatsappRegistration && (
                     <div className="mt-3 p-3 bg-green-900/20 border border-green-800/30 rounded-lg">
                       <p className="text-sm text-green-300">
-                        After confirmation, you'll be redirected to WhatsApp to complete your registration with our team.
-                        Payment will be collected via bank transfer or UPI.
+                        You'll be redirected to WhatsApp to confirm your registration.
+                        Our team will guide you through payment via UPI/bank transfer.
                       </p>
                     </div>
                   )}
@@ -1121,7 +1133,7 @@ export default function RegistrationPage() {
                   onClick={initiatePayment}
                   className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 rounded-xl text-lg group"
                 >
-                  {whatsappRegistration ? 'Complete Registration via WhatsApp' : 'Pay & Confirm Registration'}
+                  {whatsappRegistration ? 'Continue to WhatsApp Registration' : 'Proceed to Online Payment'}
                   <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Button>
               </div>
