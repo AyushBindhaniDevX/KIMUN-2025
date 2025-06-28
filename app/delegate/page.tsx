@@ -559,19 +559,19 @@ function DelegateDashboardContent() {
             <div className="mt-4 md:mt-0 flex items-center gap-4">
               <div className="bg-black/50 p-2 rounded-lg border border-amber-800/30">
                 <p className="text-xs text-amber-200/80">Delegate ID</p>
-  <p className="text-sm font-mono text-amber-300">{delegate?.id}</p> {/* Removed substring */}
+                <p className="text-sm font-mono text-amber-300">{delegate?.id}</p>
               </div>
               {delegate?.id && (
-  <div className="bg-white p-2 rounded-lg">
-    <Image
-      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(delegate.id)}`} {/* Added encodeURIComponent */}
-      alt="Delegate QR Code"
-      width={80}
-      height={80}
-      className="rounded"
-    />
-  </div>
-)}
+                <div className="bg-white p-2 rounded-lg">
+                  <Image
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${delegate.id}`}
+                    alt="Delegate QR Code"
+                    width={80}
+                    height={80}
+                    className="rounded"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
