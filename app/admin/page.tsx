@@ -27,6 +27,7 @@ type Committee = {
   backgroundGuide?: string;
   rules?: string;
 };
+
 type Coupon = {
   id: string;
   code: string;
@@ -41,6 +42,7 @@ type Coupon = {
   usedBy: string | null;
   assignedAt: number | null;
 };
+
 type EBMember = {
   id: string;
   name: string;
@@ -59,29 +61,6 @@ type Portfolio = {
   isVacant: boolean;
   minExperience: number;
   assignedDelegates?: string[];
-};
-
-type Payout = {
-  id: string;
-  delegateId: string;
-  award: string;
-  amount: number;
-  status: 'PENDING' | 'SUCCESS' | 'FAILED';
-  timestamp: number;
-  accountNumber: string;
-  ifscCode?: string;
-  name: string;
-  phone: string;
-  cashgramId: string;
-  referenceId?: string;
-  bankName?: string;
-};
-
-type BankDetails = {
-  accountNumber: string;
-  ifscCode: string;
-  name: string;
-  bankName: string;
 };
 
 type Delegate = {
@@ -147,43 +126,34 @@ export default function AdminDashboard() {
   const [editingPortfolio, setEditingPortfolio] = useState<Portfolio | null>(null);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<'committee' | 'eb' | 'portfolio' | 'resource'>('committee');
+  const [modalType, setModalType] = useState<'committee' | 'eb' | 'portfolio' | 'resource' | 'coupon'>('committee');
   const [showBlacklistModal, setShowBlacklistModal] = useState(false);
   const [blacklistReason, setBlacklistReason] = useState('');
   const [currentDelegateToBlacklist, setCurrentDelegateToBlacklist] = useState<Delegate | null>(null);
-  const [showScanner, setShowScanner] = useState(false);
-  const [scanResult, setScanResult] = useState('');
-  const [payouts, setPayouts] = useState<Payout[]>([]);
-  const [loadingPayouts, setLoadingPayouts] = useState(false);
-  const [payoutError, setPayoutError] = useState('');
-  const [showPayoutModal, setShowPayoutModal] = useState(false);
-  const [selectedDelegateId, setSelectedDelegateId] = useState('');
-  const [awardType, setAwardType] = useState('Best Delegate');
-  const [amount, setAmount] = useState(0);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
-  const [bankDetails, setBankDetails] = useState<BankDetails>({
-    accountNumber: '',
-    ifscCode: '',
-    name: '',
-    bankName: ''
-  });
-  const [verificationStatus, setVerificationStatus] = useState<'unverified' | 'verifying' | 'verified' | 'failed'>('unverified');
-  const [bankVerificationResult, setBankVerificationResult] = useState<any>(null);
-  const [payoutStatus, setPayoutStatus] = useState<'idle' | 'processing' | 'success' | 'failed'>('idle');
-  const checkCashgramStatus = async (cashgramId: string) => {
-    try {
-      const response = await fetch(`https://sandbox.cashfree.com/payout/v1/cashgramStatus/${cashgramId}`, {
-        headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CASHGRAM_API_KEY}`
-        }
-      });
-      return await response.json();
-    } catch (error) {
-      console.error('Status check failed:', error);
-      return null;
-    }
+
+  const generateDelegateId = (name: string, phone: string) => {
+    const namePart = name.replace(/\s+/g, '').substring(0, 4).toUpperCase();
+    const phonePart = phone.replace(/\D/g, '').slice(-4);
+    return `${namePart}${phonePart}`;
   };
+
+  const isDelegateIdFormat = (input: string) => {
+    return /^[A-Z]{4}\d{4}$/.test(input);
+  };
+
+  const findDelegateByIdFormat = (input: string) => {
+    if (!isDelegateIdFormat(input)) return null;
+    const namePart = input.substring(0, 4).toLowerCase();
+    const phonePart = input.substring(4);
+    return delegates.find(delegate => {
+      const delegateName = delegate.name.replace(/\s+/g, '').substring(0, 4).toLowerCase();
+      const delegatePhone = delegate.phone.replace(/\D/g, '').slice(-4);
+      return delegateName.includes(namePart) && delegatePhone.includes(phonePart);
+    });
+  };
+
   const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
     authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -193,91 +163,99 @@ export default function AdminDashboard() {
     messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   };
+
   const padPhoneNumber = (phone: string): string => {
-    // Remove any non-digit characters
     const digits = phone.replace(/\D/g, '');
-    // Ensure the phone number is 12 digits by padding with leading zeros
     return digits.padStart(12, '0');
   };
+
   const generateBarcodeLabelsPDF = async (delegates: Delegate[]) => {
-    const doc = new jsPDF();
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+    
+    doc.setProperties({
+      title: 'KIMUN Delegate ID Cards',
+      subject: 'Delegate Identification',
+      author: 'KIMUN Admin',
+      keywords: 'kimun, delegate, id, cards',
+      creator: 'KIMUN Admin Portal'
+    });
+
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 10;
+    const cardWidth = (pageWidth - margin * 3) / 2;
+    const cardHeight = 50;
+    const padding = 5;
     
-    // Load KIMUN logo
     const logoUrl = 'https://i.ibb.co/xqSCdHHm/KIMUN-Logo-Color.png';
     
     try {
       await loadImage(logoUrl);
-      doc.addImage(logoUrl, 'PNG', pageWidth/2 - 30, 10, 60, 30);
     } catch (error) {
       console.warn('Logo could not be loaded:', error);
-      doc.setFontSize(12);
-      doc.text('KIMUN 2025', pageWidth/2 - 20, 20);
     }
 
-    // PDF title
-    doc.setFontSize(16);
-    doc.setTextColor(0, 0, 0);
-    
-    // Table settings
-    const margin = 10;
-    const rowHeight = 30;
-    const cols = 2;
-    const cardWidth = (pageWidth - margin * 2) / cols - margin;
-    const cardHeight = 60;
-    
     let x = margin;
-    let y = 60;
+    let y = margin;
     let page = 1;
 
     for (let i = 0; i < delegates.length; i++) {
       const delegate = delegates[i];
       const committee = committees.find(c => c.id === delegate.committeeId);
       const portfolio = committee?.portfolios.find(p => p.id === delegate.portfolioId);
-      const paddedPhone = padPhoneNumber(delegate.phone);
+      const delegateId = generateDelegateId(delegate.name, delegate.phone);
       
-      // Add new page if needed
-      if (y + cardHeight > pageHeight - margin) {
+      if (i > 0 && i % 4 === 0) {
         doc.addPage();
         page++;
+        x = margin;
         y = margin;
-      }
-      
-      // Card border
-      doc.setDrawColor(200, 200, 200);
-      doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'S');
-      
-      // Delegate info
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`Name: ${delegate.name}`, x + 5, y + 10);
-      doc.text(`Committee: ${committee?.name || 'N/A'}`, x + 5, y + 17);
-      doc.text(`Portfolio: ${portfolio?.country || 'N/A'}`, x + 5, y + 24);
-      
-      // Barcode using EAN-13
-      const barcodeUrl = `https://quickchart.io/barcode?type=ean13&text=${encodeURIComponent(paddedPhone)}&width=100&height=30`;
-      
-      try {
-        await loadImage(barcodeUrl);
-        doc.addImage(barcodeUrl, 'PNG', x + cardWidth - 80, y + 30, 60, 15);
-      } catch (error) {
-        console.warn('Barcode could not be generated:', error);
-        doc.text(`Phone: ${delegate.phone}`, x + cardWidth - 80, y + 30);
-      }
-      
-      // Move to next position
-      x += cardWidth + margin;
-      
-      if (x + cardWidth > pageWidth) {
+      } else if (i % 2 === 0 && i > 0) {
         x = margin;
         y += cardHeight + margin;
       }
+      
+      doc.setDrawColor(200, 200, 200);
+      doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'S');
+      
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      
+      try {
+        doc.addImage(logoUrl, 'PNG', x + padding, y + padding, 20, 10);
+      } catch (error) {
+        doc.setFontSize(12);
+        doc.text('KIMUN 2025', x + padding, y + padding + 5);
+      }
+      
+      doc.setFontSize(8);
+      doc.text(`ID: ${delegateId}`, x + padding, y + padding + 15);
+      doc.text(`Name: ${delegate.name}`, x + padding, y + padding + 20);
+      doc.text(`Committee: ${committee?.name || 'N/A'}`, x + padding, y + padding + 25);
+      doc.text(`Country: ${portfolio?.country || 'N/A'}`, x + padding, y + padding + 30);
+      
+      const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(delegateId)}&code=Code93&multiplebarcodes=false&translate-esc=false&unit=Fit&dpi=96&imagetype=Gif&rotation=0&color=%23000000&bgcolor=%23ffffff&codepage=Default&qunit=Mm&quiet=0`;
+      
+      try {
+        await loadImage(barcodeUrl);
+        doc.addImage(barcodeUrl, 'GIF', x + cardWidth - 40, y + padding + 15, 35, 15);
+      } catch (error) {
+        console.warn('Barcode could not be generated:', error);
+        doc.text(`ID: ${delegateId}`, x + cardWidth - 35, y + padding + 25);
+      }
+      
+      if (i % 2 === 0) {
+        x += cardWidth + margin;
+      }
     }
 
-    // Save the PDF
-    doc.save(`KIMUN_Delegate_ID_Cards.pdf`);
+    doc.save(`KIMUN_Delegate_ID_Cards_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
+
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const auth = getAuth(app);
@@ -285,228 +263,19 @@ export default function AdminDashboard() {
   useEffect(() => {
     emailjs.init(process.env.NEXT_PUBLIC_EMAILJS_USER_ID || '');
   }, []);
-  const generateBarcodeDataURL = (text: string): Promise<string> => {
-    const paddedText = padPhoneNumber(text);
-    return new Promise((resolve) => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 120;
-      canvas.height = 40;
-      const ctx = canvas.getContext('2d');
-      
+
+  const loadImage = (url: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'Anonymous';
-      img.onload = () => {
-        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/png'));
-      };
-      img.src = `https://quickchart.io/barcode?type=ean13&text=${encodeURIComponent(paddedText)}&width=120&height=40&includeText=false`;
+      img.onload = () => resolve(url);
+      img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+      img.src = url;
     });
   };
-  const checkAllPayoutStatuses = async () => {
-    try {
-      setLoadingPayouts(true);
-      const payoutsRef = ref(db, 'payouts');
-      const snapshot = await get(payoutsRef);
-      
-      if (snapshot.exists()) {
-        const payoutsData = snapshot.val();
-        const payoutsList = Object.entries(payoutsData).map(([id, data]: [string, any]) => ({
-          id,
-          delegateId: data.delegateId,
-          award: data.award,
-          amount: data.amount,
-          status: data.status,
-          timestamp: data.timestamp,
-          accountNumber: data.accountNumber,
-          ifscCode: data.ifscCode,
-          referenceId: data.referenceId || '',
-          name: data.name || '',
-          bankName: data.bankName || ''
-        }));
-        
-        setPayouts(payoutsList);
-      } else {
-        setPayouts([]);
-      }
-    } catch (error) {
-      console.error('Error fetching payouts:', error);
-      setPayoutError('Failed to load payout data');
-    } finally {
-      setLoadingPayouts(false);
-    }
-  };
 
-  const verifyBankDetails = async () => {
-    try {
-      setVerificationStatus('verifying');
-      setTimeout(() => {
-        setBankVerificationResult({
-          name: "Verified Account",
-          bank: "Example Bank"
-        });
-        setVerificationStatus('verified');
-      }, 1000);
-    } catch (error) {
-      setVerificationStatus('failed');
-      setBankVerificationResult({ message: 'Verification failed' });
-    }
-  };
-
-  const handleInitiatePayout = async () => {
-    try {
-      setPayoutStatus('processing');
-      setPayoutError('');
-  
-      console.log('Starting payout process...');
-  
-      // 1. Authenticate with Cashfree
-      console.log('Requesting Cashfree token...');
-      const authResponse = await fetch('/api/cashfree-auth', { 
-        method: 'POST',
-        cache: 'no-store'
-      });
-  
-      const authData = await authResponse.json();
-      console.log('Auth response:', authData);
-  
-      if (!authData.success) {
-        throw new Error(authData.error || 'Authentication failed');
-      }
-  
-      const cashfreeToken = authData.token;
-      console.log('Received token:', cashfreeToken?.substring(0, 10) + '...');
-  
-      // 2. Verify delegate exists
-      const delegate = delegates.find(d => d.id === selectedDelegateId);
-      if (!delegate) {
-        throw new Error('Delegate not found');
-      }
-  
-      // 3. Prepare payout request
-      const payoutPayload = {
-        beneId: delegate.id,
-        amount: amount.toString(),
-        transferId: `KIMUN_${Date.now()}`,
-        transferMode: "banktransfer",
-        remarks: `Award for ${awardType}`
-      };
-      console.log('Payout payload:', payoutPayload);
-  
-      // 4. Make payout request
-      const isSandbox = process.env.CASHFREE_ENV === 'sandbox';
-      const payoutUrl = isSandbox
-        ? 'https://payout-gamma.cashfree.com/payout/v1/requestTransfer'
-        : 'https://payout-api.cashfree.com/payout/v1/requestTransfer';
-  
-      console.log('Sending payout to:', payoutUrl);
-      const payoutResponse = await fetch(payoutUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${cashfreeToken}`,
-          'Content-Type': 'application/json',
-          'X-Client-Id': process.env.NEXT_PUBLIC_CASHFREE_CLIENT_ID!,
-          'X-Client-Secret': process.env.NEXT_PUBLIC_CASHFREE_CLIENT_SECRET!
-        },
-        body: JSON.stringify(payoutPayload)
-      });
-  
-      const payoutData = await payoutResponse.json();
-      console.log('Payout response:', payoutData);
-  
-      if (!payoutResponse.ok) {
-        throw new Error(
-          payoutData.message || 
-          payoutData.error?.message || 
-          `Payout failed (${payoutResponse.status})`
-        );
-      }
-  
-      // 5. Save to database
-      await push(ref(db, 'payouts'), {
-        delegateId: delegate.id,
-        amount: amount,
-        status: 'PENDING',
-        timestamp: Date.now(),
-        referenceId: payoutData.referenceId || payoutData.data?.referenceId,
-        transferId: payoutPayload.transferId
-      });
-  
-      console.log('Payout successfully initiated');
-      setPayoutStatus('success');
-      
-    } catch (error: any) {
-      console.error('Payout error:', {
-        error: error.message,
-        stack: error.stack
-      });
-      setPayoutError(
-        error.message.includes('Token') ? 
-        'Payment service authentication failed. Please try again.' :
-        error.message
-      );
-      setPayoutStatus('failed');
-    }
-  };
-
-  const checkPayoutStatus = async (payoutId: string) => {
-    try {
-      setLoadingPayouts(true);
-      const payoutRef = ref(db, `payouts/${payoutId}`);
-      const snapshot = await get(payoutRef);
-      const payout = snapshot.val();
-      
-      if (!payout) {
-        throw new Error('Payout not found');
-      }
-
-      const response = await fetch('/api/payouts/status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          payoutId,
-          referenceId: payout.referenceId
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Status check failed');
-      }
-
-      const data = await response.json();
-      
-      await update(payoutRef, {
-        status: data.status || payout.status
-      });
-
-      alert(`Payout status: ${data.status}`);
-      checkAllPayoutStatuses();
-    } catch (error: any) {
-      console.error('Error checking payout status:', error);
-      alert(`Status check failed: ${error.message}`);
-    } finally {
-      setLoadingPayouts(false);
-    }
-  };
-
-  const viewPayoutDetails = (payout: Payout) => {
-    const delegate = delegates.find(d => d.id === payout.delegateId);
-    alert(`Payout Details:\n
-      Delegate: ${delegate?.name || 'Unknown'}\n
-      Award: ${payout.award}\n
-      Amount: ${formatCurrency(payout.amount)}\n
-      Status: ${payout.status}\n
-      Date: ${new Date(payout.timestamp).toLocaleString()}\n
-      Account: ${payout.accountNumber}\n
-      IFSC: ${payout.ifscCode}\n
-      ${payout.referenceId ? `Reference ID: ${payout.referenceId}` : ''}
-    `);
-  };
   useEffect(() => {
     if (!accessGranted) return;
-
     setLoading(true);
     
     const committeesRef = ref(db, 'committees');
@@ -587,28 +356,28 @@ export default function AdminDashboard() {
       }
     });
     const couponsRef = ref(db, 'coupons');
-const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
-  if (snapshot.exists()) {
-    const couponsData = snapshot.val();
-    const couponsList = Object.entries(couponsData).map(([id, data]: [string, any]) => ({
-      id,
-      code: data.code,
-      title: data.title,
-      description: data.description,
-      discount: data.discount,
-      expiry: data.expiry,
-      logo: data.logo,
-      partner: data.partner,
-      terms: data.terms,
-      isUsed: data.isUsed || false,
-      usedBy: data.usedBy || null,
-      assignedAt: data.assignedAt || null
-    }));
-    setCoupons(couponsList);
-  } else {
-    setCoupons([]);
-  }
-});
+    const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const couponsData = snapshot.val();
+        const couponsList = Object.entries(couponsData).map(([id, data]: [string, any]) => ({
+          id,
+          code: data.code,
+          title: data.title,
+          description: data.description,
+          discount: data.discount,
+          expiry: data.expiry,
+          logo: data.logo,
+          partner: data.partner,
+          terms: data.terms,
+          isUsed: data.isUsed || false,
+          usedBy: data.usedBy || null,
+          assignedAt: data.assignedAt || null
+        }));
+        setCoupons(couponsList);
+      } else {
+        setCoupons([]);
+      }
+    });
     const resourcesRef = ref(db, 'resources');
     const resourcesUnsubscribe = onValue(resourcesRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -645,29 +414,6 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
       }
     });
 
-    const payoutsRef = ref(db, 'payouts');
-    const payoutsUnsubscribe = onValue(payoutsRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const payoutsData = snapshot.val();
-        const payoutsList = Object.entries(payoutsData).map(([id, data]: [string, any]) => ({
-          id,
-          delegateId: data.delegateId,
-          award: data.award,
-          amount: data.amount,
-          status: data.status,
-          timestamp: data.timestamp,
-          accountNumber: data.accountNumber,
-          ifscCode: data.ifscCode,
-          referenceId: data.referenceId || '',
-          name: data.name || '',
-          bankName: data.bankName || ''
-        }));
-        setPayouts(payoutsList);
-      } else {
-        setPayouts([]);
-      }
-    });
-
     setLoading(false);
 
     return () => {
@@ -675,7 +421,6 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
       registrationsUnsubscribe();
       resourcesUnsubscribe();
       blacklistedUnsubscribe();
-      payoutsUnsubscribe();
     };
   }, [accessGranted]);
 
@@ -717,11 +462,9 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
       });
   
       const data = await response.json();
-      
       if (!response.ok) {
         throw new Error(data.error || 'Failed to send welcome email');
       }
-      
       console.log('Welcome email sent successfully');
     } catch (error) {
       console.error('Failed to send welcome email:', error);
@@ -744,11 +487,9 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
       });
   
       const data = await response.json();
-      
       if (!response.ok) {
         throw new Error(data.error || 'Failed to send debarred email');
       }
-      
       console.log('Debarred email sent successfully');
     } catch (error) {
       console.error('Failed to send debarred email:', error);
@@ -765,11 +506,8 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
         reason: reason,
         timestamp: Date.now()
       };
-      
       await push(ref(db, 'blacklisted'), newBlacklisted);
-      
       await sendDebarredEmail(delegate, reason);
-      
       alert('Delegate has been blacklisted and notified');
       setShowBlacklistModal(false);
       setBlacklistReason('');
@@ -782,8 +520,8 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
 
   const handleCheckIn = async () => {
     if (!barcodeInput) return;
-  
-    const delegate = delegates.find(d => 
+    const delegateById = findDelegateByIdFormat(barcodeInput);
+    const delegate = delegateById || delegates.find(d => 
       padPhoneNumber(d.phone) === padPhoneNumber(barcodeInput) || 
       d.email === barcodeInput
     );
@@ -805,28 +543,13 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
         isCheckedIn: true,
         checkInTime: new Date().toISOString()
       });
-      
       await sendWelcomeEmail(delegate);
-      
       setBarcodeInput('');
-      alert('Checked in successfully! Welcome email sent.');
+      alert(`Checked in successfully! Welcome email sent to ${delegate.name}.`);
     } catch (error) {
       console.error('Check-in failed:', error);
       alert(`Check-in failed! ${error instanceof Error ? error.message : ''}`);
     }
-  };
-
-  const handleScan = (data: string | null) => {
-    if (data) {
-      setScanResult(data);
-      setBarcodeInput(data);
-      setShowScanner(false);
-      handleCheckIn();
-    }
-  };
-
-  const handleScanError = (err: any) => {
-    console.error('QR Scan Error:', err);
   };
 
   const openCommitteeModal = (committee: Committee | null) => {
@@ -903,234 +626,6 @@ const couponsUnsubscribe = onValue(couponsRef, (snapshot) => {
       currency: 'INR',
     }).format(amount);
   };
-
-const loadImage = (url: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'Anonymous';
-    img.onload = () => resolve(url);
-    img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
-    img.src = url;
-  });
-};
-const exportExcel = (data: any[], headers: string[], fileName: string) => {
-  // Prepare data for Excel, excluding the barcode image column
-  const excelData = data.map(row => {
-    const committee = committees.find(c => c.id === row[4]); // Committee ID is 5th column (index 4)
-    const portfolio = committee?.portfolios.find(p => p.id === row[5]); // Portfolio ID is 6th column (index 5)
-    return {
-      ID: row[1], // Delegate ID
-      Name: row[2], // Name
-      Email: row[3], // Email
-      Phone: row[0], // Phone (barcode column, but we use the raw phone number)
-      Committee: committee?.name || 'N/A',
-      Portfolio: portfolio?.country || 'N/A',
-      'Check-In Status': row[6] ? 'Checked In' : 'Not Checked In', // isCheckedIn is 7th column (index 6)
-      'Check-In Time': row[7] || 'N/A', // checkInTime is 8th column (index 7)
-      'Double Delegation': row[8] ? 'Yes' : 'No', // isDoubleDel is 9th column (index 8)
-      'Payment ID': row[9] || 'N/A', // paymentId is 10th column (index 9)
-      'Registration Time': new Date(row[10]).toLocaleString() // timestamp is 11th column (index 10)
-    };
-  });
-
-  // Convert to worksheet
-  const worksheet = XLSX.utils.json_to_sheet(excelData);
-  
-  // Create workbook and append worksheet
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Delegates');
-
-  // Save file
-  XLSX.writeFile(workbook, `${fileName}.xlsx`);
-};
-const exportPDF = async (data: any[], headers: string[], fileName: string) => {
-  const doc = new jsPDF();
-
-  // Load logo
-  const logoUrl = 'https://i.ibb.co/xqSCdHHm/KIMUN-Logo-Color.png';
-  try {
-    await loadImage(logoUrl);
-    doc.addImage(logoUrl, 'PNG', 14, 10, 30, 30);
-  } catch (error) {
-    console.warn('Logo could not be loaded:', error);
-    doc.setFontSize(12);
-    doc.text('KIMUN 2025', 14, 20);
-  }
-
-  // Header
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Delegate List with Barcodes', 50, 20);
-
-  // Preload barcode images
-  const barcodePromises = data.map(async (row) => {
-    const delegatePhone = padPhoneNumber(row[3]); // Assuming phone is the 4th column
-    const barcodeUrl = `https://quickchart.io/barcode?type=ean13&text=${encodeURIComponent(delegatePhone)}&width=100&height=30`;
-    try {
-      await loadImage(barcodeUrl);
-      return { phone: delegatePhone, barcodeUrl };
-    } catch (error) {
-      console.warn(`Failed to load barcode for ${delegatePhone}:`, error);
-      return { phone: delegatePhone, barcodeUrl: null };
-    }
-  });
-
-  const barcodeResults = await Promise.all(barcodePromises);
-
-  // Prepare data for the table
-  const tableData = data.map((row, index) => {
-    const delegatePhone = barcodeResults[index].phone;
-    return [
-      delegatePhone, // Barcode column
-      ...row,
-    ];
-  });
-
-  // Create table
-  doc.autoTable({
-    head: [['Barcode', ...headers]],
-    body: tableData,
-    startY: 40,
-    headStyles: {
-      fillColor: [245, 158, 11],
-      textColor: [255, 255, 255],
-      fontSize: 10,
-    },
-    styles: {
-      fontSize: 8,
-      cellPadding: 2,
-      overflow: 'linebreak',
-    },
-    columnStyles: {
-      0: { cellWidth: 30 }, // Barcode column width
-      1: { cellWidth: 'auto' }, // ID column
-    },
-    margin: { top: 40 },
-    didDrawCell: (data) => {
-      if (data.column.index === 0 && data.cell.raw) {
-        const barcode = barcodeResults.find((b) => b.phone === data.cell.raw);
-        if (barcode?.barcodeUrl) {
-          try {
-            doc.addImage(barcode.barcodeUrl, 'PNG', data.cell.x + 2, data.cell.y + 2, 25, 10);
-          } catch (error) {
-            console.warn(`Error adding barcode for ${data.cell.raw}:`, error);
-            doc.setFontSize(6);
-            doc.setTextColor(0, 0, 0);
-            doc.text(`ID: ${data.cell.raw}`, data.cell.x + 2, data.cell.y + 8);
-          }
-        } else {
-          // Fallback if barcode failed to load
-          doc.setFontSize(6);
-          doc.setTextColor(0, 0, 0);
-          doc.text(`ID: ${data.cell.raw}`, data.cell.x + 2, data.cell.y + 8);
-        }
-      }
-    },
-  });
-
-  // Footer
-  const finalY = doc.lastAutoTable.finalY || 40;
-  doc.setFontSize(10);
-  doc.text('Digitally Signed by: Ayush Bindhani, Founder', 14, finalY + 20);
-
-  // Save PDF
-  doc.save(fileName);
-};
-
-  const exportCommitteePortfoliosExcel = (committee: Committee) => {
-    const portfolioData = committee.portfolios.map(portfolio => ({
-      'Country': portfolio.country,
-      'Country Code': portfolio.countryCode,
-      'Status': portfolio.isVacant ? 'Vacant' : 'Occupied',
-      'Double Delegation': portfolio.isDoubleDelAllowed ? 'Allowed' : 'Not Allowed',
-      'Min Experience': portfolio.minExperience,
-      'Assigned Delegates': delegates
-        .filter(d => d.committeeId === committee.id && d.portfolioId === portfolio.id)
-        .map(d => d.name)
-        .join(', ') || 'None'
-    }));
-  
-    const agendaData = committee.topics.map((topic, index) => ({
-      'Agenda Item #': index + 1,
-      'Topic': topic
-    }));
-  
-    const ebData = committee.eb.map(member => ({
-      'Name': member.name,
-      'Role': member.role.toUpperCase(),
-      'Email': member.email,
-      'Instagram': member.instagram ? `@${member.instagram}` : 'N/A',
-      'Bio': member.bio || 'N/A'
-    }));
-  
-    const portfolioWS = XLSX.utils.json_to_sheet(portfolioData);
-    const agendaWS = XLSX.utils.json_to_sheet(agendaData);
-    const ebWS = XLSX.utils.json_to_sheet(ebData);
-  
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, portfolioWS, 'Portfolios');
-    XLSX.utils.book_append_sheet(workbook, agendaWS, 'Agenda Items');
-    XLSX.utils.book_append_sheet(workbook, ebWS, 'EB Members');
-  
-    XLSX.writeFile(workbook, `${committee.name}_details.xlsx`);
-  };
-  
-  const exportCommitteePortfoliosPDF = (committee: Committee) => {
-    const doc = new jsPDF();
-    
-    doc.setFontSize(18);
-    doc.text(`${committee.emoji} ${committee.name}`, 14, 20);
-    doc.setFontSize(12);
-    doc.setTextColor(100);
-    doc.text(`Type: ${committee.type.toUpperCase()}`, 14, 28);
-  
-    doc.autoTable({
-      startY: 35,
-      head: [['Country', 'Status', 'Double Del', 'Min Exp', 'Delegates']],
-      body: committee.portfolios.map(portfolio => [
-        portfolio.country,
-        portfolio.isVacant ? 'Vacant' : 'Occupied',
-        portfolio.isDoubleDelAllowed ? '✓' : '✗',
-        portfolio.minExperience,
-        delegates
-          .filter(d => d.committeeId === committee.id && d.portfolioId === portfolio.id)
-          .map(d => d.name)
-          .join(', ') || 'None'
-      ]),
-      theme: 'grid',
-      headStyles: { fillColor: [245, 158, 11] }
-    });
-  
-    doc.setFontSize(14).setTextColor(0);
-    doc.text('Agenda Items:', 14, doc.autoTable.previous.finalY + 15);
-    committee.topics.forEach((topic, index) => {
-      doc.setFontSize(12).setTextColor(50);
-      doc.text(`${index + 1}. ${topic}`, 16, doc.autoTable.previous.finalY + 25 + (index * 7));
-    });
-  
-    doc.autoTable({
-      startY: doc.autoTable.previous.finalY + 25 + (committee.topics.length * 7),
-      head: [['EB Member', 'Role', 'Email', 'Instagram']],
-      body: committee.eb.map(member => [
-        member.name,
-        member.role.toUpperCase(),
-        member.email,
-        member.instagram ? `@${member.instagram}` : 'N/A'
-      ]),
-      theme: 'grid',
-      headStyles: { fillColor: [245, 158, 11] }
-    });
-  
-    doc.save(`${committee.name}_details.pdf`);
-  };
-
-  const filteredDelegates = delegates.filter(d => {
-    const committeeMatch = selectedCommittee ? d.committeeId === selectedCommittee : true;
-    
-    if (viewMode === 'checkedIn') return d.isCheckedIn && committeeMatch;
-    if (viewMode === 'notCheckedIn') return !d.isCheckedIn && committeeMatch;
-    return committeeMatch;
-  });
 
   const saveCommittee = async (committee: Committee) => {
     try {
@@ -1282,7 +777,6 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
 
   const deleteItem = async (path: string) => {
     if (!confirm('Are you sure you want to delete this item?')) return false;
-    
     try {
       await remove(ref(db, path));
       return true;
@@ -1374,9 +868,15 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
     );
   }
 
+  const filteredDelegates = delegates.filter(d => {
+    const committeeMatch = selectedCommittee ? d.committeeId === selectedCommittee : true;
+    if (viewMode === 'checkedIn') return d.isCheckedIn && committeeMatch;
+    if (viewMode === 'notCheckedIn') return !d.isCheckedIn && committeeMatch;
+    return committeeMatch;
+  });
+
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 flex">
-      {/* Sidebar */}
       <div className="w-64 bg-gray-800 text-white fixed h-full border-r border-amber-700">
         <div className="p-4 border-b border-gray-700">
           <h1 className="text-xl font-bold flex items-center">
@@ -1397,17 +897,11 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
             <UserCheck className="mr-3" /> Delegates
           </button>
           <button
-          onClick={() => setActiveTab('payouts')}
-          className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'payouts' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            onClick={() => setActiveTab('coupons')}
+            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'coupons' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
           >
-            <CreditCard className="mr-3" /> Prize Payouts
+            <Ticket className="mr-3" /> Coupons
           </button>
-          <button
-  onClick={() => setActiveTab('coupons')}
-  className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'coupons' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
->
-  <Ticket className="mr-3" /> Coupons
-</button>
           <button
             onClick={() => setActiveTab('committees')}
             className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'committees' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
@@ -1443,9 +937,7 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 ml-64">
-        {/* Header */}
         <header className="bg-gray-800 shadow-sm p-4 border-b border-amber-700">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold text-amber-400 capitalize">
@@ -1484,12 +976,9 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
           </div>
         </header>
 
-        {/* Content Area */}
         <main className="p-6">
-          {/* Dashboard Tab */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
-              {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
                   <div className="flex items-center space-x-4">
@@ -1513,7 +1002,6 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                     </div>
                   </div>
                 </div>
-                
                 <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-blue-700">
                   <div className="flex items-center space-x-4">
                     <div className="p-3 rounded-full bg-blue-100 text-blue-600">
@@ -1524,30 +1012,29 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                       <p className="text-2xl font-bold text-white">{formatCurrency(amountReceived)}</p>
                     </div>
                   </div>
-                  
                 </div>
                 <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-blue-700">
-    <div className="flex items-center space-x-4">
-      <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-        <User className="h-6 w-6" />
-      </div>
-      <div>
-        <p className="text-sm text-gray-300">Single Delegates</p>
-        <p className="text-2xl font-bold text-white">{singleDelegates} / 80</p>
-      </div>
-    </div>
-  </div>
-  <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-purple-700">
-    <div className="flex items-center space-x-4">
-      <div className="p-3 rounded-full bg-purple-100 text-purple-600">
-        <Users className="h-6 w-6" />
-      </div>
-      <div>
-        <p className="text-sm text-gray-300">Double Delegates</p>
-        <p className="text-2xl font-bold text-white">{doubleDelegates} / 20</p>
-      </div>
-    </div>
-  </div>
+                  <div className="flex items-center space-x-4">
+                    <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+                      <User className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-300">Single Delegates</p>
+                      <p className="text-2xl font-bold text-white">{singleDelegates} / 80</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-purple-700">
+                  <div className="flex items-center space-x-4">
+                    <div className="p-3 rounded-full bg-purple-100 text-purple-600">
+                      <Users className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-300">Double Delegates</p>
+                      <p className="text-2xl font-bold text-white">{doubleDelegates} / 20</p>
+                    </div>
+                  </div>
+                </div>
                 <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-purple-700">
                   <div className="flex items-center space-x-4">
                     <div className="p-3 rounded-full bg-purple-100 text-purple-600">
@@ -1561,7 +1048,6 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                 </div>
               </div>
 
-              {/* Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
                   <h3 className="text-lg font-semibold mb-4 text-white">Registrations by Committee</h3>
@@ -1637,7 +1123,6 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                 </div>
               </div>
 
-              {/* Recent Check-ins */}
               <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold text-white">Recent Check-ins</h3>
@@ -1654,7 +1139,6 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                     <thead className="bg-gray-700">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Delegate</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Phone</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Committee</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Portfolio</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Time</th>
@@ -1701,87 +1185,6 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
             </div>
           )}
 
-{activeTab === 'coupons' && (
-  <div className="space-y-6">
-    <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold text-white">Coupons Management</h2>
-        <Button 
-          onClick={() => {
-            setEditingCoupon({
-              id: '',
-              code: '',
-              title: '',
-              description: '',
-              discount: '',
-              expiry: '',
-              logo: '',
-              partner: '',
-              terms: '',
-              isUsed: false,
-              usedBy: null,
-              assignedAt: null
-            });
-            setIsModalOpen(true);
-            setModalType('coupon');
-          }}
-          className="bg-amber-600 hover:bg-amber-700 text-white"
-        >
-          <Plus className="mr-2 h-5 w-5" /> Add Coupon
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {coupons.map(coupon => (
-          <div key={coupon.id} className="bg-gray-700 p-4 rounded-lg border border-amber-600">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center space-x-2">
-                {coupon.logo && (
-                  <img src={coupon.logo} alt={coupon.partner} className="h-8 w-8 object-contain rounded" />
-                )}
-                <h3 className="font-semibold text-white">{coupon.title}</h3>
-              </div>
-              <span className={`px-2 py-1 text-xs rounded-full ${
-                coupon.isUsed ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-              }`}>
-                {coupon.isUsed ? 'Used' : 'Active'}
-              </span>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-amber-400 font-mono">{coupon.code}</p>
-              <p className="text-white">{coupon.description}</p>
-              <p className="text-gray-300 text-sm">Discount: {coupon.discount}</p>
-              <p className="text-gray-300 text-sm">Expiry: {coupon.expiry}</p>
-              <div className="flex space-x-2 mt-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setEditingCoupon(coupon);
-                    setIsModalOpen(true);
-                    setModalType('coupon');
-                  }}
-                  className="text-amber-500 hover:text-amber-400"
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => deleteItem(`coupons/${coupon.id}`)}
-                  className="text-red-500 hover:text-red-400"
-                >
-                  <Trash className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-)}
-          {/* Delegates Tab */}
           {activeTab === 'delegates' && (
             <div className="space-y-6">
               <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
@@ -1851,7 +1254,7 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                       <QrCode className="absolute left-3 top-3 h-5 w-5 text-amber-500" />
                       <input
                         type="text"
-                        placeholder="Scan Delegate ID/Phone/Email"
+                        placeholder="Scan Delegate ID (e.g. JOHN1234) or enter phone/email"
                         value={barcodeInput}
                         onChange={(e) => setBarcodeInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleCheckIn()}
@@ -1860,7 +1263,7 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                     </div>
                   </div>
                   <div className="flex space-x-2">
-                     <Button 
+                    <Button 
                       onClick={handleCheckIn} 
                       className="bg-amber-600 hover:bg-amber-700 text-white"
                     >
@@ -1868,6 +1271,7 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                     </Button>
                   </div>
                 </div>
+
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold text-white">
                     {viewMode === 'all' && 'All Delegates'}
@@ -1877,51 +1281,12 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                   </h3>
                   <div className="flex space-x-2">
                     <Button
-  variant="outline"
-  onClick={() => exportExcel(
-    filteredDelegates.map(d => [
-      d.phone, // Barcode column
-      d.id,
-      d.name,
-      d.email,
-      d.committeeId,
-      d.portfolioId,
-      d.isCheckedIn,
-      d.checkInTime,
-      d.isDoubleDel,
-      d.paymentId,
-      d.timestamp
-    ]),
-    ['Barcode', 'ID', 'Name', 'Email', 'Committee', 'Portfolio', 'Checked In', 'Check-In Time', 'Double Del', 'Payment ID', 'Timestamp'],
-    'KIMUN_Delegates'
-  )}
-  className="border-green-500 text-green-400 hover:bg-green-900"
->
-  <Download className="mr-2 h-5 w-5" /> Export Excel
-</Button>
-                    <Button
-  variant="outline"
-  onClick={() => generateBarcodeLabelsPDF(filteredDelegates)}
-  className="border-purple-500 text-purple-400 hover:bg-purple-900"
->
-  <Printer className="mr-2 h-5 w-5" /> Print All IDs
-</Button>
-                    <Button
-  onClick={() => exportPDF(
-    filteredDelegates.map(d => [
-      d.id, // First item must be the ID for barcode
-      d.name,
-      d.phone,
-      committees.find(c => c.id === d.committeeId)?.name || 'N/A',
-      committees.find(c => c.id === d.committeeId)?.portfolios.find(p => p.id === d.portfolioId)?.country || 'N/A',
-      d.isCheckedIn ? 'Yes' : 'No'
-    ]),
-    ['ID', 'Name', 'Phone', 'Committee', 'Portfolio', 'Checked In'],
-    'DelegateListWithBarcodes.pdf'
-  )}
->
-  Generate PDF with Barcodes
-</Button>
+                      variant="outline"
+                      onClick={() => generateBarcodeLabelsPDF(filteredDelegates)}
+                      className="border-purple-500 text-purple-400 hover:bg-purple-900"
+                    >
+                      <Printer className="mr-2 h-5 w-5" /> Print ID Cards
+                    </Button>
                   </div>
                 </div>
 
@@ -1929,7 +1294,7 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                   <table className="min-w-full divide-y divide-gray-700">
                     <thead className="bg-gray-700">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Delegate ID</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Name</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Phone</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Committee</th>
@@ -1942,7 +1307,9 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                       {filteredDelegates.length > 0 ? (
                         filteredDelegates.map(delegate => (
                           <tr key={delegate.id} className="hover:bg-gray-700">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{delegate.id}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-amber-400">
+                              {generateDelegateId(delegate.name, delegate.phone)}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{delegate.name}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{delegate.phone}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
@@ -1982,7 +1349,7 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-300">
+                          <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-300">
                             No delegates found
                           </td>
                         </tr>
@@ -1994,432 +1361,353 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
             </div>
           )}
 
-
-{/* Committees Tab */}
-{activeTab === 'committees' && (
-  <div className="space-y-6">
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl text-black font-semibold">Committees</h2>
-        <Button 
-          onClick={() => openCommitteeModal(null)}
-          className="bg-orange-600 hover:bg-orange-700 text-white"
-        >
-          <Plus className="mr-2 h-5 w-5" /> Add Committee
-        </Button>
-      </div>
-
-      <div className="space-y-4">
-        {committees.map(committee => (
-          <div key={committee.id} className="border rounded-lg overflow-hidden">
-            <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
-              <div className="flex items-center">
-                <span className="text-2xl mr-3">{committee.emoji}</span>
-                <h3 className="text-lg text-black font-semibold">{committee.name}</h3>
-                <span className="ml-3 px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 capitalize">
-                  {committee.type}
-                </span>
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => exportCommitteePortfoliosExcel(committee)}
-                  className="border-green-500 text-green-600 hover:bg-green-50"
-                >
-                  <Download className="mr-2 h-4 w-4" /> Excel
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => exportCommitteePortfoliosPDF(committee)}
-                  className="border-blue-500 text-blue-600 hover:bg-blue-50"
-                >
-                  <Download className="mr-2 h-4 w-4" /> PDF
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openCommitteeModal(committee)}
-                  className="border-gray-300"
-                >
-                  <Edit className="mr-2 h-4 w-4" /> Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openPortfolioModal(null, committee.id)}
-                  className="border-orange-300 text-orange-600 hover:bg-orange-50"
-                >
-                  <Plus className="mr-2 h-4 w-4" /> Add Portfolio
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => deleteItem(`committees/${committee.id}`)}
-                  className="border-red-300 text-red-600 hover:bg-red-50"
-                >
-                  <Trash className="mr-2 h-4 w-4" /> Delete
-                </Button>
-              </div>
-            </div>
-            <div className="p-6">
-              <p className="text-gray-600 mb-4">{committee.description}</p>
-              
-              <div className="mb-6">
-                <h4 className="font-medium mb-2 text-black">Agenda Items:</h4>
-                <ul className="list-disc pl-5 space-y-1 text-gray-600 text-black">
-                  {committee.topics.map((topic, i) => (
-                    <li key={i}>{topic}</li>
-                  ))}
-                </ul>
-              </div>
-
-              {committee.backgroundGuide && (
-                <div className="mb-4">
-                  <h4 className="font-medium text-gray mb-2">Background Guide:</h4>
-                  <a 
-                    href={committee.backgroundGuide} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-orange-600 hover:underline"
+          {activeTab === 'coupons' && (
+            <div className="space-y-6">
+              <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-semibold text-white">Coupons Management</h2>
+                  <Button 
+                    onClick={() => {
+                      setEditingCoupon({
+                        id: '',
+                        code: '',
+                        title: '',
+                        description: '',
+                        discount: '',
+                        expiry: '',
+                        logo: '',
+                        partner: '',
+                        terms: '',
+                        isUsed: false,
+                        usedBy: null,
+                        assignedAt: null
+                      });
+                      setIsModalOpen(true);
+                      setModalType('coupon');
+                    }}
+                    className="bg-amber-600 hover:bg-amber-700 text-white"
                   >
-                    View Background Guide
-                  </a>
+                    <Plus className="mr-2 h-5 w-5" /> Add Coupon
+                  </Button>
                 </div>
-              )}
 
-              {committee.rules && (
-                <div className="mb-6">
-                  <h4 className="font-medium mb-2">Rules of Procedure:</h4>
-                  <a 
-                    href={committee.rules} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-orange-600 hover:underline"
-                  >
-                    View Rules
-                  </a>
-                </div>
-              )}
-
-              <div className="mb-6">
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="font-medium text-black">Portfolios ({committee.portfolios.length})</h4>
-                  <div className="flex items-center">
-                    <span className="text-sm text-gray-500 mr-4">
-                      {committee.portfolios.filter(p => !p.isVacant).length} assigned •{' '}
-                      {committee.portfolios.filter(p => p.isVacant).length} vacant
-                    </span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {committee.portfolios.map(portfolio => {
-                    const FlagComponent = Flags[`${portfolio.countryCode}Flag` as keyof typeof Flags];
-                    return (
-                      <div key={portfolio.id} className="border rounded-lg p-3 flex justify-between items-center">
-                        <div className="flex items-center">
-                          {FlagComponent && (
-                            <div className="w-6 h-6 mr-2 overflow-hidden rounded-sm">
-                              <FlagComponent className="w-full h-full object-cover" />
-                            </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {coupons.map(coupon => (
+                    <div key={coupon.id} className="bg-gray-700 p-4 rounded-lg border border-amber-600">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          {coupon.logo && (
+                            <img src={coupon.logo} alt={coupon.partner} className="h-8 w-8 object-contain rounded" />
                           )}
-                          <div>
-                            <p className="font-medium text-black">{portfolio.country}</p>
-                            <p className="text-xs text-gray-500">
-                              {portfolio.isVacant ? 'Vacant' : 'Assigned'} •{' '}
-                              {portfolio.isDoubleDelAllowed ? 'Double Del' : 'Single Del'}
-                            </p>
-                          </div>
+                          <h3 className="font-semibold text-white">{coupon.title}</h3>
                         </div>
-                        <div className="flex space-x-1">
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          coupon.isUsed ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                        }`}>
+                          {coupon.isUsed ? 'Used' : 'Active'}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-sm text-amber-400 font-mono">{coupon.code}</p>
+                        <p className="text-white">{coupon.description}</p>
+                        <p className="text-gray-300 text-sm">Discount: {coupon.discount}</p>
+                        <p className="text-gray-300 text-sm">Expiry: {coupon.expiry}</p>
+                        <div className="flex space-x-2 mt-2">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => openPortfolioModal(portfolio, committee.id)}
-                            className="text-gray-500 hover:text-gray-700"
+                            onClick={() => {
+                              setEditingCoupon(coupon);
+                              setIsModalOpen(true);
+                              setModalType('coupon');
+                            }}
+                            className="text-amber-500 hover:text-amber-400"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => deleteItem(`committees/${committee.id}/portfolios/${portfolio.id}`)}
-                            className="text-red-500 hover:text-red-700"
+                            onClick={() => deleteItem(`coupons/${coupon.id}`)}
+                            className="text-red-500 hover:text-red-400"
                           >
                             <Trash className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-)}
+          )}
 
-{activeTab === 'payouts' && (
-        <div className="space-y-6">
-          <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-white">Prize Payouts</h2>
-              <div className="flex space-x-2">
-                <Button 
-                  onClick={() => {
-                    setSelectedDelegateId('');
-                    setAwardType('Best Delegate');
-                    setAmount(0);
-                    setBankDetails({
-                      accountNumber: '',
-                      ifscCode: '',
-                      name: '',
-                      bankName: ''
-                    });
-                    setShowPayoutModal(true);
-                  }}
-                  className="bg-amber-600 hover:bg-amber-700 text-white"
-                >
-                  <Plus className="mr-2 h-5 w-5" /> Initiate Payout
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={checkAllPayoutStatuses}
-                  className="border-blue-500 text-blue-400 hover:bg-blue-900"
-                >
-                  <RefreshCw className="mr-2 h-5 w-5" /> Refresh Statuses
-                </Button>
-              </div>
-            </div>
+          {activeTab === 'committees' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-semibold text-black">Committees</h2>
+                  <Button 
+                    onClick={() => openCommitteeModal(null)}
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    <Plus className="mr-2 h-5 w-5" /> Add Committee
+                  </Button>
+                </div>
 
-            {loadingPayouts ? (
-              <div className="flex justify-center items-center py-8">
-                <Loader2 className="h-8 w-8 text-amber-500 animate-spin" />
-              </div>
-            ) : payoutError ? (
-              <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 text-red-400">
-                {payoutError}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-700">
-                  <thead className="bg-gray-700">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Delegate</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Award</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Amount</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Date</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-gray-800 divide-y divide-gray-700">
-                    {payouts.length > 0 ? (
-                      payouts.map(payout => {
-                        const delegate = delegates.find(d => d.id === payout.delegateId);
-                        return (
-                          <tr key={payout.id} className="hover:bg-gray-700">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-white">
-                                {delegate?.name || 'Unknown Delegate'}
-                              </div>
-                              <div className="text-sm text-gray-300">
-                                {delegate?.email || 'N/A'}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                              {payout.award}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
-                              {formatCurrency(payout.amount)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                payout.status === 'SUCCESS' ? 'bg-green-100 text-green-800' :
-                                payout.status === 'FAILED' ? 'bg-red-100 text-red-800' :
-                                'bg-amber-100 text-amber-800'
-                              }`}>
-                                {payout.status}
+                <div className="space-y-4">
+                  {committees.map(committee => (
+                    <div key={committee.id} className="border rounded-lg overflow-hidden">
+                      <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
+                        <div className="flex items-center">
+                          <span className="text-2xl mr-3">{committee.emoji}</span>
+                          <h3 className="text-lg font-semibold text-black">{committee.name}</h3>
+                          <span className="ml-3 px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 capitalize">
+                            {committee.type}
+                          </span>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openPortfolioModal(null, committee.id)}
+                            className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                          >
+                            <Plus className="mr-2 h-4 w-4" /> Add Portfolio
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openCommitteeModal(committee)}
+                            className="border-gray-300"
+                          >
+                            <Edit className="mr-2 h-4 w-4" /> Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deleteItem(`committees/${committee.id}`)}
+                            className="border-red-300 text-red-600 hover:bg-red-50"
+                          >
+                            <Trash className="mr-2 h-4 w-4" /> Delete
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="p-6">
+                        <p className="text-gray-600 mb-4">{committee.description}</p>
+                        
+                        <div className="mb-6">
+                          <h4 className="font-medium mb-2 text-black">Agenda Items:</h4>
+                          <ul className="list-disc pl-5 space-y-1 text-gray-600 text-black">
+                            {committee.topics.map((topic, i) => (
+                              <li key={i}>{topic}</li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {committee.backgroundGuide && (
+                          <div className="mb-4">
+                            <h4 className="font-medium text-gray mb-2">Background Guide:</h4>
+                            <a 
+                              href={committee.backgroundGuide} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-orange-600 hover:underline"
+                            >
+                              View Background Guide
+                            </a>
+                          </div>
+                        )}
+
+                        {committee.rules && (
+                          <div className="mb-6">
+                            <h4 className="font-medium mb-2">Rules of Procedure:</h4>
+                            <a 
+                              href={committee.rules} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-orange-600 hover:underline"
+                            >
+                              View Rules
+                            </a>
+                          </div>
+                        )}
+
+                        <div className="mb-6">
+                          <div className="flex justify-between items-center mb-2">
+                            <h4 className="font-medium text-black">Portfolios ({committee.portfolios.length})</h4>
+                            <div className="flex items-center">
+                              <span className="text-sm text-gray-500 mr-4">
+                                {committee.portfolios.filter(p => !p.isVacant).length} assigned •{' '}
+                                {committee.portfolios.filter(p => p.isVacant).length} vacant
                               </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                              {new Date(payout.timestamp).toLocaleString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <div className="flex space-x-2">
-                                <button
-                                  onClick={() => viewPayoutDetails(payout)}
-                                  className="text-amber-500 hover:text-amber-400"
-                                >
-                                  Details
-                                </button>
-                                {payout.status === 'PENDING' && (
-                                  <button
-                                    onClick={() => checkPayoutStatus(payout.id)}
-                                    className="text-blue-500 hover:text-blue-400"
-                                  >
-                                    Check Status
-                                  </button>
-                                )}
-                                {payout.status === 'FAILED' && (
-                                  <button
-                                    onClick={() => {
-                                      setSelectedDelegateId(payout.delegateId);
-                                      setAwardType(payout.award);
-                                      setAmount(payout.amount);
-                                      setBankDetails({
-                                        accountNumber: payout.accountNumber,
-                                        ifscCode: payout.ifscCode,
-                                        name: payout.name || '',
-                                        bankName: payout.bankName || ''
-                                      });
-                                      setShowPayoutModal(true);
-                                    }}
-                                    className="text-green-500 hover:text-green-400"
-                                  >
-                                    Retry
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-300">
-                          No payouts found
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-          {/* Executive Board Tab */}
-{activeTab === 'eb' && (
-  <div className="space-y-6">
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-semibold text-black">Executive Board</h2>
-        <Select
-          options={committees.map(c => ({ value: c.id, label: c.name }))}
-          placeholder="Filter by Committee"
-          onChange={(selected) => setSelectedCommittee(selected?.value || null)}
-          isClearable
-          className="react-select-container w-64"
-          classNamePrefix="react-select"
-        />
-      </div>
-
-      <div className="space-y-4">
-        {committees
-          .filter(c => !selectedCommittee || c.id === selectedCommittee)
-          .map(committee => (
-            <div key={committee.id} className="border rounded-lg overflow-hidden">
-              <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
-                <div className="flex items-center">
-                  <span className="text-2xl mr-3">{committee.emoji}</span>
-                  <h3 className="text-lg font-semibold text-black">{committee.name}</h3>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openEBModal(null, committee.id)}
-                  className="border-orange-300 text-orange-600 hover:bg-orange-50"
-                >
-                  <Plus className="mr-2 h-4 w-4" /> Add EB Member
-                </Button>
-              </div>
-              
-              <div className="p-6">
-                {committee.eb.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {committee.eb.map(member => (
-                      <div key={member.id} className="border rounded-lg p-4">
-                        <div className="flex items-start space-x-4">
-                          {member.photourl && (
-                            <div className="flex-shrink-0">
-                              <img 
-                                src={member.photourl} 
-                                alt={member.name}
-                                className="h-12 w-12 rounded-full object-cover border-2 border-orange-100"
-                              />
                             </div>
-                          )}
-                          <div className="flex-1">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h4 className="font-medium text-black">{member.name}</h4>
-                                <p className="text-sm text-gray-500 capitalize">{member.role}</p>
-                              </div>
-                              <div className="flex space-x-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => openEBModal(member, committee.id)}
-                                  className="text-gray-500 hover:text-gray-700"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => deleteItem(`committees/${committee.id}/eb/${member.id}`)}
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  <Trash className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                            <div className="mt-3">
-                              <p className="text-sm text-gray-600">
-                                <a href={`mailto:${member.email}`} className="text-orange-600 hover:underline">
-                                  {member.email}
-                                </a>
-                              </p>
-                              {member.instagram && (
-                                <p className="mt-1 text-sm text-gray-600">
-                                  Instagram:{" "}
-                                  <a
-                                    href={`https://instagram.com/${member.instagram}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-orange-600 hover:underline"
-                                  >
-                                    @{member.instagram}
-                                  </a>
-                                </p>
-                              )}
-                              {member.bio && (
-                                <p className="mt-2 text-sm text-gray-600">{member.bio}</p>
-                              )}
-                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {committee.portfolios.map(portfolio => {
+                              const FlagComponent = Flags[`${portfolio.countryCode}Flag` as keyof typeof Flags];
+                              return (
+                                <div key={portfolio.id} className="border rounded-lg p-3 flex justify-between items-center">
+                                  <div className="flex items-center">
+                                    {FlagComponent && (
+                                      <div className="w-6 h-6 mr-2 overflow-hidden rounded-sm">
+                                        <FlagComponent className="w-full h-full object-cover" />
+                                      </div>
+                                    )}
+                                    <div>
+                                      <p className="font-medium text-black">{portfolio.country}</p>
+                                      <p className="text-xs text-gray-500">
+                                        {portfolio.isVacant ? 'Vacant' : 'Assigned'} •{' '}
+                                        {portfolio.isDoubleDelAllowed ? 'Double Del' : 'Single Del'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex space-x-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => openPortfolioModal(portfolio, committee.id)}
+                                      className="text-gray-500 hover:text-gray-700"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => deleteItem(`committees/${committee.id}/portfolios/${portfolio.id}`)}
+                                      className="text-red-500 hover:text-red-700"
+                                    >
+                                      <Trash className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-4">No EB members added yet</p>
-                )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          ))}
-      </div>
-    </div>
-  </div>
-)}
+          )}
 
-          {/* Resources Tab */}
+          {activeTab === 'eb' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-semibold text-black">Executive Board</h2>
+                  <Select
+                    options={committees.map(c => ({ value: c.id, label: c.name }))}
+                    placeholder="Filter by Committee"
+                    onChange={(selected) => setSelectedCommittee(selected?.value || null)}
+                    isClearable
+                    className="react-select-container w-64"
+                    classNamePrefix="react-select"
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  {committees
+                    .filter(c => !selectedCommittee || c.id === selectedCommittee)
+                    .map(committee => (
+                      <div key={committee.id} className="border rounded-lg overflow-hidden">
+                        <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
+                          <div className="flex items-center">
+                            <span className="text-2xl mr-3">{committee.emoji}</span>
+                            <h3 className="text-lg font-semibold text-black">{committee.name}</h3>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEBModal(null, committee.id)}
+                            className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                          >
+                            <Plus className="mr-2 h-4 w-4" /> Add EB Member
+                          </Button>
+                        </div>
+                        
+                        <div className="p-6">
+                          {committee.eb.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {committee.eb.map(member => (
+                                <div key={member.id} className="border rounded-lg p-4">
+                                  <div className="flex items-start space-x-4">
+                                    {member.photourl && (
+                                      <div className="flex-shrink-0">
+                                        <img 
+                                          src={member.photourl} 
+                                          alt={member.name}
+                                          className="h-12 w-12 rounded-full object-cover border-2 border-orange-100"
+                                        />
+                                      </div>
+                                    )}
+                                    <div className="flex-1">
+                                      <div className="flex justify-between items-start">
+                                        <div>
+                                          <h4 className="font-medium text-black">{member.name}</h4>
+                                          <p className="text-sm text-gray-500 capitalize">{member.role}</p>
+                                        </div>
+                                        <div className="flex space-x-1">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => openEBModal(member, committee.id)}
+                                            className="text-gray-500 hover:text-gray-700"
+                                          >
+                                            <Edit className="h-4 w-4" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => deleteItem(`committees/${committee.id}/eb/${member.id}`)}
+                                            className="text-red-500 hover:text-red-700"
+                                          >
+                                            <Trash className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                      <div className="mt-3">
+                                        <p className="text-sm text-gray-600">
+                                          <a href={`mailto:${member.email}`} className="text-orange-600 hover:underline">
+                                            {member.email}
+                                          </a>
+                                        </p>
+                                        {member.instagram && (
+                                          <p className="mt-1 text-sm text-gray-600">
+                                            Instagram:{" "}
+                                            <a
+                                              href={`https://instagram.com/${member.instagram}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-orange-600 hover:underline"
+                                            >
+                                              @{member.instagram}
+                                            </a>
+                                          </p>
+                                        )}
+                                        {member.bio && (
+                                          <p className="mt-2 text-sm text-gray-600">{member.bio}</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-gray-500 text-center py-4">No EB members added yet</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'resources' && (
             <div className="space-y-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -2502,7 +1790,6 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
             </div>
           )}
 
-          {/* Settings Tab */}
           {activeTab === 'settings' && (
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
               <h2 className="text-xl font-semibold mb-6">Settings</h2>
@@ -2587,7 +1874,6 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
         </main>
       </div>
 
-      {/* Modals */}
       <AnimatePresence>
         {isModalOpen && (
           <motion.div 
@@ -2609,6 +1895,7 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                     {modalType === 'eb' && (editingEB?.id ? 'Edit EB Member' : 'Add EB Member')}
                     {modalType === 'portfolio' && (editingPortfolio?.id ? 'Edit Portfolio' : 'Add Portfolio')}
                     {modalType === 'resource' && (editingResource?.id ? 'Edit Resource' : 'Add Resource')}
+                    {modalType === 'coupon' && (editingCoupon?.id ? 'Edit Coupon' : 'Add Coupon')}
                   </h3>
                   <button 
                     onClick={() => setIsModalOpen(false)}
@@ -2618,7 +1905,6 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                   </button>
                 </div>
 
-                {/* Committee Form */}
                 {modalType === 'committee' && editingCommittee && (
                   <div className="space-y-4">
                     <div>
@@ -2701,119 +1987,116 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                     </div>
                   </div>
                 )}
+
                 {modalType === 'coupon' && editingCoupon && (
-  <div className="space-y-4">
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Code</label>
-      <input
-        type="text"
-        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-        value={editingCoupon.code}
-        onChange={(e) => setEditingCoupon({...editingCoupon, code: e.target.value})}
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-      <input
-        type="text"
-        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-        value={editingCoupon.title}
-        onChange={(e) => setEditingCoupon({...editingCoupon, title: e.target.value})}
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-      <textarea
-        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-        value={editingCoupon.description}
-        onChange={(e) => setEditingCoupon({...editingCoupon, description: e.target.value})}
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Discount</label>
-      <input
-        type="text"
-        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-        value={editingCoupon.discount}
-        onChange={(e) => setEditingCoupon({...editingCoupon, discount: e.target.value})}
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
-      <input
-        type="date"
-        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-        value={editingCoupon.expiry}
-        onChange={(e) => setEditingCoupon({...editingCoupon, expiry: e.target.value})}
-      />
-    </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Code</label>
+                      <input
+                        type="text"
+                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingCoupon.code}
+                        onChange={(e) => setEditingCoupon({...editingCoupon, code: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                      <input
+                        type="text"
+                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingCoupon.title}
+                        onChange={(e) => setEditingCoupon({...editingCoupon, title: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <textarea
+                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingCoupon.description}
+                        onChange={(e) => setEditingCoupon({...editingCoupon, description: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Discount</label>
+                      <input
+                        type="text"
+                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingCoupon.discount}
+                        onChange={(e) => setEditingCoupon({...editingCoupon, discount: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                      <input
+                        type="date"
+                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingCoupon.expiry}
+                        onChange={(e) => setEditingCoupon({...editingCoupon, expiry: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Logo Url</label>
+                      <input
+                        type="text"
+                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingCoupon.logo}
+                        onChange={(e) => setEditingCoupon({...editingCoupon, logo: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Partner</label>
+                      <input
+                        type="text"
+                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingCoupon.partner}
+                        onChange={(e) => setEditingCoupon({...editingCoupon, partner: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Term</label>
+                      <input
+                        type="text"
+                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingCoupon.terms}
+                        onChange={(e) => setEditingCoupon({...editingCoupon, terms: e.target.value})}
+                      />
+                    </div>
+                    <div className="pt-4">
+                      <Button 
+                        onClick={async () => {
+                          try {
+                            const couponData = {
+                              code: editingCoupon.code,
+                              title: editingCoupon.title,
+                              description: editingCoupon.description,
+                              discount: editingCoupon.discount,
+                              expiry: editingCoupon.expiry,
+                              logo: editingCoupon.logo,
+                              partner: editingCoupon.partner,
+                              terms: editingCoupon.terms,
+                              isUsed: editingCoupon.isUsed,
+                              usedBy: editingCoupon.usedBy,
+                              assignedAt: editingCoupon.assignedAt
+                            };
 
+                            if (editingCoupon.id) {
+                              await update(ref(db, `coupons/${editingCoupon.id}`), couponData);
+                            } else {
+                              await push(ref(db, 'coupons'), couponData);
+                            }
+                            setIsModalOpen(false);
+                          } catch (error) {
+                            console.error('Error saving coupon:', error);
+                          }
+                        }}
+                        className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                      >
+                        Save Coupon
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Logo Url</label>
-      <input
-        type="text"
-        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-        value={editingCoupon.logo}
-        onChange={(e) => setEditingCoupon({...editingCoupon, logo: e.target.value})}
-      />
-    </div>
-
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Partner</label>
-      <input
-        type="text"
-        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-        value={editingCoupon.partner}
-        onChange={(e) => setEditingCoupon({...editingCoupon, partner: e.target.value})}
-      />
-    </div>
-
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Term</label>
-      <input
-        type="text"
-        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-        value={editingCoupon.terms}
-        onChange={(e) => setEditingCoupon({...editingCoupon, terms: e.target.value})}
-      />
-    </div>
-    <div className="pt-4">
-      <Button 
-        onClick={async () => {
-          try {
-            const couponData = {
-              code: editingCoupon.code,
-              title: editingCoupon.title,
-              description: editingCoupon.description,
-              discount: editingCoupon.discount,
-              expiry: editingCoupon.expiry,
-              logo: editingCoupon.logo,
-              partner: editingCoupon.partner,
-              terms: editingCoupon.terms,
-              isUsed: editingCoupon.isUsed,
-              usedBy: editingCoupon.usedBy,
-              assignedAt: editingCoupon.assignedAt
-            };
-
-            if (editingCoupon.id) {
-              await update(ref(db, `coupons/${editingCoupon.id}`), couponData);
-            } else {
-              await push(ref(db, 'coupons'), couponData);
-            }
-            setIsModalOpen(false);
-          } catch (error) {
-            console.error('Error saving coupon:', error);
-          }
-        }}
-        className="w-full bg-amber-600 hover:bg-amber-700 text-white"
-      >
-        Save Coupon
-      </Button>
-    </div>
-  </div>
-)}
-                {/* EB Member Form */}
                 {modalType === 'eb' && editingEB && editingCommittee && (
                   <div className="space-y-4">
                     <div>
@@ -2838,25 +2121,25 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                       </select>
                     </div>
                     <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Photo URL</label>
-                    <input
-                      type="url"
-                      className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      value={editingEB.photourl}  // Remove || '' fallback
-                      onChange={(e) => setEditingEB({...editingEB, photourl: e.target.value})}
-                      placeholder="https://example.com/photo.jpg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Instagram</label>
-                    <input
-                      type="text"
-                      className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      value={editingEB.instagram}  // Remove || '' fallback
-                      onChange={(e) => setEditingEB({...editingEB, instagram: e.target.value})}
-                      placeholder="username"
-                    />
-                  </div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Photo URL</label>
+                      <input
+                        type="url"
+                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        value={editingEB.photourl}
+                        onChange={(e) => setEditingEB({...editingEB, photourl: e.target.value})}
+                        placeholder="https://example.com/photo.jpg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Instagram</label>
+                      <input
+                        type="text"
+                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        value={editingEB.instagram}
+                        onChange={(e) => setEditingEB({...editingEB, instagram: e.target.value})}
+                        placeholder="username"
+                      />
+                    </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                       <input
@@ -2889,7 +2172,6 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                   </div>
                 )}
 
-                {/* Portfolio Form */}
                 {modalType === 'portfolio' && editingPortfolio && editingCommittee && (
                   <div className="space-y-4">
                     <div>
@@ -2959,7 +2241,6 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
                   </div>
                 )}
 
-                {/* Resource Form */}
                 {modalType === 'resource' && editingResource && (
                   <div className="space-y-4">
                     <div>
@@ -3042,254 +2323,66 @@ const exportPDF = async (data: any[], headers: string[], fileName: string) => {
           </motion.div>
         )}
 
-{/* Payout Modal */}
-{showPayoutModal && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-        >
-          <motion.div
-            initial={{ scale: 0.95, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.95, y: 20 }}
-            className="bg-white rounded-xl shadow-xl w-full max-w-md"
+        {showBlacklistModal && currentDelegateToBlacklist && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
           >
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">
-                  {payoutStatus === 'processing' ? 'Processing Payout...' : 
-                   payoutStatus === 'success' ? 'Payout Successful!' :
-                   payoutStatus === 'failed' ? 'Payout Failed' : 'Initiate Prize Payout'}
-                </h3>
-                <button 
-                  onClick={() => {
-                    setShowPayoutModal(false);
-                    setPayoutStatus('idle');
-                    setPayoutError('');
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                  disabled={payoutStatus === 'processing'}
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              
-              {payoutStatus === 'idle' ? (
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-white rounded-xl shadow-xl w-full max-w-md"
+            >
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">Blacklist Delegate</h3>
+                  <button 
+                    onClick={() => {
+                      setShowBlacklistModal(false);
+                      setBlacklistReason('');
+                      setCurrentDelegateToBlacklist(null);
+                    }}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                
                 <div className="space-y-4">
-                  {payoutError && (
-  <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-    {payoutError.includes('token') ? (
-      <>
-        <p>Authentication failed with payment processor.</p>
-        <p>Please check your API credentials and try again.</p>
-      </>
-    ) : payoutError.includes('beneId') ? (
-      <>
-        <p>Beneficiary not registered.</p>
-        <p>Please register the delegate as a beneficiary first.</p>
-      </>
-    ) : (
-      payoutError
-    )}
-  </div>
-)}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Delegate</label>
-                    <Select
-                      options={delegates.map(d => ({ value: d.id, label: d.name }))}
-                      value={delegates.find(d => d.id === selectedDelegateId)}
-                      onChange={(option) => setSelectedDelegateId(option?.value || '')}
-                      placeholder="Select delegate"
-                      className="react-select-container"
-                      classNamePrefix="react-select"
-                    />
+                    <p className="text-sm text-gray-600 mb-2">
+                      You are about to blacklist <span className="font-semibold">{currentDelegateToBlacklist.name}</span> ({currentDelegateToBlacklist.email}).
+                      This will prevent them from participating in the conference.
+                    </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Award Type</label>
-                    <select
-                      className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                      value={awardType}
-                      onChange={(e) => setAwardType(e.target.value)}
-                    >
-                      <option value="Best Delegate">Best Delegate</option>
-                      <option value="Outstanding Delegate">Outstanding Delegate</option>
-                      <option value="Honorable Mention">Honorable Mention</option>
-                      <option value="Special Recognition">Special Recognition</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount (INR)</label>
-                    <input
-                      type="number"
-                      className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                      value={amount}
-                      onChange={(e) => setAmount(Number(e.target.value))}
-                      min="0"
-                      step="1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Bank Account Number</label>
-                    <input
-                      type="text"
-                      className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                      value={bankDetails.accountNumber}
-                      onChange={(e) => setBankDetails({...bankDetails, accountNumber: e.target.value})}
-                      placeholder="e.g. 1234567890"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">IFSC Code</label>
-                    <input
-                      type="text"
-                      className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                      value={bankDetails.ifscCode}
-                      onChange={(e) => setBankDetails({...bankDetails, ifscCode: e.target.value})}
-                      placeholder="e.g. SBIN0001234"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Account Holder Name</label>
-                    <input
-                      type="text"
-                      className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                      value={bankDetails.name}
-                      onChange={(e) => setBankDetails({...bankDetails, name: e.target.value})}
-                      placeholder="Name as in bank account"
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Reason for blacklisting</label>
+                    <textarea
+                      className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      rows={3}
+                      value={blacklistReason}
+                      onChange={(e) => setBlacklistReason(e.target.value)}
+                      placeholder="Enter reason for blacklisting..."
                     />
                   </div>
                   <div className="pt-4">
                     <Button 
-                      onClick={verifyBankDetails}
-                      disabled={!bankDetails.accountNumber || !bankDetails.ifscCode}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white mb-2"
+                      onClick={() => blacklistDelegate(currentDelegateToBlacklist, blacklistReason)}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white"
+                      disabled={!blacklistReason.trim()}
                     >
-                      Verify Bank Details
-                    </Button>
-                    <Button 
-                      onClick={handleInitiatePayout}
-                      disabled={
-                        !selectedDelegateId || 
-                        amount <= 0 ||
-                        !bankDetails.accountNumber ||
-                        !bankDetails.ifscCode ||
-                        !bankDetails.name ||
-                        verificationStatus !== 'verified'
-                      }
-                      className="w-full bg-amber-600 hover:bg-amber-700 text-white"
-                    >
-                      <Send className="mr-2 h-4 w-4" /> Initiate Payout
+                      Confirm Blacklist
                     </Button>
                   </div>
                 </div>
-              ) : payoutStatus === 'processing' ? (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <Loader2 className="h-12 w-12 text-amber-500 animate-spin" />
-                  <p className="mt-4 text-gray-600">Processing payout...</p>
-                </div>
-              ) : payoutStatus === 'success' ? (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <CheckCircle className="h-12 w-12 text-green-500" />
-                  <p className="mt-4 text-gray-600 text-center">
-                    Prize payout of {formatCurrency(amount)} was successfully initiated.
-                  </p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    The amount should reflect in the recipient's account within 1-2 business days.
-                  </p>
-                  <Button 
-                    onClick={() => {
-                      setShowPayoutModal(false);
-                      setPayoutStatus('idle');
-                    }}
-                    className="mt-4 bg-amber-600 hover:bg-amber-700 text-white"
-                  >
-                    Close
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <X className="h-12 w-12 text-red-500" />
-                  <p className="mt-4 text-gray-600 text-center">
-                    Payout failed. Please try again or contact support.
-                  </p>
-                  <p className="text-sm text-red-500 mt-2">{payoutError}</p>
-                  <Button 
-                    onClick={() => setPayoutStatus('idle')}
-                    className="mt-4 bg-amber-600 hover:bg-amber-700 text-white"
-                  >
-                    Try Again
-                  </Button>
-                </div>
-              )}
-            </div>
+              </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
-
-
-{showBlacklistModal && currentDelegateToBlacklist && (
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-      >
-        <motion.div
-          initial={{ scale: 0.95, y: 20 }}
-          animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.95, y: 20 }}
-          className="bg-white rounded-xl shadow-xl w-full max-w-md"
-        >
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Blacklist Delegate</h3>
-              <button 
-                onClick={() => {
-                  setShowBlacklistModal(false);
-                  setBlacklistReason('');
-                  setCurrentDelegateToBlacklist(null);
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-600 mb-2">
-                  You are about to blacklist <span className="font-semibold">{currentDelegateToBlacklist.name}</span> ({currentDelegateToBlacklist.email}).
-                  This will prevent them from participating in the conference.
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reason for blacklisting</label>
-                <textarea
-                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  rows={3}
-                  value={blacklistReason}
-                  onChange={(e) => setBlacklistReason(e.target.value)}
-                  placeholder="Enter reason for blacklisting..."
-                />
-              </div>
-              <div className="pt-4">
-                <Button 
-                  onClick={() => blacklistDelegate(currentDelegateToBlacklist, blacklistReason)}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white"
-                  disabled={!blacklistReason.trim()}
-                >
-                  Confirm Blacklist
-                </Button>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      </motion.div>
-    )}
+        )}
       </AnimatePresence>
-      
     </div>
   );
 }
