@@ -47,7 +47,7 @@ export async function POST(request: Request) {
             <h3 style="color: #065f46; margin-top: 0;">Rate Your Check-in Experience</h3>
             <p style="color: #4b5563;">Help us improve by rating your check-in experience:</p>
             <div style="text-align: center; margin: 16px 0;">
-              <a href="https://kimun.in.net/feedback?type=checkin&delegate=${encodeURIComponent(toEmail)}" 
+              <a href="https://docs.google.com/forms/d/e/1FAIpQLSeuxMRLhICbYL4XkXZHVI8GqcxJAPdlLwFAbU2U7PUt6iOd3Q/viewform?usp=sharing&ouid=116158285842169947705" 
                  style="display: inline-block; background-color: #059669; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600;">
                 Rate Now (1-5 Stars)
               </a>
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
           <div style="margin-top: 24px; padding: 16px; background-color: #eff6ff; border-radius: 6px; border: 1px solid #bfdbfe;">
             <p style="color: #4b5563; margin-bottom: 8px;"><strong>Need help or have questions?</strong></p>
             <p style="color: #1e40af; font-weight: 600; margin: 4px 0;">
-              <a href="mailto:delegateaffairs@kimun.in.net" style="color: #1e40af; text-decoration: none;">
+              <a href="mailto:info@kimun.in.net" style="color: #1e40af; text-decoration: none;">
                 delegateaffairs@kimun.in.net
               </a>
             </p>
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
         
         <div style="margin-top: 16px; text-align: center; font-size: 0.75rem; color: #6b7280;">
           <p>Kalinga International Model United Nations 2025</p>
-          <p>BMPS, Bhubaneswar, Odisha, India</p>
+          <p>ASBMU, Bhubaneswar, Odisha, India</p>
         </div>
       </div>
     `
