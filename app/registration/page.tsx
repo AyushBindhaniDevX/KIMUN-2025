@@ -113,7 +113,7 @@ const REGISTRATION_PHASES = [
   {
     name: "Final Phase",
     startDate: new Date('2025-06-15'),
-    endDate: new Date('2025-06-30'),
+    endDate: new Date('2025-07-30'),
     singlePrice: 1399,
     doublePrice: 2799,
     isActive: false
