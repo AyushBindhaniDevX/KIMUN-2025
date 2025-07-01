@@ -125,8 +125,9 @@ export default function AdminDashboard() {
   const [editingEB, setEditingEB] = useState<EBMember | null>(null);
   const [editingPortfolio, setEditingPortfolio] = useState<Portfolio | null>(null);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
+  const [editingDelegate, setEditingDelegate] = useState<Delegate | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<'committee' | 'eb' | 'portfolio' | 'resource' | 'coupon'>('committee');
+  const [modalType, setModalType] = useState<'committee' | 'eb' | 'portfolio' | 'resource' | 'coupon' | 'delegate'>('committee');
   const [showBlacklistModal, setShowBlacklistModal] = useState(false);
   const [blacklistReason, setBlacklistReason] = useState('');
   const [currentDelegateToBlacklist, setCurrentDelegateToBlacklist] = useState<Delegate | null>(null);
@@ -254,6 +255,31 @@ export default function AdminDashboard() {
     }
 
     doc.save(`KIMUN_Delegate_ID_Cards_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  const exportDelegatesToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(
+      delegates.map(d => {
+        const committee = committees.find(c => c.id === d.committeeId);
+        const portfolio = committee?.portfolios.find(p => p.id === d.portfolioId);
+        return {
+          'Delegate ID': generateDelegateId(d.name, d.phone),
+          'Name': d.name,
+          'Email': d.email,
+          'Phone': d.phone,
+          'Institution': d.institution || 'N/A',
+          'Committee': committee?.name || 'N/A',
+          'Country': portfolio?.country || 'N/A',
+          'Experience': d.experience,
+          'Status': d.isCheckedIn ? 'Checked In' : 'Not Checked In',
+          'Check-in Time': d.checkInTime || 'N/A',
+          'Double Delegation': d.isDoubleDel ? 'Yes' : 'No'
+        }
+      })
+    );
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Delegates');
+    XLSX.writeFile(workbook, `KIMUN_Delegates_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const app = initializeApp(firebaseConfig);
@@ -612,6 +638,63 @@ export default function AdminDashboard() {
     setIsModalOpen(true);
   };
 
+  const openDelegateModal = (delegate: Delegate | null) => {
+    setEditingDelegate(delegate || {
+      id: '',
+      name: '',
+      email: '',
+      phone: '',
+      experience: 0,
+      institution: '',
+      course: '',
+      year: '',
+      committeeId: '',
+      portfolioId: '',
+      isCheckedIn: false,
+      isDoubleDel: false,
+      paymentId: '',
+      timestamp: 0
+    });
+    setModalType('delegate');
+    setIsModalOpen(true);
+  };
+
+  const saveDelegate = async (delegate: Delegate) => {
+    try {
+      const [regId, delId] = delegate.id.split('_');
+      const delegateData = {
+        name: delegate.name,
+        email: delegate.email,
+        phone: delegate.phone,
+        experience: delegate.experience,
+        institution: delegate.institution || '',
+        course: delegate.course || '',
+        year: delegate.year || '',
+        isCheckedIn: delegate.isCheckedIn,
+        checkInTime: delegate.checkInTime || '',
+      };
+
+      await update(ref(db, `registrations/${regId}/delegateInfo/${delId}`), delegateData);
+      
+      if (delegate.committeeId && delegate.portfolioId) {
+        await update(ref(db, `registrations/${regId}`), {
+          committeeId: delegate.committeeId,
+          portfolioId: delegate.portfolioId,
+          isDoubleDel: delegate.isDoubleDel
+        });
+      }
+      
+      setDelegates(prev => 
+        prev.map(d => d.id === delegate.id ? delegate : d)
+      );
+      setIsModalOpen(false);
+      return true;
+    } catch (error) {
+      console.error('Error saving delegate:', error);
+      return false;
+    }
+  };
+
   const totalDelegates = delegates.length;
   const checkedInDelegates = delegates.filter(d => d.isCheckedIn).length;
   const singleDelegates = delegates.filter(d => !d.isDoubleDel).length;
@@ -788,20 +871,21 @@ export default function AdminDashboard() {
 
   if (!accessGranted) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full border border-amber-600">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-amber-900">
+        <div className="bg-gray-800 p-8 rounded-xl shadow-2xl max-w-md w-full border border-amber-600">
           <div className="text-center mb-6">
-            <Award className="mx-auto h-12 w-12 text-amber-500" />
-            <h1 className="text-2xl font-bold text-amber-500 mt-2">KIMUN 2025 Portal</h1>
+            <Award className="mx-auto h-16 w-16 text-amber-500 animate-pulse" />
+            <h1 className="text-3xl font-bold text-amber-500 mt-4">KIMUN 2025 Portal</h1>
+            <p className="text-gray-400 mt-2">Admin Dashboard</p>
           </div>
           <form onSubmit={handleLogin} className="space-y-4">
             {loginError && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+              <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg">
                 {loginError}
               </div>
             )}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-amber-300 mb-1">
                 Email
               </label>
               <input
@@ -809,13 +893,13 @@ export default function AdminDashboard() {
                 id="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all"
                 placeholder="admin@example.com"
                 required
               />
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-amber-300 mb-1">
                 Password
               </label>
               <input
@@ -823,14 +907,14 @@ export default function AdminDashboard() {
                 id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all"
                 placeholder="Enter password"
                 required
               />
             </div>
             <Button
               type="submit"
-              className="w-full bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-md"
+              className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white py-3 rounded-lg font-semibold transition-all shadow-lg"
             >
               Login
             </Button>
@@ -842,10 +926,10 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-amber-900">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-amber-400">Loading dashboard...</p>
+          <p className="mt-6 text-amber-300 text-lg font-medium">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -853,13 +937,13 @@ export default function AdminDashboard() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="text-center p-6 bg-gray-800 rounded-lg max-w-md border border-amber-600">
-          <h2 className="text-xl font-bold text-amber-500 mb-2">Error</h2>
-          <p className="text-gray-300 mb-4">{error}</p>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-amber-900">
+        <div className="text-center p-6 bg-gray-800/90 rounded-xl max-w-md border border-amber-600 shadow-xl">
+          <h2 className="text-2xl font-bold text-amber-500 mb-4">Error</h2>
+          <p className="text-gray-300 mb-6">{error}</p>
           <Button 
             onClick={() => window.location.reload()} 
-            className="bg-amber-600 hover:bg-amber-700 text-white"
+            className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white px-6 py-3 rounded-lg font-semibold transition-all shadow-lg"
           >
             Try Again
           </Button>
@@ -876,72 +960,68 @@ export default function AdminDashboard() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 flex">
-      <div className="w-64 bg-gray-800 text-white fixed h-full border-r border-amber-700">
-        <div className="p-4 border-b border-gray-700">
-          <h1 className="text-xl font-bold flex items-center">
-            <Award className="mr-2 text-orange-500" /> KIMUN 2025
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-amber-900 text-gray-100 flex">
+      <div className="w-64 bg-gray-800/90 text-white fixed h-full border-r border-amber-700/50 shadow-xl">
+        <div className="p-6 border-b border-gray-700/50">
+          <h1 className="text-2xl font-bold flex items-center justify-center">
+            <Award className="mr-3 text-amber-500 h-8 w-8" /> 
+            <span className="bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
+              KIMUN 2025
+            </span>
           </h1>
+          <p className="text-xs text-gray-400 text-center mt-1">Admin Portal</p>
         </div>
-        <nav className="p-4 space-y-2">
+        <nav className="p-4 space-y-1">
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex items-center w-full p-4 rounded-xl transition-all ${activeTab === 'dashboard' ? 'bg-amber-900/50 text-amber-300 shadow-md' : 'text-gray-300 hover:bg-gray-700/50 hover:text-amber-200'}`}
           >
-            <ChartBar className="mr-3" /> Dashboard
+            <ChartBar className="mr-3 h-5 w-5" /> Dashboard
           </button>
           <button
             onClick={() => setActiveTab('delegates')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'delegates' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex items-center w-full p-4 rounded-xl transition-all ${activeTab === 'delegates' ? 'bg-amber-900/50 text-amber-300 shadow-md' : 'text-gray-300 hover:bg-gray-700/50 hover:text-amber-200'}`}
           >
-            <UserCheck className="mr-3" /> Delegates
+            <UserCheck className="mr-3 h-5 w-5" /> Delegates
           </button>
           <button
             onClick={() => setActiveTab('coupons')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'coupons' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex items-center w-full p-4 rounded-xl transition-all ${activeTab === 'coupons' ? 'bg-amber-900/50 text-amber-300 shadow-md' : 'text-gray-300 hover:bg-gray-700/50 hover:text-amber-200'}`}
           >
-            <Ticket className="mr-3" /> Coupons
+            <Ticket className="mr-3 h-5 w-5" /> Coupons
           </button>
           <button
             onClick={() => setActiveTab('committees')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'committees' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex items-center w-full p-4 rounded-xl transition-all ${activeTab === 'committees' ? 'bg-amber-900/50 text-amber-300 shadow-md' : 'text-gray-300 hover:bg-gray-700/50 hover:text-amber-200'}`}
           >
-            <Users className="mr-3" /> Committees
+            <Users className="mr-3 h-5 w-5" /> Committees
           </button>
           <button
             onClick={() => setActiveTab('eb')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'eb' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex items-center w-full p-4 rounded-xl transition-all ${activeTab === 'eb' ? 'bg-amber-900/50 text-amber-300 shadow-md' : 'text-gray-300 hover:bg-gray-700/50 hover:text-amber-200'}`}
           >
-            <Briefcase className="mr-3" /> Executive Board
+            <Briefcase className="mr-3 h-5 w-5" /> Executive Board
           </button>
           <button
             onClick={() => setActiveTab('resources')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'resources' ? 'bg-amber-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex items-center w-full p-4 rounded-xl transition-all ${activeTab === 'resources' ? 'bg-amber-900/50 text-amber-300 shadow-md' : 'text-gray-300 hover:bg-gray-700/50 hover:text-amber-200'}`}
           >
-            <BookOpen className="mr-3" /> Resources
+            <BookOpen className="mr-3 h-5 w-5" /> Resources
           </button>
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex items-center w-full p-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex items-center w-full p-4 rounded-xl transition-all ${activeTab === 'settings' ? 'bg-amber-900/50 text-amber-300 shadow-md' : 'text-gray-300 hover:bg-gray-700/50 hover:text-amber-200'}`}
           >
-            <Settings className="mr-3" /> Settings
+            <Settings className="mr-3 h-5 w-5" /> Settings
           </button>
         </nav>
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-700">
-          <button 
-            onClick={handleLogout}
-            className="flex items-center w-full p-3 rounded-lg text-gray-300 hover:bg-gray-700 transition-colors"
-          >
-            <LogOut className="mr-3" /> Logout
-          </button>
-        </div>
       </div>
 
       <div className="flex-1 ml-64">
-        <header className="bg-gray-800 shadow-sm p-4 border-b border-amber-700">
+        <header className="bg-gray-800/80 backdrop-blur-sm p-4 border-b border-amber-700/30 shadow-sm">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-amber-400 capitalize">
-              {activeTab === 'dashboard' && 'Dashboard'}
+            <h2 className="text-xl font-semibold text-amber-300 capitalize">
+              {activeTab === 'dashboard' && 'Conference Dashboard'}
               {activeTab === 'delegates' && 'Delegates Management'}
               {activeTab === 'committees' && 'Committees Management'}
               {activeTab === 'eb' && 'Executive Board'}
@@ -953,7 +1033,7 @@ export default function AdminDashboard() {
                 <input
                   type="text"
                   placeholder="Search..."
-                  className="pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-white"
+                  className="pl-10 pr-4 py-2 bg-gray-700/50 border border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-white placeholder-gray-400 transition-all"
                 />
                 <svg
                   className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
@@ -969,7 +1049,7 @@ export default function AdminDashboard() {
                   />
                 </svg>
               </div>
-              <div className="h-10 w-10 rounded-full bg-amber-600 flex items-center justify-center text-white font-semibold">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-amber-600 to-amber-800 flex items-center justify-center text-white font-semibold shadow">
                 {email.charAt(0).toUpperCase()}
               </div>
             </div>
@@ -980,68 +1060,46 @@ export default function AdminDashboard() {
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
+                <div className="bg-gray-800/60 p-6 rounded-xl shadow-lg border border-amber-700/30 backdrop-blur-sm">
                   <div className="flex items-center space-x-4">
-                    <div className="p-3 rounded-full bg-amber-100 text-amber-600">
+                    <div className="p-3 rounded-full bg-amber-100/10 text-amber-400">
                       <User className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-300">Total Delegates</p>
+                      <p className="text-sm text-amber-300">Total Delegates</p>
                       <p className="text-2xl font-bold text-white">{totalDelegates}</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-green-700">
+                <div className="bg-gray-800/60 p-6 rounded-xl shadow-lg border border-green-700/30 backdrop-blur-sm">
                   <div className="flex items-center space-x-4">
-                    <div className="p-3 rounded-full bg-green-100 text-green-600">
+                    <div className="p-3 rounded-full bg-green-100/10 text-green-400">
                       <CheckCircle className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-300">Checked In</p>
+                      <p className="text-sm text-green-300">Checked In</p>
                       <p className="text-2xl font-bold text-white">{checkedInDelegates}</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-blue-700">
+                <div className="bg-gray-800/60 p-6 rounded-xl shadow-lg border border-blue-700/30 backdrop-blur-sm">
                   <div className="flex items-center space-x-4">
-                    <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+                    <div className="p-3 rounded-full bg-blue-100/10 text-blue-400">
                       <Coins className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-300">Amount Received</p>
+                      <p className="text-sm text-blue-300">Amount Received</p>
                       <p className="text-2xl font-bold text-white">{formatCurrency(amountReceived)}</p>
                     </div>
                   </div>
                 </div>
-                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-blue-700">
+                <div className="bg-gray-800/60 p-6 rounded-xl shadow-lg border border-purple-700/30 backdrop-blur-sm">
                   <div className="flex items-center space-x-4">
-                    <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-                      <User className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-300">Single Delegates</p>
-                      <p className="text-2xl font-bold text-white">{singleDelegates} / 80</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-purple-700">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 rounded-full bg-purple-100 text-purple-600">
+                    <div className="p-3 rounded-full bg-purple-100/10 text-purple-400">
                       <Users className="h-6 w-6" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-300">Double Delegates</p>
-                      <p className="text-2xl font-bold text-white">{doubleDelegates} / 20</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-purple-700">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 rounded-full bg-purple-100 text-purple-600">
-                      <Users className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-300">Committees</p>
+                      <p className="text-sm text-purple-300">Committees</p>
                       <p className="text-2xl font-bold text-white">{committees.length}</p>
                     </div>
                   </div>
@@ -1049,8 +1107,8 @@ export default function AdminDashboard() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
-                  <h3 className="text-lg font-semibold mb-4 text-white">Registrations by Committee</h3>
+                <div className="bg-gray-800/60 p-6 rounded-xl shadow-lg border border-amber-700/30 backdrop-blur-sm">
+                  <h3 className="text-lg font-semibold mb-4 text-amber-300">Registrations by Committee</h3>
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart 
@@ -1080,12 +1138,12 @@ export default function AdminDashboard() {
                           itemStyle={{ color: '#f3f4f6' }}
                         />
                         <Bar dataKey="registrations" fill="#d97706" radius={[4, 4, 0, 0]} />
-                        </BarChart>
+                      </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
-                <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
-                  <h3 className="text-lg font-semibold mb-4 text-white">Portfolio Distribution</h3>
+                <div className="bg-gray-800/60 p-6 rounded-xl shadow-lg border border-amber-700/30 backdrop-blur-sm">
+                  <h3 className="text-lg font-semibold mb-4 text-amber-300">Portfolio Distribution</h3>
                   <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -1123,20 +1181,20 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
+              <div className="bg-gray-800/60 p-6 rounded-xl shadow-lg border border-amber-700/30 backdrop-blur-sm">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-white">Recent Check-ins</h3>
+                  <h3 className="text-lg font-semibold text-amber-300">Recent Check-ins</h3>
                   <Button 
                     variant="outline" 
-                    className="border-amber-500 text-amber-500 hover:bg-amber-900"
+                    className="border-amber-500/50 text-amber-400 hover:bg-amber-900/50 hover:text-amber-300"
                     onClick={() => setActiveTab('delegates')}
                   >
                     View All
                   </Button>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-700">
-                    <thead className="bg-gray-700">
+                  <table className="min-w-full divide-y divide-gray-700/50">
+                    <thead className="bg-gray-700/50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Delegate</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Committee</th>
@@ -1144,16 +1202,16 @@ export default function AdminDashboard() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Time</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-gray-800 divide-y divide-gray-700">
+                    <tbody className="bg-gray-800/30 divide-y divide-gray-700/30">
                       {delegates
                         .filter(d => d.isCheckedIn)
                         .sort((a, b) => (b.checkInTime || '').localeCompare(a.checkInTime || ''))
                         .slice(0, 5)
                         .map(delegate => (
-                          <tr key={delegate.id} className="hover:bg-gray-700">
+                          <tr key={delegate.id} className="hover:bg-gray-700/30">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 font-semibold">
+                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-amber-100/10 flex items-center justify-center text-amber-400 font-semibold">
                                   {delegate.name.charAt(0)}
                                 </div>
                                 <div className="ml-4">
@@ -1187,7 +1245,7 @@ export default function AdminDashboard() {
 
           {activeTab === 'delegates' && (
             <div className="space-y-6">
-              <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
+              <div className="bg-gray-800/60 p-6 rounded-xl shadow-lg border border-amber-700/30 backdrop-blur-sm">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                   <div className="flex-1">
                     <Select
@@ -1227,45 +1285,45 @@ export default function AdminDashboard() {
                     <Button
                       variant={viewMode === 'all' ? 'default' : 'outline'}
                       onClick={() => setViewMode('all')}
-                      className="border-gray-600 text-white"
+                      className={`${viewMode === 'all' ? 'bg-amber-700/50 border-amber-600/50 text-amber-200' : 'border-gray-600/50 text-gray-300 hover:bg-gray-700/50'}`}
                     >
                       All
                     </Button>
                     <Button
                       variant={viewMode === 'checkedIn' ? 'default' : 'outline'}
                       onClick={() => setViewMode('checkedIn')}
-                      className="border-gray-600 text-white"
+                      className={`${viewMode === 'checkedIn' ? 'bg-green-700/50 border-green-600/50 text-green-200' : 'border-gray-600/50 text-gray-300 hover:bg-gray-700/50'}`}
                     >
                       Checked In
                     </Button>
                     <Button
                       variant={viewMode === 'notCheckedIn' ? 'default' : 'outline'}
                       onClick={() => setViewMode('notCheckedIn')}
-                      className="border-gray-600 text-white"
+                      className={`${viewMode === 'notCheckedIn' ? 'bg-red-700/50 border-red-600/50 text-red-200' : 'border-gray-600/50 text-gray-300 hover:bg-gray-700/50'}`}
                     >
                       Not Checked In
                     </Button>
                   </div>
                 </div>
 
-                <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6 p-4 bg-amber-900 rounded-lg">
+                <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6 p-4 bg-amber-900/30 rounded-xl border border-amber-700/30">
                   <div className="flex-1">
                     <div className="relative">
-                      <QrCode className="absolute left-3 top-3 h-5 w-5 text-amber-500" />
+                      <QrCode className="absolute left-3 top-3 h-5 w-5 text-amber-400" />
                       <input
                         type="text"
                         placeholder="Scan Delegate ID (e.g. JOHN1234) or enter phone/email"
                         value={barcodeInput}
                         onChange={(e) => setBarcodeInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleCheckIn()}
-                        className="pl-10 pr-4 py-2 w-full bg-gray-700 border border-amber-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-white"
+                        className="pl-10 pr-4 py-2 w-full bg-gray-700/50 border border-amber-600/50 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-white placeholder-gray-400 transition-all"
                       />
                     </div>
                   </div>
                   <div className="flex space-x-2">
                     <Button 
                       onClick={handleCheckIn} 
-                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                      className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-lg"
                     >
                       <CheckCircle className="mr-2 h-5 w-5" /> Check In
                     </Button>
@@ -1273,7 +1331,7 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-white">
+                  <h3 className="text-lg font-semibold text-amber-300">
                     {viewMode === 'all' && 'All Delegates'}
                     {viewMode === 'checkedIn' && 'Checked In Delegates'}
                     {viewMode === 'notCheckedIn' && 'Not Checked In Delegates'}
@@ -1282,8 +1340,15 @@ export default function AdminDashboard() {
                   <div className="flex space-x-2">
                     <Button
                       variant="outline"
+                      onClick={exportDelegatesToExcel}
+                      className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-900/30 hover:text-emerald-300"
+                    >
+                      <Download className="mr-2 h-5 w-5" /> Export Excel
+                    </Button>
+                    <Button
+                      variant="outline"
                       onClick={() => generateBarcodeLabelsPDF(filteredDelegates)}
-                      className="border-purple-500 text-purple-400 hover:bg-purple-900"
+                      className="border-purple-500/50 text-purple-400 hover:bg-purple-900/30 hover:text-purple-300"
                     >
                       <Printer className="mr-2 h-5 w-5" /> Print ID Cards
                     </Button>
@@ -1291,8 +1356,8 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-700">
-                    <thead className="bg-gray-700">
+                  <table className="min-w-full divide-y divide-gray-700/50">
+                    <thead className="bg-gray-700/50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Delegate ID</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Name</th>
@@ -1303,10 +1368,10 @@ export default function AdminDashboard() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-gray-800 divide-y divide-gray-700">
+                    <tbody className="bg-gray-800/30 divide-y divide-gray-700/30">
                       {filteredDelegates.length > 0 ? (
                         filteredDelegates.map(delegate => (
-                          <tr key={delegate.id} className="hover:bg-gray-700">
+                          <tr key={delegate.id} className="hover:bg-gray-700/30">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-amber-400">
                               {generateDelegateId(delegate.name, delegate.phone)}
                             </td>
@@ -1322,14 +1387,22 @@ export default function AdminDashboard() {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                 delegate.isCheckedIn 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
+                                  ? 'bg-green-100/20 text-green-300' 
+                                  : 'bg-red-100/20 text-red-300'
                               }`}>
                                 {delegate.isCheckedIn ? 'Checked In' : 'Not Checked In'}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex space-x-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openDelegateModal(delegate)}
+                                  className="text-amber-500 hover:text-amber-400 hover:bg-amber-900/20"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
                                 {!delegate.isCheckedIn && (
                                   <Button
                                     variant="ghost"
@@ -1338,7 +1411,7 @@ export default function AdminDashboard() {
                                       setCurrentDelegateToBlacklist(delegate);
                                       setShowBlacklistModal(true);
                                     }}
-                                    className="text-red-400 hover:text-red-300"
+                                    className="text-red-500 hover:text-red-400 hover:bg-red-900/20"
                                   >
                                     <Ban className="h-4 w-4" />
                                   </Button>
@@ -1363,9 +1436,9 @@ export default function AdminDashboard() {
 
           {activeTab === 'coupons' && (
             <div className="space-y-6">
-              <div className="bg-gray-800 p-6 rounded-xl shadow-sm border border-amber-700">
+              <div className="bg-gray-800/60 p-6 rounded-xl shadow-lg border border-amber-700/30 backdrop-blur-sm">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold text-white">Coupons Management</h2>
+                  <h2 className="text-xl font-semibold text-amber-300">Coupons Management</h2>
                   <Button 
                     onClick={() => {
                       setEditingCoupon({
@@ -1385,7 +1458,7 @@ export default function AdminDashboard() {
                       setIsModalOpen(true);
                       setModalType('coupon');
                     }}
-                    className="bg-amber-600 hover:bg-amber-700 text-white"
+                    className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-lg"
                   >
                     <Plus className="mr-2 h-5 w-5" /> Add Coupon
                   </Button>
@@ -1393,7 +1466,7 @@ export default function AdminDashboard() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {coupons.map(coupon => (
-                    <div key={coupon.id} className="bg-gray-700 p-4 rounded-lg border border-amber-600">
+                    <div key={coupon.id} className="bg-gray-700/50 p-4 rounded-xl border border-amber-600/30">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-2">
                           {coupon.logo && (
@@ -1402,7 +1475,7 @@ export default function AdminDashboard() {
                           <h3 className="font-semibold text-white">{coupon.title}</h3>
                         </div>
                         <span className={`px-2 py-1 text-xs rounded-full ${
-                          coupon.isUsed ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                          coupon.isUsed ? 'bg-red-100/20 text-red-300' : 'bg-green-100/20 text-green-300'
                         }`}>
                           {coupon.isUsed ? 'Used' : 'Active'}
                         </span>
@@ -1421,7 +1494,7 @@ export default function AdminDashboard() {
                               setIsModalOpen(true);
                               setModalType('coupon');
                             }}
-                            className="text-amber-500 hover:text-amber-400"
+                            className="text-amber-500 hover:text-amber-400 hover:bg-amber-900/20"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -1429,7 +1502,7 @@ export default function AdminDashboard() {
                             variant="ghost"
                             size="sm"
                             onClick={() => deleteItem(`coupons/${coupon.id}`)}
-                            className="text-red-500 hover:text-red-400"
+                            className="text-red-500 hover:text-red-400 hover:bg-red-900/20"
                           >
                             <Trash className="h-4 w-4" />
                           </Button>
@@ -1444,12 +1517,12 @@ export default function AdminDashboard() {
 
           {activeTab === 'committees' && (
             <div className="space-y-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+              <div className="bg-gray-800/60 p-6 rounded-xl shadow-lg border border-amber-700/30 backdrop-blur-sm">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold text-black">Committees</h2>
+                  <h2 className="text-xl font-semibold text-amber-300">Committees</h2>
                   <Button 
                     onClick={() => openCommitteeModal(null)}
-                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                    className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-lg"
                   >
                     <Plus className="mr-2 h-5 w-5" /> Add Committee
                   </Button>
@@ -1457,12 +1530,12 @@ export default function AdminDashboard() {
 
                 <div className="space-y-4">
                   {committees.map(committee => (
-                    <div key={committee.id} className="border rounded-lg overflow-hidden">
-                      <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
+                    <div key={committee.id} className="border border-amber-700/30 rounded-xl overflow-hidden">
+                      <div className="bg-gray-700/50 px-6 py-4 flex justify-between items-center border-b border-amber-700/30">
                         <div className="flex items-center">
                           <span className="text-2xl mr-3">{committee.emoji}</span>
-                          <h3 className="text-lg font-semibold text-black">{committee.name}</h3>
-                          <span className="ml-3 px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 capitalize">
+                          <h3 className="text-lg font-semibold text-white">{committee.name}</h3>
+                          <span className="ml-3 px-2 py-1 text-xs rounded-full bg-amber-900/30 text-amber-300 capitalize">
                             {committee.type}
                           </span>
                         </div>
@@ -1471,7 +1544,7 @@ export default function AdminDashboard() {
                             variant="outline"
                             size="sm"
                             onClick={() => openPortfolioModal(null, committee.id)}
-                            className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                            className="border-amber-500/50 text-amber-400 hover:bg-amber-900/30"
                           >
                             <Plus className="mr-2 h-4 w-4" /> Add Portfolio
                           </Button>
@@ -1479,7 +1552,7 @@ export default function AdminDashboard() {
                             variant="outline"
                             size="sm"
                             onClick={() => openCommitteeModal(committee)}
-                            className="border-gray-300"
+                            className="border-gray-500/50 text-gray-300 hover:bg-gray-700/50"
                           >
                             <Edit className="mr-2 h-4 w-4" /> Edit
                           </Button>
@@ -1487,7 +1560,7 @@ export default function AdminDashboard() {
                             variant="outline"
                             size="sm"
                             onClick={() => deleteItem(`committees/${committee.id}`)}
-                            className="border-red-300 text-red-600 hover:bg-red-50"
+                            className="border-red-500/50 text-red-400 hover:bg-red-900/30"
                           >
                             <Trash className="mr-2 h-4 w-4" /> Delete
                           </Button>
@@ -1495,11 +1568,11 @@ export default function AdminDashboard() {
                       </div>
                       
                       <div className="p-6">
-                        <p className="text-gray-600 mb-4">{committee.description}</p>
+                        <p className="text-gray-300 mb-4">{committee.description}</p>
                         
                         <div className="mb-6">
-                          <h4 className="font-medium mb-2 text-black">Agenda Items:</h4>
-                          <ul className="list-disc pl-5 space-y-1 text-gray-600 text-black">
+                          <h4 className="font-medium mb-2 text-amber-300">Agenda Items:</h4>
+                          <ul className="list-disc pl-5 space-y-1 text-gray-300">
                             {committee.topics.map((topic, i) => (
                               <li key={i}>{topic}</li>
                             ))}
@@ -1508,12 +1581,12 @@ export default function AdminDashboard() {
 
                         {committee.backgroundGuide && (
                           <div className="mb-4">
-                            <h4 className="font-medium text-gray mb-2">Background Guide:</h4>
+                            <h4 className="font-medium text-amber-300 mb-2">Background Guide:</h4>
                             <a 
                               href={committee.backgroundGuide} 
                               target="_blank" 
                               rel="noopener noreferrer"
-                              className="text-orange-600 hover:underline"
+                              className="text-amber-400 hover:underline"
                             >
                               View Background Guide
                             </a>
@@ -1522,12 +1595,12 @@ export default function AdminDashboard() {
 
                         {committee.rules && (
                           <div className="mb-6">
-                            <h4 className="font-medium mb-2">Rules of Procedure:</h4>
+                            <h4 className="font-medium text-amber-300 mb-2">Rules of Procedure:</h4>
                             <a 
                               href={committee.rules} 
                               target="_blank" 
                               rel="noopener noreferrer"
-                              className="text-orange-600 hover:underline"
+                              className="text-amber-400 hover:underline"
                             >
                               View Rules
                             </a>
@@ -1536,9 +1609,9 @@ export default function AdminDashboard() {
 
                         <div className="mb-6">
                           <div className="flex justify-between items-center mb-2">
-                            <h4 className="font-medium text-black">Portfolios ({committee.portfolios.length})</h4>
+                            <h4 className="font-medium text-amber-300">Portfolios ({committee.portfolios.length})</h4>
                             <div className="flex items-center">
-                              <span className="text-sm text-gray-500 mr-4">
+                              <span className="text-sm text-gray-400 mr-4">
                                 {committee.portfolios.filter(p => !p.isVacant).length} assigned •{' '}
                                 {committee.portfolios.filter(p => p.isVacant).length} vacant
                               </span>
@@ -1548,7 +1621,7 @@ export default function AdminDashboard() {
                             {committee.portfolios.map(portfolio => {
                               const FlagComponent = Flags[`${portfolio.countryCode}Flag` as keyof typeof Flags];
                               return (
-                                <div key={portfolio.id} className="border rounded-lg p-3 flex justify-between items-center">
+                                <div key={portfolio.id} className="border border-amber-700/30 rounded-xl p-3 flex justify-between items-center">
                                   <div className="flex items-center">
                                     {FlagComponent && (
                                       <div className="w-6 h-6 mr-2 overflow-hidden rounded-sm">
@@ -1556,8 +1629,8 @@ export default function AdminDashboard() {
                                       </div>
                                     )}
                                     <div>
-                                      <p className="font-medium text-black">{portfolio.country}</p>
-                                      <p className="text-xs text-gray-500">
+                                      <p className="font-medium text-white">{portfolio.country}</p>
+                                      <p className="text-xs text-gray-400">
                                         {portfolio.isVacant ? 'Vacant' : 'Assigned'} •{' '}
                                         {portfolio.isDoubleDelAllowed ? 'Double Del' : 'Single Del'}
                                       </p>
@@ -1568,7 +1641,7 @@ export default function AdminDashboard() {
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => openPortfolioModal(portfolio, committee.id)}
-                                      className="text-gray-500 hover:text-gray-700"
+                                      className="text-amber-500 hover:text-amber-400 hover:bg-amber-900/20"
                                     >
                                       <Edit className="h-4 w-4" />
                                     </Button>
@@ -1576,7 +1649,7 @@ export default function AdminDashboard() {
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => deleteItem(`committees/${committee.id}/portfolios/${portfolio.id}`)}
-                                      className="text-red-500 hover:text-red-700"
+                                      className="text-red-500 hover:text-red-400 hover:bg-red-900/20"
                                     >
                                       <Trash className="h-4 w-4" />
                                     </Button>
@@ -1596,9 +1669,9 @@ export default function AdminDashboard() {
 
           {activeTab === 'eb' && (
             <div className="space-y-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+              <div className="bg-gray-800/60 p-6 rounded-xl shadow-lg border border-amber-700/30 backdrop-blur-sm">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold text-black">Executive Board</h2>
+                  <h2 className="text-xl font-semibold text-amber-300">Executive Board</h2>
                   <Select
                     options={committees.map(c => ({ value: c.id, label: c.name }))}
                     placeholder="Filter by Committee"
@@ -1606,6 +1679,30 @@ export default function AdminDashboard() {
                     isClearable
                     className="react-select-container w-64"
                     classNamePrefix="react-select"
+                    styles={{
+                      control: (base) => ({
+                        ...base,
+                        backgroundColor: '#1f2937',
+                        borderColor: '#4b5563',
+                        color: 'white'
+                      }),
+                      singleValue: (base) => ({
+                        ...base,
+                        color: 'white'
+                      }),
+                      menu: (base) => ({
+                        ...base,
+                        backgroundColor: '#1f2937',
+                        color: 'white'
+                      }),
+                      option: (base) => ({
+                        ...base,
+                        backgroundColor: '#1f2937',
+                        ':hover': {
+                          backgroundColor: '#374151'
+                        }
+                      })
+                    }}
                   />
                 </div>
 
@@ -1613,17 +1710,17 @@ export default function AdminDashboard() {
                   {committees
                     .filter(c => !selectedCommittee || c.id === selectedCommittee)
                     .map(committee => (
-                      <div key={committee.id} className="border rounded-lg overflow-hidden">
-                        <div className="bg-gray-50 px-6 py-4 flex justify-between items-center border-b">
+                      <div key={committee.id} className="border border-amber-700/30 rounded-xl overflow-hidden">
+                        <div className="bg-gray-700/50 px-6 py-4 flex justify-between items-center border-b border-amber-700/30">
                           <div className="flex items-center">
                             <span className="text-2xl mr-3">{committee.emoji}</span>
-                            <h3 className="text-lg font-semibold text-black">{committee.name}</h3>
+                            <h3 className="text-lg font-semibold text-white">{committee.name}</h3>
                           </div>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => openEBModal(null, committee.id)}
-                            className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                            className="border-amber-500/50 text-amber-400 hover:bg-amber-900/30"
                           >
                             <Plus className="mr-2 h-4 w-4" /> Add EB Member
                           </Button>
@@ -1633,29 +1730,29 @@ export default function AdminDashboard() {
                           {committee.eb.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                               {committee.eb.map(member => (
-                                <div key={member.id} className="border rounded-lg p-4">
+                                <div key={member.id} className="border border-amber-700/30 rounded-xl p-4">
                                   <div className="flex items-start space-x-4">
                                     {member.photourl && (
                                       <div className="flex-shrink-0">
                                         <img 
                                           src={member.photourl} 
                                           alt={member.name}
-                                          className="h-12 w-12 rounded-full object-cover border-2 border-orange-100"
+                                          className="h-12 w-12 rounded-full object-cover border-2 border-amber-600/30"
                                         />
                                       </div>
                                     )}
                                     <div className="flex-1">
                                       <div className="flex justify-between items-start">
                                         <div>
-                                          <h4 className="font-medium text-black">{member.name}</h4>
-                                          <p className="text-sm text-gray-500 capitalize">{member.role}</p>
+                                          <h4 className="font-medium text-white">{member.name}</h4>
+                                          <p className="text-sm text-amber-400 capitalize">{member.role}</p>
                                         </div>
                                         <div className="flex space-x-1">
                                           <Button
                                             variant="ghost"
                                             size="sm"
                                             onClick={() => openEBModal(member, committee.id)}
-                                            className="text-gray-500 hover:text-gray-700"
+                                            className="text-amber-500 hover:text-amber-400 hover:bg-amber-900/20"
                                           >
                                             <Edit className="h-4 w-4" />
                                           </Button>
@@ -1663,33 +1760,33 @@ export default function AdminDashboard() {
                                             variant="ghost"
                                             size="sm"
                                             onClick={() => deleteItem(`committees/${committee.id}/eb/${member.id}`)}
-                                            className="text-red-500 hover:text-red-700"
+                                            className="text-red-500 hover:text-red-400 hover:bg-red-900/20"
                                           >
                                             <Trash className="h-4 w-4" />
                                           </Button>
                                         </div>
                                       </div>
                                       <div className="mt-3">
-                                        <p className="text-sm text-gray-600">
-                                          <a href={`mailto:${member.email}`} className="text-orange-600 hover:underline">
+                                        <p className="text-sm text-gray-300">
+                                          <a href={`mailto:${member.email}`} className="text-amber-400 hover:underline">
                                             {member.email}
                                           </a>
                                         </p>
                                         {member.instagram && (
-                                          <p className="mt-1 text-sm text-gray-600">
+                                          <p className="mt-1 text-sm text-gray-300">
                                             Instagram:{" "}
                                             <a
                                               href={`https://instagram.com/${member.instagram}`}
                                               target="_blank"
                                               rel="noopener noreferrer"
-                                              className="text-orange-600 hover:underline"
+                                              className="text-amber-400 hover:underline"
                                             >
                                               @{member.instagram}
                                             </a>
                                           </p>
                                         )}
                                         {member.bio && (
-                                          <p className="mt-2 text-sm text-gray-600">{member.bio}</p>
+                                          <p className="mt-2 text-sm text-gray-300">{member.bio}</p>
                                         )}
                                       </div>
                                     </div>
@@ -1698,7 +1795,7 @@ export default function AdminDashboard() {
                               ))}
                             </div>
                           ) : (
-                            <p className="text-gray-500 text-center py-4">No EB members added yet</p>
+                            <p className="text-gray-400 text-center py-4">No EB members added yet</p>
                           )}
                         </div>
                       </div>
@@ -1710,53 +1807,53 @@ export default function AdminDashboard() {
 
           {activeTab === 'resources' && (
             <div className="space-y-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+              <div className="bg-gray-800/60 p-6 rounded-xl shadow-lg border border-amber-700/30 backdrop-blur-sm">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-semibold text-black">Resources</h2>
+                  <h2 className="text-xl font-semibold text-amber-300">Resources</h2>
                   <Button 
                     onClick={() => openResourceModal(null)}
-                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                    className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-lg"
                   >
                     <Plus className="mr-2 h-5 w-5" /> Add Resource
                   </Button>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-gray-700/50">
+                    <thead className="bg-gray-700/50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Committee</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Title</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Committee</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Description</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-amber-400 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-gray-800/30 divide-y divide-gray-700/30">
                       {resources.map(resource => (
-                        <tr key={resource.id} className="hover:bg-gray-50">
+                        <tr key={resource.id} className="hover:bg-gray-700/30">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <a 
                               href={resource.url} 
                               target="_blank" 
                               rel="noopener noreferrer"
-                              className="text-orange-600 hover:underline"
+                              className="text-amber-400 hover:underline"
                             >
                               {resource.title}
                             </a>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800 capitalize">
+                            <span className="px-2 py-1 text-xs rounded-full bg-amber-900/30 text-amber-300 capitalize">
                               {resource.type}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-black">
+                          <td className="px-6 py-4 whitespace-nowrap text-white">
                             {resource.committeeId 
                               ? committees.find(c => c.id === resource.committeeId)?.name 
                               : 'All Committees'}
                           </td>
                           <td className="px-6 py-4">
-                            <p className="text-sm text-gray-500 line-clamp-2">{resource.description}</p>
+                            <p className="text-sm text-gray-300 line-clamp-2">{resource.description}</p>
                             {resource.pages && (
                               <p className="text-xs text-gray-400 mt-1">{resource.pages} pages</p>
                             )}
@@ -1767,7 +1864,7 @@ export default function AdminDashboard() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => openResourceModal(resource)}
-                                className="text-gray-500 hover:text-gray-700"
+                                className="text-amber-500 hover:text-amber-400 hover:bg-amber-900/20"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -1775,7 +1872,7 @@ export default function AdminDashboard() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => deleteItem(`resources/${resource.id}`)}
-                                className="text-red-500 hover:text-red-700"
+                                className="text-red-500 hover:text-red-400 hover:bg-red-900/20"
                               >
                                 <Trash className="h-4 w-4" />
                               </Button>
@@ -1791,78 +1888,78 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === 'settings' && (
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-              <h2 className="text-xl font-semibold mb-6">Settings</h2>
+            <div className="bg-gray-800/60 p-6 rounded-xl shadow-lg border border-amber-700/30 backdrop-blur-sm">
+              <h2 className="text-xl font-semibold mb-6 text-amber-300">Settings</h2>
               <div className="space-y-6">
-                <div className="border rounded-lg p-6">
-                  <h3 className="text-lg font-medium mb-4">Conference Details</h3>
+                <div className="border border-amber-700/30 rounded-xl p-6">
+                  <h3 className="text-lg font-medium mb-4 text-amber-300">Conference Details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Conference Name</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Conference Name</label>
                       <input
                         type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                         defaultValue="Kalinga International MUN"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Conference Dates</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Conference Dates</label>
                       <input
                         type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                         defaultValue="August 30, 31, 2025"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Venue</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Venue</label>
                       <input
                         type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                         defaultValue="BMPS"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Registration Fee (Single)</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Registration Fee (Single)</label>
                       <input
                         type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                         defaultValue="1200 INR"
                       />
                     </div>
                   </div>
                   <div className="mt-6">
-                    <Button className="bg-orange-600 hover:bg-orange-700 text-white">
+                    <Button className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white">
                       Save Changes
                     </Button>
                   </div>
                 </div>
 
-                <div className="border rounded-lg p-6">
-                  <h3 className="text-lg font-medium mb-4">Admin Settings</h3>
+                <div className="border border-amber-700/30 rounded-xl p-6">
+                  <h3 className="text-lg font-medium mb-4 text-amber-300">Admin Settings</h3>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Admin Email</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Admin Email</label>
                       <input
                         type="email"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                         defaultValue="admin@kimun.in"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Change Password</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Change Password</label>
                       <input
                         type="password"
                         placeholder="New Password"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 mb-2"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 mb-2"
                       />
                       <input
                         type="password"
                         placeholder="Confirm Password"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                       />
                     </div>
                     <div className="pt-2">
-                      <Button className="bg-orange-600 hover:bg-orange-700 text-white">
+                      <Button className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white">
                         Update Credentials
                       </Button>
                     </div>
@@ -1874,115 +1971,219 @@ export default function AdminDashboard() {
         </main>
       </div>
 
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-800/90 backdrop-blur-sm border-t border-amber-700/30 z-40">
+        <div className="flex justify-around p-2">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`p-3 rounded-lg ${activeTab === 'dashboard' ? 'text-amber-400 bg-amber-900/30' : 'text-gray-300'}`}
+          >
+            <ChartBar className="h-5 w-5 mx-auto" />
+            <span className="text-xs mt-1">Dashboard</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('delegates')}
+            className={`p-3 rounded-lg ${activeTab === 'delegates' ? 'text-amber-400 bg-amber-900/30' : 'text-gray-300'}`}
+          >
+            <UserCheck className="h-5 w-5 mx-auto" />
+            <span className="text-xs mt-1">Delegates</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('committees')}
+            className={`p-3 rounded-lg ${activeTab === 'committees' ? 'text-amber-400 bg-amber-900/30' : 'text-gray-300'}`}
+          >
+            <Users className="h-5 w-5 mx-auto" />
+            <span className="text-xs mt-1">Committees</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`p-3 rounded-lg ${activeTab === 'settings' ? 'text-amber-400 bg-amber-900/30' : 'text-gray-300'}`}
+          >
+            <Settings className="h-5 w-5 mx-auto" />
+            <span className="text-xs mt-1">Settings</span>
+          </button>
+        </div>
+      </div>
+
       <AnimatePresence>
         {isModalOpen && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50"
           >
             <motion.div
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-md"
+              className="bg-gray-800/90 backdrop-blur-lg rounded-xl shadow-2xl w-full max-w-md border border-amber-700/30"
             >
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">
+                  <h3 className="text-lg font-semibold text-amber-300">
                     {modalType === 'committee' && (editingCommittee?.id ? 'Edit Committee' : 'Add Committee')}
                     {modalType === 'eb' && (editingEB?.id ? 'Edit EB Member' : 'Add EB Member')}
                     {modalType === 'portfolio' && (editingPortfolio?.id ? 'Edit Portfolio' : 'Add Portfolio')}
                     {modalType === 'resource' && (editingResource?.id ? 'Edit Resource' : 'Add Resource')}
                     {modalType === 'coupon' && (editingCoupon?.id ? 'Edit Coupon' : 'Add Coupon')}
+                    {modalType === 'delegate' && (editingDelegate?.id ? 'Edit Delegate' : 'Add Delegate')}
                   </h3>
                   <button 
                     onClick={() => setIsModalOpen(false)}
-                    className="text-gray-500 hover:text-gray-700"
+                    className="text-gray-400 hover:text-amber-400"
                   >
                     <X className="h-5 w-5" />
                   </button>
                 </div>
 
-                {modalType === 'committee' && editingCommittee && (
+                {modalType === 'delegate' && editingDelegate && (
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Name</label>
                       <input
                         type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingCommittee.name}
-                        onChange={(e) => setEditingCommittee({...editingCommittee, name: e.target.value})}
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingDelegate.name}
+                        onChange={(e) => setEditingDelegate({...editingDelegate, name: e.target.value})}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Emoji</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Email</label>
+                      <input
+                        type="email"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingDelegate.email}
+                        onChange={(e) => setEditingDelegate({...editingDelegate, email: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Phone</label>
+                      <input
+                        type="tel"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingDelegate.phone}
+                        onChange={(e) => setEditingDelegate({...editingDelegate, phone: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Institution</label>
                       <input
                         type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingCommittee.emoji}
-                        onChange={(e) => setEditingCommittee({...editingCommittee, emoji: e.target.value})}
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingDelegate.institution || ''}
+                        onChange={(e) => setEditingDelegate({...editingDelegate, institution: e.target.value})}
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                      <select
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingCommittee.type}
-                        onChange={(e) => setEditingCommittee({...editingCommittee, type: e.target.value as any})}
-                      >
-                        <option value="general">General Assembly</option>
-                        <option value="specialized">Specialized Agency</option>
-                        <option value="crisis">Crisis Committee</option>
-                        <option value="regional">Regional Body</option>
-                      </select>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-amber-300 mb-1">Committee</label>
+                        <Select
+                          options={committees.map(c => ({ value: c.id, label: c.name }))}
+                          value={committees.find(c => c.id === editingDelegate.committeeId)}
+                          onChange={(option) => setEditingDelegate({...editingDelegate, committeeId: option?.value || ''})}
+                          className="react-select-container"
+                          classNamePrefix="react-select"
+                          styles={{
+                            control: (base) => ({
+                              ...base,
+                              backgroundColor: '#1f2937',
+                              borderColor: '#4b5563',
+                              color: 'white'
+                            }),
+                            singleValue: (base) => ({
+                              ...base,
+                              color: 'white'
+                            }),
+                            menu: (base) => ({
+                              ...base,
+                              backgroundColor: '#1f2937',
+                              color: 'white'
+                            }),
+                            option: (base) => ({
+                              ...base,
+                              backgroundColor: '#1f2937',
+                              ':hover': {
+                                backgroundColor: '#374151'
+                              }
+                            })
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-amber-300 mb-1">Portfolio</label>
+                        <Select
+                          options={committees
+                            .find(c => c.id === editingDelegate.committeeId)
+                            ?.portfolios.map(p => ({ 
+                              value: p.id, 
+                              label: `${p.country} ${p.isVacant ? '' : '(Assigned)'}`
+                            })) || []}
+                          value={committees
+                            .find(c => c.id === editingDelegate.committeeId)
+                            ?.portfolios.find(p => p.id === editingDelegate.portfolioId)}
+                          onChange={(option) => setEditingDelegate({...editingDelegate, portfolioId: option?.value || ''})}
+                          className="react-select-container"
+                          classNamePrefix="react-select"
+                          styles={{
+                            control: (base) => ({
+                              ...base,
+                              backgroundColor: '#1f2937',
+                              borderColor: '#4b5563',
+                              color: 'white'
+                            }),
+                            singleValue: (base) => ({
+                              ...base,
+                              color: 'white'
+                            }),
+                            menu: (base) => ({
+                              ...base,
+                              backgroundColor: '#1f2937',
+                              color: 'white'
+                            }),
+                            option: (base) => ({
+                              ...base,
+                              backgroundColor: '#1f2937',
+                              ':hover': {
+                                backgroundColor: '#374151'
+                              }
+                            })
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                      <textarea
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        rows={3}
-                        value={editingCommittee.description}
-                        onChange={(e) => setEditingCommittee({...editingCommittee, description: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Topics (comma separated)</label>
-                      <textarea
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        rows={2}
-                        value={editingCommittee.topics.join(', ')}
-                        onChange={(e) => setEditingCommittee({...editingCommittee, topics: e.target.value.split(',').map(t => t.trim())})}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Background Guide URL</label>
+                    <div className="flex items-center">
                       <input
-                        type="url"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingCommittee.backgroundGuide || ''}
-                        onChange={(e) => setEditingCommittee({...editingCommittee, backgroundGuide: e.target.value})}
+                        type="checkbox"
+                        id="isCheckedIn"
+                        className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded"
+                        checked={editingDelegate.isCheckedIn}
+                        onChange={(e) => setEditingDelegate({...editingDelegate, isCheckedIn: e.target.checked})}
                       />
+                      <label htmlFor="isCheckedIn" className="ml-2 block text-sm text-amber-300">
+                        Checked In
+                      </label>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Rules of Procedure URL</label>
+                    <div className="flex items-center">
                       <input
-                        type="url"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        value={editingCommittee.rules || ''}
-                        onChange={(e) => setEditingCommittee({...editingCommittee, rules: e.target.value})}
+                        type="checkbox"
+                        id="isDoubleDel"
+                        className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded"
+                        checked={editingDelegate.isDoubleDel}
+                        onChange={(e) => setEditingDelegate({...editingDelegate, isDoubleDel: e.target.checked})}
                       />
+                      <label htmlFor="isDoubleDel" className="ml-2 block text-sm text-amber-300">
+                        Double Delegation
+                      </label>
                     </div>
                     <div className="pt-4">
                       <Button 
                         onClick={async () => {
-                          const success = await saveCommittee(editingCommittee);
+                          const success = await saveDelegate(editingDelegate);
                           if (success) setIsModalOpen(false);
                         }}
-                        className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                        className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white py-2 rounded-lg"
                       >
-                        Save Committee
+                        Save Delegate
                       </Button>
                     </div>
                   </div>
@@ -1991,72 +2192,72 @@ export default function AdminDashboard() {
                 {modalType === 'coupon' && editingCoupon && (
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Code</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Code</label>
                       <input
                         type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                         value={editingCoupon.code}
                         onChange={(e) => setEditingCoupon({...editingCoupon, code: e.target.value})}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Title</label>
                       <input
                         type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                         value={editingCoupon.title}
                         onChange={(e) => setEditingCoupon({...editingCoupon, title: e.target.value})}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Description</label>
                       <textarea
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                         value={editingCoupon.description}
                         onChange={(e) => setEditingCoupon({...editingCoupon, description: e.target.value})}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Discount</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Discount</label>
                       <input
                         type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                         value={editingCoupon.discount}
                         onChange={(e) => setEditingCoupon({...editingCoupon, discount: e.target.value})}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Expiry Date</label>
                       <input
                         type="date"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                         value={editingCoupon.expiry}
                         onChange={(e) => setEditingCoupon({...editingCoupon, expiry: e.target.value})}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Logo Url</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Logo Url</label>
                       <input
                         type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                         value={editingCoupon.logo}
                         onChange={(e) => setEditingCoupon({...editingCoupon, logo: e.target.value})}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Partner</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Partner</label>
                       <input
                         type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                         value={editingCoupon.partner}
                         onChange={(e) => setEditingCoupon({...editingCoupon, partner: e.target.value})}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Term</label>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Terms</label>
                       <input
                         type="text"
-                        className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                         value={editingCoupon.terms}
                         onChange={(e) => setEditingCoupon({...editingCoupon, terms: e.target.value})}
                       />
@@ -2089,7 +2290,7 @@ export default function AdminDashboard() {
                             console.error('Error saving coupon:', error);
                           }
                         }}
-                        className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                        className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white py-2 rounded-lg"
                       >
                         Save Coupon
                       </Button>
@@ -2097,6 +2298,88 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
+                {modalType === 'committee' && editingCommittee && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Name</label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingCommittee.name}
+                        onChange={(e) => setEditingCommittee({...editingCommittee, name: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Emoji</label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingCommittee.emoji}
+                        onChange={(e) => setEditingCommittee({...editingCommittee, emoji: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Type</label>
+                      <select
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingCommittee.type}
+                        onChange={(e) => setEditingCommittee({...editingCommittee, type: e.target.value as any})}
+                      >
+                        <option value="general">General Assembly</option>
+                        <option value="specialized">Specialized Agency</option>
+                        <option value="crisis">Crisis Committee</option>
+                        <option value="regional">Regional Body</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Description</label>
+                      <textarea
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        rows={3}
+                        value={editingCommittee.description}
+                        onChange={(e) => setEditingCommittee({...editingCommittee, description: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Topics (comma separated)</label>
+                      <textarea
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        rows={2}
+                        value={editingCommittee.topics.join(', ')}
+                        onChange={(e) => setEditingCommittee({...editingCommittee, topics: e.target.value.split(',').map(t => t.trim())})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Background Guide URL</label>
+                      <input
+                        type="url"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingCommittee.backgroundGuide || ''}
+                        onChange={(e) => setEditingCommittee({...editingCommittee, backgroundGuide: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-amber-300 mb-1">Rules of Procedure URL</label>
+                      <input
+                        type="url"
+                        className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        value={editingCommittee.rules || ''}
+                        onChange={(e) => setEditingCommittee({...editingCommittee, rules: e.target.value})}
+                      />
+                    </div>
+                    <div className="pt-4">
+                      <Button 
+                        onClick={async () => {
+                          const success = await saveCommittee(editingCommittee);
+                          if (success) setIsModalOpen(false);
+                        }}
+                        className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white py-2 rounded-lg"
+                      >
+                        Save Committee
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 {modalType === 'eb' && editingEB && editingCommittee && (
                   <div className="space-y-4">
                     <div>
