@@ -58,15 +58,15 @@ type BlacklistEntry = {
 
 const BLACKLIST: BlacklistEntry[] = [
   {
-    email: "deku.shreayansh@gmail.com",
-    phone: "8280883762",
-    name: "Shreayansh Agrawal",
+    email: "d",
+    phone: "2",
+    name: "S",
     reason: "BLACKLISTED FROM PARTNER CONFERENCE"
   },
   {
-    email: "deku.shreayansh@gmail.com",
-    phone: "+918280883762",
-    name: "Shreayansh Agrawal",
+    email: "d",
+    phone: "+91",
+    name: "S",
     reason: "BLACKLISTED FROM PARTNER CONFERENCE"
   },
   {
