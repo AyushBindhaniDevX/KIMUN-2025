@@ -75,25 +75,7 @@ export default function PostEventThankYou() {
           </p>
         </motion.div>
 
-        {/* Stats highlights */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4, duration: 0.6 }}
-          className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-12"
-        >
-          {[
-            { icon: Users, value: "300+", label: "Delegates" },
-            { icon: Globe, value: "7", label: "Committees" },
-            { icon: Award, value: "48", label: "Hours" },
-          ].map((stat, i) => (
-            <div key={i} className="bg-amber-900/10 border border-amber-800/30 rounded-xl p-4">
-              <stat.icon className="h-8 w-8 text-amber-400 mx-auto mb-2" />
-              <div className="text-3xl font-bold text-amber-300">{stat.value}</div>
-              <div className="text-gray-400">{stat.label}</div>
-            </div>
-          ))}
-        </motion.div>
+       
 
         {/* Gratitude sections */}
         <motion.div
@@ -158,14 +140,7 @@ export default function PostEventThankYou() {
               </Button>
             </Link>
           </div>
-          
-          <p className="text-gray-400 mt-6">
-            Until next year! Follow us on 
-            <a href="https://instagram.com/kalingainternationalmun" className="text-amber-300 hover:underline ml-1">
-              Instagram
-            </a> 
-            for updates about KIMUN 2026.
-          </p>
+        
         </motion.div>
       </motion.div>
 
