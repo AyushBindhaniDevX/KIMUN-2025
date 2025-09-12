@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getDatabase, ref, get, set, push, onValue, off } from 'firebase/database'
-import { getAuth, signOut } from 'firebase/auth'
-import { initializeApp } from 'firebase/app' // Add this import
+import { getAuth, signOut, onAuthStateChanged } from 'firebase/auth'
+import { initializeApp } from 'firebase/app'
 import { Button } from '@/components/ui/button'
 import {
   User,
@@ -125,23 +125,28 @@ export default function SocialPortal() {
     messages: true,
     events: true
   })
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   // Check authentication
   useEffect(() => {
     const auth = getAuth(app)
-    const user = auth.currentUser
-    if (!user) {
-      router.push('/delegate')
-      return
-    }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // User is signed in
+        fetchUserProfile(user.email!);
+        fetchSocieties();
+        fetchPayments();
+        fetchEvents();
+        setupChatListener();
+      } else {
+        // User is signed out
+        router.push('/delegate');
+      }
+      setIsAuthLoading(false);
+    });
 
-    // Fetch user data
-    fetchUserProfile(user.email!)
-    fetchSocieties()
-    fetchPayments()
-    fetchEvents()
-    setupChatListener()
-  }, [router])
+    return () => unsubscribe();
+  }, [router]);
 
   const fetchUserProfile = async (email: string) => {
     try {
@@ -498,7 +503,7 @@ export default function SocialPortal() {
     event.location.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  if (loading.profile) {
+  if (isAuthLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-black to-amber-950/20 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500"></div>
