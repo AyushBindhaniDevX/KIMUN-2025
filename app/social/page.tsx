@@ -144,12 +144,14 @@ export default function SocialPortal() {
     const auth = getAuth(app)
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
+        // User is signed in, fetch data
         fetchUserProfile(user.email!);
         fetchSocieties();
         fetchPayments(user.uid);
         fetchEvents();
         setupChatListener();
       } else {
+        // User is signed out, redirect
         router.push('/delegate');
       }
       setIsAuthLoading(false);
@@ -169,8 +171,8 @@ export default function SocialPortal() {
     setLoading(prev => ({ ...prev, profile: true }));
     try {
       const db = getDatabase(app);
-      const delegatesRef = ref(db, 'registrations');
-      const snapshot = await get(delegatesRef);
+      const registrationsRef = ref(db, 'registrations');
+      const snapshot = await get(registrationsRef);
 
       if (!snapshot.exists()) {
         throw new Error('No delegate data found');
@@ -229,13 +231,27 @@ export default function SocialPortal() {
     try {
       const db = getDatabase(app);
       const marksheetRef = ref(db, `marksheets/${committeeId}/marks`);
+      // Correcting the query to filter by portfolio ID
       const q = query(marksheetRef, orderByChild('portfolioId'), equalTo(portfolioId));
       const snapshot = await get(q);
 
       if (snapshot.exists()) {
         const marksData = snapshot.val();
-        const firstMarkEntry = Object.values(marksData)[0] as Marksheet;
-        setUserMarksheet(firstMarkEntry);
+        const markEntryKey = Object.keys(marksData)[0];
+        const markEntry = marksData[markEntryKey];
+
+        setUserMarksheet({
+          gsl: markEntry.gsl || 0,
+          mod1: markEntry.mod1 || 0,
+          mod2: markEntry.mod2 || 0,
+          mod3: markEntry.mod3 || 0,
+          mod4: markEntry.mod4 || 0,
+          fp: markEntry.fp || 0,
+          doc: markEntry.doc || 0,
+          chits: markEntry.chits || 0,
+          lobby: markEntry.lobby || 0,
+          total: markEntry.total || 0,
+        });
       } else {
         setUserMarksheet(null);
       }
@@ -245,7 +261,9 @@ export default function SocialPortal() {
     }
   };
 
+
   const fetchSocieties = async () => {
+    setLoading(prev => ({ ...prev, societies: true }))
     try {
       const db = getDatabase(app)
       const societiesRef = ref(db, 'societies')
@@ -256,9 +274,8 @@ export default function SocialPortal() {
         const societiesList = Object.keys(societiesData).map(key => ({
           id: key,
           ...societiesData[key],
-          isMember: false // This will need to be updated with actual user data
+          isMember: false // This needs a separate check in the future
         })) as Society[]
-
         setSocieties(societiesList)
       } else {
         setSocieties([])
@@ -270,36 +287,24 @@ export default function SocialPortal() {
       setLoading(prev => ({ ...prev, societies: false }))
     }
   }
-
+  
   const fetchPayments = async (uid: string) => {
     setLoading(prev => ({ ...prev, payments: true }));
     try {
       const db = getDatabase(app);
-      const paymentsRef = ref(db, 'payments');
+      // This assumes payment data is nested under the registration key or UID
+      const paymentsRef = ref(db, `payments/${userProfile?.id}`);
       const snapshot = await get(paymentsRef);
 
       if (snapshot.exists()) {
         const paymentsData = snapshot.val();
-        // Assuming your 'payments' node is structured to link to a user's UID or registration key
-        // The previous code had a bug where it was linking to userProfile?.id which might not match the UID
-        // You'll need to adjust this logic based on your actual payment data structure
-        // For now, let's just show mock data to prevent errors
-        setPayments([
-          {
-            id: '1',
-            amount: '$75.00',
-            status: 'completed',
-            date: '2025-01-15',
-            description: 'KIMUN 2025 Registration Fee'
-          },
-          {
-            id: '2',
-            amount: '$25.00',
-            status: 'completed',
-            date: '2025-02-10',
-            description: 'Social Events Package'
-          }
-        ])
+        const paymentsList = Object.keys(paymentsData).map(key => ({
+          id: key,
+          ...paymentsData[key]
+        })) as Payment[]
+        setPayments(paymentsList);
+      } else {
+        setPayments([]);
       }
     } catch (error) {
       console.error('Error fetching payments:', error);
@@ -310,6 +315,7 @@ export default function SocialPortal() {
   };
 
   const fetchEvents = async () => {
+    setLoading(prev => ({ ...prev, events: true }))
     try {
       const db = getDatabase(app)
       const eventsRef = ref(db, 'events')
@@ -321,7 +327,6 @@ export default function SocialPortal() {
           id: key,
           ...eventsData[key]
         })) as Event[]
-
         setEvents(eventsList)
       } else {
         setEvents([])
@@ -335,6 +340,7 @@ export default function SocialPortal() {
   }
 
   const setupChatListener = () => {
+    setLoading(prev => ({ ...prev, messages: true }))
     try {
       const db = getDatabase(app)
       const messagesRef = ref(db, 'communityChat/messages')
@@ -346,7 +352,6 @@ export default function SocialPortal() {
             ...messagesData[key],
             timestamp: new Date(messagesData[key].timestamp)
           })) as Message[]
-
           messagesList.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
           setMessages(messagesList)
         }
@@ -365,12 +370,10 @@ export default function SocialPortal() {
   }
 
   const handleJoinSociety = async (societyId: string) => {
-    // This logic needs to be updated to handle joining a society
     toast.info("Joining society functionality is not yet implemented.");
   }
 
   const handleLeaveSociety = async (societyId: string) => {
-    // This logic needs to be updated to handle leaving a society
     toast.info("Leaving society functionality is not yet implemented.");
   }
 
@@ -389,7 +392,6 @@ export default function SocialPortal() {
         timestamp: new Date().toISOString(),
         type: 'text'
       })
-
       setNewMessage('')
     } catch (error) {
       console.error('Error sending message:', error)
@@ -620,7 +622,11 @@ export default function SocialPortal() {
               <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl p-6">
                 <h2 className="text-xl font-bold text-amber-300 mb-6">Personal Information</h2>
 
-                {userProfile ? (
+                {loading.profile ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+                  </div>
+                ) : userProfile ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <div>
@@ -692,7 +698,7 @@ export default function SocialPortal() {
                   <div>
                     <h3 className="text-lg font-semibold text-amber-200 mb-3">Conference Experience</h3>
                     <div className="bg-amber-900/20 p-4 rounded-lg border border-amber-800/30">
-                      <p className="text-amber-200/80">Your MUN conference history will appear here after KIMUN 2025 concludes.</p>
+                      <p className="text-amber-200/80">Your MUN conference history will appear here after KIMUN 2025 concludes. So far, you've attended KIMUN 2025 as a delegate for {userProfile?.country}.</p>
                     </div>
                   </div>
 
