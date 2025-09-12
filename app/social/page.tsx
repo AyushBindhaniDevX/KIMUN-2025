@@ -1,19 +1,19 @@
 // app/social/page.tsx
 'use client'
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, set, push, onValue, off } from 'firebase/database'
 import { getAuth, signOut } from 'firebase/auth'
+import { initializeApp } from 'firebase/app' // Add this import
 import { Button } from '@/components/ui/button'
-import { 
-  User, 
-  FileText, 
-  Users, 
-  CreditCard, 
-  LogOut, 
-  MessageCircle, 
-  Bell, 
+import {
+  User,
+  FileText,
+  Users,
+  CreditCard,
+  LogOut,
+  MessageCircle,
+  Bell,
   Search,
   Send,
   MoreHorizontal,
@@ -24,9 +24,7 @@ import {
   MapPin,
   Mail,
   Phone,
-  Link as LinkIcon,
-  BarChart,
-  LayoutDashboard
+  Link as LinkIcon
 } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import Link from 'next/link'
@@ -43,17 +41,9 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 }
 
-// Corrected Firebase App Initialization
-let app;
-try {
-  app = initializeApp(firebaseConfig);
-} catch (e) {
-  // Gracefully handle the error if the app is already initialized
-  // This is a common issue with Next.js hot-reloading in development
-  console.error("Firebase app already initialized", e);
-}
+// Initialize Firebase App
+const app = initializeApp(firebaseConfig)
 
-// Types from the provided code
 type UserProfile = {
   id: string
   name: string
@@ -118,10 +108,9 @@ type Event = {
   attendees: number
 }
 
-// Main component
 export default function SocialPortal() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState('profile')
+  const [activeTab, setActiveTab] = useState('dashboard')
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [societies, setSocieties] = useState<Society[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
@@ -137,29 +126,26 @@ export default function SocialPortal() {
     events: true
   })
 
-  // Check authentication and fetch data
+  // Check authentication
   useEffect(() => {
-    // We now have to get auth after the app is initialized
-    const auth = getAuth(app);
-    const user = auth.currentUser;
-
-    // Check if the user is authenticated
+    const auth = getAuth(app)
+    const user = auth.currentUser
     if (!user) {
       router.push('/delegate')
       return
     }
-    
+
     // Fetch user data
     fetchUserProfile(user.email!)
     fetchSocieties()
     fetchPayments()
     fetchEvents()
     setupChatListener()
-  }, [router, app]) // app is now a dependency to ensure useEffect has access to it
+  }, [router])
 
   const fetchUserProfile = async (email: string) => {
     try {
-      const db = getDatabase()
+      const db = getDatabase(app)
       const delegatesRef = ref(db, 'registrations')
       const snapshot = await get(delegatesRef)
 
@@ -167,11 +153,13 @@ export default function SocialPortal() {
         throw new Error('No delegate data found')
       }
 
+      // Search through all registrations for matching email
       const registrations = snapshot.val()
       let foundDelegate = null
 
       for (const key in registrations) {
         const registration = registrations[key]
+        // Check delegate1
         if (registration.delegateInfo?.delegate1?.email === email) {
           foundDelegate = {
             id: key,
@@ -191,6 +179,7 @@ export default function SocialPortal() {
           }
           break
         }
+        // Check delegate2
         if (registration.delegateInfo?.delegate2?.email === email) {
           foundDelegate = {
             id: key,
@@ -227,17 +216,17 @@ export default function SocialPortal() {
 
   const fetchSocieties = async () => {
     try {
-      const db = getDatabase()
+      const db = getDatabase(app)
       const societiesRef = ref(db, 'societies')
       const snapshot = await get(societiesRef)
-      
+
       if (snapshot.exists()) {
         const societiesData = snapshot.val()
         const societiesList = Object.keys(societiesData).map(key => ({
           id: key,
           ...societiesData[key]
         })) as Society[]
-        
+
         setSocieties(societiesList)
       } else {
         // Fallback mock data
@@ -279,17 +268,17 @@ export default function SocialPortal() {
   const fetchPayments = async () => {
     try {
       const delegateData = userProfile
-      const db = getDatabase()
+      const db = getDatabase(app)
       const paymentsRef = ref(db, `payments/${delegateData?.id}`)
       const snapshot = await get(paymentsRef)
-      
+
       if (snapshot.exists()) {
         const paymentsData = snapshot.val()
         const paymentsList = Object.keys(paymentsData).map(key => ({
           id: key,
           ...paymentsData[key]
         })) as Payment[]
-        
+
         setPayments(paymentsList)
       } else {
         // Fallback mock data
@@ -320,17 +309,17 @@ export default function SocialPortal() {
 
   const fetchEvents = async () => {
     try {
-      const db = getDatabase()
+      const db = getDatabase(app)
       const eventsRef = ref(db, 'events')
       const snapshot = await get(eventsRef)
-      
+
       if (snapshot.exists()) {
         const eventsData = snapshot.val()
         const eventsList = Object.keys(eventsData).map(key => ({
           id: key,
           ...eventsData[key]
         })) as Event[]
-        
+
         setEvents(eventsList)
       } else {
         // Fallback mock data
@@ -367,10 +356,11 @@ export default function SocialPortal() {
 
   const setupChatListener = () => {
     try {
-      const db = getDatabase()
+      const db = getDatabase(app)
       const messagesRef = ref(db, 'communityChat/messages')
-      
-      const unsubscribe = onValue(messagesRef, (snapshot) => {
+
+      // Set up real-time listener for messages
+      onValue(messagesRef, (snapshot) => {
         if (snapshot.exists()) {
           const messagesData = snapshot.val()
           const messagesList = Object.keys(messagesData).map(key => ({
@@ -378,7 +368,8 @@ export default function SocialPortal() {
             ...messagesData[key],
             timestamp: new Date(messagesData[key].timestamp)
           })) as Message[]
-          
+
+          // Sort messages by timestamp
           messagesList.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
           setMessages(messagesList)
         }
@@ -388,6 +379,7 @@ export default function SocialPortal() {
         setLoading(prev => ({ ...prev, messages: false }))
       })
 
+      // Cleanup listener on component unmount
       return () => off(messagesRef)
     } catch (error) {
       console.error('Error setting up chat listener:', error)
@@ -397,18 +389,20 @@ export default function SocialPortal() {
 
   const handleJoinSociety = async (societyId: string) => {
     try {
-      const db = getDatabase()
-      
+      const db = getDatabase(app)
+
+      // Update society membership in Firebase
       const membershipRef = ref(db, `societyMembers/${societyId}/${userProfile?.id}`)
       await set(membershipRef, {
         joinedAt: new Date().toISOString(),
         name: userProfile?.name
       })
-      
-      setSocieties(prev => 
-        prev.map(society => 
-          society.id === societyId 
-            ? { ...society, isMember: true, members: society.members + 1 } 
+
+      // Update local state
+      setSocieties(prev =>
+        prev.map(society =>
+          society.id === societyId
+            ? { ...society, isMember: true, members: society.members + 1 }
             : society
         )
       )
@@ -421,15 +415,17 @@ export default function SocialPortal() {
 
   const handleLeaveSociety = async (societyId: string) => {
     try {
-      const db = getDatabase()
-      
+      const db = getDatabase(app)
+
+      // Remove society membership from Firebase
       const membershipRef = ref(db, `societyMembers/${societyId}/${userProfile?.id}`)
       await set(membershipRef, null)
-      
-      setSocieties(prev => 
-        prev.map(society => 
-          society.id === societyId 
-            ? { ...society, isMember: false, members: society.members - 1 } 
+
+      // Update local state
+      setSocieties(prev =>
+        prev.map(society =>
+          society.id === societyId
+            ? { ...society, isMember: false, members: society.members - 1 }
             : society
         )
       )
@@ -441,21 +437,21 @@ export default function SocialPortal() {
   }
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !userProfile) return
-    
+    if (!newMessage.trim()) return
+
     try {
-      const db = getDatabase()
+      const db = getDatabase(app)
       const messagesRef = ref(db, 'communityChat/messages')
       const newMessageRef = push(messagesRef)
-      
+
       await set(newMessageRef, {
-        userId: userProfile.id,
-        userName: userProfile.name,
+        userId: userProfile?.id,
+        userName: userProfile?.name,
         content: newMessage.trim(),
         timestamp: new Date().toISOString(),
         type: 'text'
       })
-      
+
       setNewMessage('')
     } catch (error) {
       console.error('Error sending message:', error)
@@ -465,7 +461,7 @@ export default function SocialPortal() {
 
   const handleLogout = async () => {
     try {
-      const auth = getAuth()
+      const auth = getAuth(app)
       await signOut(auth)
       router.push('/delegate')
       toast.info('Logged out successfully')
@@ -502,7 +498,6 @@ export default function SocialPortal() {
     event.location.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // Loading state
   if (loading.profile) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-black to-amber-950/20 flex items-center justify-center">
@@ -511,389 +506,504 @@ export default function SocialPortal() {
     )
   }
 
-  // Main social portal with sidebar navigation
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black to-amber-950/20 text-white flex">
+    <div className="min-h-screen bg-gradient-to-b from-black to-amber-950/20 text-white">
       <Toaster position="top-right" richColors theme="dark" />
-      
-      {/* Sidebar Navigation */}
-      <aside className="fixed top-0 left-0 bottom-0 w-64 bg-black/80 backdrop-blur-md border-r border-amber-800/30 flex flex-col justify-between p-4">
-        <nav className="flex flex-col space-y-2">
-          <div className="py-4 text-center">
-            <Award className="h-10 w-10 text-amber-400 mx-auto" />
-            <h2 className="text-xl font-bold mt-2 text-amber-300">KIMUN 2025</h2>
-            <p className="text-sm text-amber-200/80">{userProfile?.name}</p>
-          </div>
-          
-          <Button
-            variant="ghost"
-            onClick={() => setActiveTab('profile')}
-            className={`w-full justify-start transition-colors ${activeTab === 'profile' ? 'bg-amber-900/40 text-amber-100' : 'text-amber-200 hover:bg-amber-900/30'}`}
-          >
-            <User className="h-5 w-5 mr-3" />
-            Personal Information
-          </Button>
 
-          <Button
-            variant="ghost"
-            onClick={() => setActiveTab('mun-cv')}
-            className={`w-full justify-start transition-colors ${activeTab === 'mun-cv' ? 'bg-amber-900/40 text-amber-100' : 'text-amber-200 hover:bg-amber-900/30'}`}
-          >
-            <FileText className="h-5 w-5 mr-3" />
-            MUN CV
-          </Button>
-
-          <Button
-            variant="ghost"
-            onClick={() => setActiveTab('societies')}
-            className={`w-full justify-start transition-colors ${activeTab === 'societies' ? 'bg-amber-900/40 text-amber-100' : 'text-amber-200 hover:bg-amber-900/30'}`}
-          >
-            <Users className="h-5 w-5 mr-3" />
-            Societies
-          </Button>
-          
-          <Button
-            variant="ghost"
-            onClick={() => setActiveTab('marksheet')}
-            className={`w-full justify-start transition-colors ${activeTab === 'marksheet' ? 'bg-amber-900/40 text-amber-100' : 'text-amber-200 hover:bg-amber-900/30'}`}
-          >
-            <BarChart className="h-5 w-5 mr-3" />
-            Marksheet
-          </Button>
-
-          <Button
-            variant="ghost"
-            onClick={() => setActiveTab('payments')}
-            className={`w-full justify-start transition-colors ${activeTab === 'payments' ? 'bg-amber-900/40 text-amber-100' : 'text-amber-200 hover:bg-amber-900/30'}`}
-          >
-            <CreditCard className="h-5 w-5 mr-3" />
-            Payments
-          </Button>
-
-          <Button
-            variant="ghost"
-            onClick={() => setActiveTab('events')}
-            className={`w-full justify-start transition-colors ${activeTab === 'events' ? 'bg-amber-900/40 text-amber-100' : 'text-amber-200 hover:bg-amber-900/30'}`}
-          >
-            <Calendar className="h-5 w-5 mr-3" />
-            Events
-          </Button>
-
-          <Button
-            variant="ghost"
-            onClick={() => setActiveTab('chat')}
-            className={`w-full justify-start transition-colors ${activeTab === 'chat' ? 'bg-amber-900/40 text-amber-100' : 'text-amber-200 hover:bg-amber-900/30'}`}
-          >
-            <MessageCircle className="h-5 w-5 mr-3" />
-            Virtual Chat
-          </Button>
-          <Link href="/delegate" passHref>
-            <Button variant="ghost" className="w-full justify-start text-amber-200 hover:bg-amber-900/30 hover:text-amber-100 transition-colors">
-              <LayoutDashboard className="h-5 w-5 mr-3" />
-              Main Dashboard
+      {/* Header */}
+      <header className="bg-black/80 backdrop-blur-md border-b border-amber-800/30 sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+          <Link href="/delegate" className="flex items-center gap-2 group">
+            <Button variant="ghost" className="p-2 rounded-full group-hover:bg-amber-900/30 transition-colors">
+              <span className="text-amber-300">Back to Dashboard</span>
             </Button>
           </Link>
-        </nav>
 
-        <div className="mt-auto">
-          <Button 
-            variant="outline" 
-            onClick={handleLogout}
-            className="w-full border-amber-500 text-amber-300 hover:bg-amber-900/30 h-9"
-          >
-            <LogOut className="h-4 w-4 mr-2" /> 
-            Logout
-          </Button>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-amber-200/60" />
+              <input
+                type="text"
+                placeholder="Search societies, events..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 bg-black/50 border border-amber-800/30 rounded-lg text-white placeholder-amber-200/60 focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              />
+            </div>
+
+            <Button variant="outline" size="icon" className="border-amber-500 text-amber-300 hover:bg-amber-900/30">
+              <Bell className="h-4 w-4" />
+            </Button>
+
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 bg-amber-900/50 rounded-full flex items-center justify-center">
+                <span className="text-xs">{userProfile?.name?.charAt(0) || 'U'}</span>
+              </div>
+              <span className="text-sm text-amber-200 hidden sm:inline">{userProfile?.name}</span>
+            </div>
+
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              className="border-amber-500 text-amber-300 hover:bg-amber-900/30 h-9"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
+          </div>
         </div>
-      </aside>
+      </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 ml-64 p-8 pt-10">
-        <h1 className="text-3xl font-bold mb-8 text-amber-300">
-          {activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')}
-        </h1>
-
-        {/* --- Personal Information Tab --- */}
-        {activeTab === 'profile' && userProfile && (
-          <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 p-6">
-            <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-              <div className="w-32 h-32 md:w-48 md:h-48 rounded-full bg-amber-900/50 flex items-center justify-center text-4xl font-bold text-amber-100">
-                {userProfile.name.charAt(0).toUpperCase()}
-              </div>
-              <div className="text-center md:text-left">
-                <h2 className="text-2xl font-bold text-amber-300">{userProfile.name}</h2>
-                <p className="text-amber-100/80 mb-4">{userProfile.institution}</p>
-                <p className="text-amber-200/90 italic max-w-lg">{userProfile.bio}</p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-                  <div className="flex items-center gap-2">
-                    <Award className="h-5 w-5 text-amber-400" />
-                    <span className="text-amber-100">Experience: {userProfile.experience} years</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-amber-400" />
-                    <span className="text-amber-100">Committee: {userProfile.committee}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-amber-400" />
-                    <span className="text-amber-100">Country: {userProfile.country}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-5 w-5 text-amber-400" />
-                    <span className="text-amber-100">{userProfile.email}</span>
-                  </div>
+      <main className="container mx-auto px-4 py-8">
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Sidebar Navigation */}
+          <aside className="lg:w-1/4">
+            <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl p-6 mb-6">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="h-16 w-16 bg-amber-900/50 rounded-full flex items-center justify-center">
+                  <span className="text-xl">{userProfile?.name?.charAt(0) || 'U'}</span>
                 </div>
-                
-                <div className="flex gap-4 mt-6 justify-center md:justify-start">
-                  {userProfile.phone && (
-                    <Link href={`tel:${userProfile.phone}`} target="_blank" rel="noopener noreferrer">
-                      <Button variant="outline" size="icon" className="border-amber-500 text-amber-300 hover:bg-amber-900/30"><Phone className="h-4 w-4" /></Button>
-                    </Link>
-                  )}
-                  {userProfile.socialLinks?.linkedin && (
-                    <Link href={userProfile.socialLinks.linkedin} target="_blank" rel="noopener noreferrer">
-                      <Button variant="outline" size="icon" className="border-amber-500 text-amber-300 hover:bg-amber-900/30">
-                        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.761s.784-1.76 1.75-1.761 1.75.79 1.75 1.761-.783 1.761-1.75 1.761zm13.5 12.268h-3v-5.604c0-3.368-4-3.535-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" /></svg>
-                      </Button>
-                    </Link>
-                  )}
-                  {userProfile.socialLinks?.twitter && (
-                    <Link href={userProfile.socialLinks.twitter} target="_blank" rel="noopener noreferrer">
-                      <Button variant="outline" size="icon" className="border-amber-500 text-amber-300 hover:bg-amber-900/30">
-                        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.414 0-6.185 2.771-6.185 6.185 0 .485.055.957.162 1.41-5.145-.258-9.71-2.72-12.76-6.467-.534.918-.84 1.986-.84 3.13 0 2.145 1.092 4.041 2.75 5.152-.962-.031-1.86-.296-2.652-.733v.077c0 3.007 2.136 5.503 4.972 6.07-.521.142-1.077.217-1.65.217-.404 0-.796-.04-1.18-.114.793 2.464 3.076 4.258 5.795 4.309-2.112 1.654-4.782 2.64-7.694 2.64-.503 0-.996-.03-1.48-.087 2.898 1.865 6.358 2.955 10.083 2.955 12.094 0 18.683-10.006 18.683-18.682 0-.285-.006-.568-.018-.85z"/></svg>
-                      </Button>
-                    </Link>
-                  )}
+                <div>
+                  <h2 className="font-bold text-amber-300">{userProfile?.name}</h2>
+                  <p className="text-sm text-amber-200/80">{userProfile?.committee}</p>
+                  <p className="text-xs text-amber-200/60">{userProfile?.country}</p>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* --- MUN CV Tab --- */}
-        {activeTab === 'mun-cv' && (
-          <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl shadow-lg shadow-amber-900/10 p-6">
-            <h2 className="text-xl font-bold text-amber-300 mb-4">MUN CV</h2>
-            <p className="text-amber-200/80 mb-4">
-              A comprehensive list of your past Model UN conferences, awards, and portfolios.
-            </p>
-            <div className="space-y-4">
-              <div className="bg-amber-900/20 p-4 rounded-lg border border-amber-800/30">
-                <p className="font-semibold text-amber-100">Conference Name: KIMUN 2024</p>
-                <p className="text-sm text-amber-200/80">Committee: UNGA-DISEC</p>
-                <p className="text-sm text-amber-200/80">Portfolio: United Kingdom</p>
-                <p className="text-sm text-amber-200/80">Awards: Best Delegate</p>
-              </div>
-              <div className="bg-amber-900/20 p-4 rounded-lg border border-amber-800/30">
-                <p className="font-semibold text-amber-100">Conference Name: M.S. Ramaiah MUN 2023</p>
-                <p className="text-sm text-amber-200/80">Committee: ECOSOC</p>
-                <p className="text-sm text-amber-200/80">Portfolio: Japan</p>
-                <p className="text-sm text-amber-200/80">Awards: Verbal Commendation</p>
-              </div>
-            </div>
-            <p className="text-center text-amber-200/80 mt-6">
-              This is a mock-up. You can update your MUN CV in your delegate registration portal.
-            </p>
-          </div>
-        )}
+              <nav className="space-y-2">
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${
+                    activeTab === 'dashboard'
+                      ? 'bg-amber-900/40 text-amber-300'
+                      : 'text-amber-200 hover:bg-amber-900/20'
+                  }`}
+                >
+                  <User className="h-5 w-5" />
+                  <span>Personal Information</span>
+                </button>
 
-        {/* --- Societies Tab --- */}
-        {activeTab === 'societies' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {loading.societies ? (
-              <div className="flex justify-center items-center py-10 md:col-span-2 lg:col-span-3">
-                <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
-              </div>
-            ) : filteredSocieties.length > 0 ? (
-              filteredSocieties.map(society => (
-                <div key={society.id} className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 transition-transform hover:scale-105">
-                  <div className="relative h-40">
-                    <Image 
-                      src={society.image || '/default-society.jpg'} 
-                      alt={society.name} 
-                      layout="fill" 
-                      objectFit="cover" 
-                      className="rounded-t-xl"
-                    />
-                    <div className="absolute inset-0 bg-black/50 flex flex-col justify-end p-4">
-                      <h2 className="text-xl font-bold text-amber-300">{society.name}</h2>
-                      <p className="text-sm text-amber-200/80">{society.description}</p>
+                <button
+                  onClick={() => setActiveTab('cv')}
+                  className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${
+                    activeTab === 'cv'
+                      ? 'bg-amber-900/40 text-amber-300'
+                      : 'text-amber-200 hover:bg-amber-900/20'
+                  }`}
+                >
+                  <FileText className="h-5 w-5" />
+                  <span>MUN CV</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('societies')}
+                  className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${
+                    activeTab === 'societies'
+                      ? 'bg-amber-900/40 text-amber-300'
+                      : 'text-amber-200 hover:bg-amber-900/20'
+                  }`}
+                >
+                  <Users className="h-5 w-5" />
+                  <span>Societies</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('marksheet')}
+                  className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${
+                    activeTab === 'marksheet'
+                      ? 'bg-amber-900/40 text-amber-300'
+                      : 'text-amber-200 hover:bg-amber-900/20'
+                  }`}
+                >
+                  <Award className="h-5 w-5" />
+                  <span>Marksheet</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('payments')}
+                  className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${
+                    activeTab === 'payments'
+                      ? 'bg-amber-900/40 text-amber-300'
+                      : 'text-amber-200 hover:bg-amber-900/20'
+                  }`}
+                >
+                  <CreditCard className="h-5 w-5" />
+                  <span>Payments</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('community')}
+                  className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${
+                    activeTab === 'community'
+                      ? 'bg-amber-900/40 text-amber-300'
+                      : 'text-amber-200 hover:bg-amber-900/20'
+                  }`}
+                >
+                  <MessageCircle className="h-5 w-5" />
+                  <span>Community Chat</span>
+                </button>
+              </nav>
+            </div>
+
+            {/* Online Members */}
+            <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl p-6">
+              <h3 className="font-bold text-amber-300 mb-4 flex items-center gap-2">
+                <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                Online Now (24)
+              </h3>
+              <div className="space-y-3">
+                {[
+                  { name: 'Sarah J.', committee: 'UNSC' },
+                  { name: 'Michael C.', committee: 'WHO' },
+                  { name: 'Priya S.', committee: 'UNHRC' },
+                  { name: 'David K.', committee: 'UNEP' }
+                ].map((user, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <div className="relative">
+                      <div className="h-8 w-8 bg-amber-900/50 rounded-full flex items-center justify-center">
+                        <span className="text-xs">{user.name.charAt(0)}</span>
+                      </div>
+                      <div className="absolute bottom-0 right-0 h-2 w-2 bg-green-500 rounded-full border border-black"></div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{user.name}</p>
+                      <p className="text-xs text-amber-200/60">{user.committee}</p>
                     </div>
                   </div>
-                  <div className="p-4 space-y-2">
-                    <div className="flex items-center text-sm text-amber-100">
-                      <Users className="h-4 w-4 mr-2 text-amber-400" />
-                      <span>{society.members} Members</span>
+                ))}
+              </div>
+            </div>
+          </aside>
+
+          {/* Main Content */}
+          <div className="lg:w-3/4">
+            {/* Dashboard/Personal Information */}
+            {activeTab === 'dashboard' && (
+              <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl p-6">
+                <h2 className="text-xl font-bold text-amber-300 mb-6">Personal Information</h2>
+
+                {userProfile ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm text-amber-200/80 mb-1">Full Name</label>
+                        <p className="font-medium">{userProfile.name}</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-amber-200/80 mb-1">Email</label>
+                        <p className="font-medium">{userProfile.email}</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-amber-200/80 mb-1">Institution</label>
+                        <p className="font-medium">{userProfile.institution}</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-amber-200/80 mb-1">MUN Experience</label>
+                        <p className="font-medium">
+                          {userProfile.experience === 0 ? 'Beginner' :
+                           userProfile.experience === 1 ? 'Intermediate' :
+                           userProfile.experience >= 2 ? 'Advanced' : 'Not specified'}
+                          {userProfile.experience > 0 && ` (${userProfile.experience} conference${userProfile.experience > 1 ? 's' : ''})`}
+                        </p>
+                      </div>
                     </div>
-                    {society.isMember ? (
-                      <Button onClick={() => handleLeaveSociety(society.id)} className="w-full bg-red-600 hover:bg-red-700 text-white">
-                        Leave Society
-                      </Button>
-                    ) : (
-                      <Button onClick={() => handleJoinSociety(society.id)} className="w-full bg-amber-600 hover:bg-amber-700 text-black">
-                        Join Society
-                      </Button>
-                    )}
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm text-amber-200/80 mb-1">Committee</label>
+                        <p className="font-medium">{userProfile.committee}</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-amber-200/80 mb-1">Country</label>
+                        <p className="font-medium">{userProfile.country}</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-amber-200/80 mb-1">Bio</label>
+                        <p className="font-medium">{userProfile.bio}</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-amber-200/80 mb-1">Interests</label>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {userProfile.interests?.map((interest, index) => (
+                            <span key={index} className="bg-amber-900/30 px-3 py-1 rounded-full text-xs text-amber-300">
+                              {interest}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))
-            ) : (
-              <div className="md:col-span-2 lg:col-span-3 text-center py-10">
-                <p className="text-amber-200/80">No societies found matching your search.</p>
+                ) : (
+                  <p className="text-amber-200/80">No profile information available</p>
+                )}
               </div>
             )}
-          </div>
-        )}
 
-        {/* --- Marksheet Tab --- */}
-        {activeTab === 'marksheet' && (
-          <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl shadow-lg shadow-amber-900/10 p-6 text-center">
-            <BarChart className="h-16 w-16 mx-auto mb-4 text-amber-400" />
-            <h2 className="text-xl font-bold text-amber-300">Marksheet</h2>
-            <p className="text-amber-200/80 mt-2">
-              Your academic marks and scores for the conference sessions will appear here after the event.
-            </p>
-          </div>
-        )}
+            {/* MUN CV */}
+            {activeTab === 'cv' && (
+              <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl p-6">
+                <h2 className="text-xl font-bold text-amber-300 mb-6">MUN CV</h2>
 
-        {/* --- Payments Tab --- */}
-        {activeTab === 'payments' && (
-          <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl shadow-lg shadow-amber-900/10 p-6">
-            <h2 className="text-xl font-bold text-amber-300 mb-4">Payment History</h2>
-            <div className="space-y-4">
-              {loading.payments ? (
-                <div className="flex justify-center items-center py-6">
-                  <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-amber-200 mb-3">Conference Experience</h3>
+                    <div className="bg-amber-900/20 p-4 rounded-lg border border-amber-800/30">
+                      <p className="text-amber-200/80">Your MUN conference history will appear here after KIMUN 2025 concludes.</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold text-amber-200 mb-3">Skills & Awards</h3>
+                    <div className="bg-amber-900/20 p-4 rounded-lg border border-amber-800/30">
+                      <p className="text-amber-200/80">Your skills and awards will be updated based on your performance during the conference.</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold text-amber-200 mb-3">Resolutions</h3>
+                    <div className="bg-amber-900/20 p-4 rounded-lg border border-amber-800/30">
+                      <p className="text-amber-200/80">Resolutions you've contributed to will be listed here after the conference.</p>
+                    </div>
+                  </div>
                 </div>
-              ) : payments.length > 0 ? (
-                payments.map(payment => (
-                  <div key={payment.id} className="bg-amber-900/20 p-4 rounded-lg border border-amber-800/30 flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold text-amber-100">{payment.description}</p>
-                      <p className="text-sm text-amber-200/80">{formatDate(payment.date)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-lg text-amber-300">{payment.amount}</p>
-                      <p className={`text-xs font-medium ${payment.status === 'completed' ? 'text-green-400' : 'text-yellow-400'}`}>
-                        {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-center text-amber-200/80 py-6">No payments found.</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* --- Events Tab --- */}
-        {activeTab === 'events' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {loading.events ? (
-              <div className="flex justify-center items-center py-10 md:col-span-2 lg:col-span-3">
-                <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
               </div>
-            ) : filteredEvents.length > 0 ? (
-              filteredEvents.map(event => (
-                <div key={event.id} className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 transition-transform hover:scale-105">
-                  <div className="relative h-48">
-                    <Image 
-                      src={event.image || '/default-event.jpg'} 
-                      alt={event.title} 
-                      layout="fill" 
-                      objectFit="cover" 
-                      className="rounded-t-xl"
-                    />
-                    <div className="absolute inset-0 bg-black/60 flex flex-col justify-end p-4">
-                      <h2 className="text-xl font-bold text-amber-300">{event.title}</h2>
-                      <p className="text-sm text-amber-200/80">{event.description}</p>
-                    </div>
+            )}
+
+            {/* Societies */}
+            {activeTab === 'societies' && (
+              <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl p-6">
+                <h2 className="text-xl font-bold text-amber-300 mb-6">Societies & Clubs</h2>
+
+                {loading.societies ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
                   </div>
-                  <div className="p-4 space-y-2">
-                    <div className="flex items-center text-sm text-amber-100">
-                      <Calendar className="h-4 w-4 mr-2 text-amber-400" />
-                      <span>{event.date} at {event.time}</span>
+                ) : filteredSocieties.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {filteredSocieties.map((society) => (
+                      <div key={society.id} className="bg-black/50 p-6 rounded-lg border border-amber-800/30">
+                        <div className="flex items-start justify-between mb-4">
+                          <h3 className="text-lg font-bold text-amber-300">{society.name}</h3>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            society.isMember
+                              ? 'bg-green-900/30 text-green-400'
+                              : 'bg-amber-900/30 text-amber-400'
+                          }`}>
+                            {society.isMember ? 'Member' : 'Not a member'}
+                          </span>
+                        </div>
+
+                        <p className="text-amber-200/80 mb-4">{society.description}</p>
+
+                        <div className="flex justify-between items-center mb-4">
+                          <span className="text-sm text-amber-200/60">{society.members} members</span>
+                        </div>
+
+                        {society.isMember ? (
+                          <Button
+                            onClick={() => handleLeaveSociety(society.id)}
+                            className="w-full bg-red-600 hover:bg-red-700"
+                          >
+                            Leave Society
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={() => handleJoinSociety(society.id)}
+                            className="w-full bg-amber-600 hover:bg-amber-700 text-black"
+                          >
+                            Join Society
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-amber-200/80">No societies available at the moment</p>
+                )}
+              </div>
+            )}
+
+            {/* Marksheet */}
+            {activeTab === 'marksheet' && (
+              <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl p-6">
+                <h2 className="text-xl font-bold text-amber-300 mb-6">Marksheet</h2>
+
+                <div className="space-y-4">
+                  <div className="bg-amber-900/20 p-4 rounded-lg border border-amber-800/30">
+                    <p className="text-amber-200/80">Your marks will be available here after committee sessions have concluded.</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                      { label: 'Total Score', value: '--' },
+                      { label: 'GSL', value: '--' },
+                      { label: 'Moderated Caucus', value: '--' },
+                      { label: 'Resolution', value: '--' }
+                    ].map((item, index) => (
+                      <div key={index} className="bg-black/50 p-4 rounded-lg border border-amber-800/30 text-center">
+                        <p className="text-sm text-amber-200/80 mb-1">{item.label}</p>
+                        <p className="text-xl font-bold text-amber-300">{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Payments */}
+            {activeTab === 'payments' && (
+              <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl p-6">
+                <h2 className="text-xl font-bold text-amber-300 mb-6">Payment History</h2>
+
+                {loading.payments ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+                  </div>
+                ) : payments.length > 0 ? (
+                  <div className="space-y-4">
+                    {payments.map((payment) => (
+                      <div key={payment.id} className="bg-black/50 p-4 rounded-lg border border-amber-800/30 flex justify-between items-center">
+                        <div>
+                          <h3 className="font-medium text-amber-300">{payment.description}</h3>
+                          <p className="text-sm text-amber-200/60">{formatDate(payment.date)}</p>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="font-bold text-amber-300">{payment.amount}</p>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            payment.status === 'completed'
+                              ? 'bg-green-900/30 text-green-400'
+                              : payment.status === 'pending'
+                              ? 'bg-yellow-900/30 text-yellow-400'
+                              : 'bg-red-900/30 text-red-400'
+                          }`}>
+                            {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-amber-200/80">No payment history available</p>
+                )}
+              </div>
+            )}
+
+            {/* Community Chat */}
+            {activeTab === 'community' && (
+              <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden flex flex-col h-[600px]">
+                <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
+                  <h2 className="text-xl font-bold text-amber-300">Community Chat</h2>
+                  <p className="text-sm text-amber-200/80">Connect with other KIMUN 2025 delegates</p>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {loading.messages ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
                     </div>
-                    <div className="flex items-center text-sm text-amber-100">
-                      <MapPin className="h-4 w-4 mr-2 text-amber-400" />
-                      <span>{event.location}</span>
+                  ) : messages.length > 0 ? (
+                    messages.map((message) => (
+                      <div key={message.id} className={`flex ${message.userId === userProfile?.id ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-xs lg:max-w-md p-3 rounded-lg ${
+                          message.userId === userProfile?.id
+                            ? 'bg-amber-600 text-black'
+                            : 'bg-amber-900/30 text-amber-100'
+                        }`}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="h-6 w-6 bg-amber-800/50 rounded-full flex items-center justify-center text-xs">
+                              {message.userName.charAt(0)}
+                            </div>
+                            <span className="text-sm font-medium">{message.userName}</span>
+                          </div>
+                          <p>{message.content}</p>
+                          <p className="text-xs opacity-70 mt-1 text-right">
+                            {formatTime(message.timestamp)}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-amber-200/80">
+                      <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No messages yet. Be the first to start the conversation!</p>
                     </div>
-                    <Button className="w-full bg-amber-600 hover:bg-amber-700 text-black">
-                      View Details
+                  )}
+                </div>
+
+                <div className="p-4 border-t border-amber-800/30">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                      placeholder="Type your message..."
+                      className="flex-1 px-4 py-2 bg-black/50 border border-amber-800/30 rounded-lg text-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                    />
+                    <Button
+                      onClick={handleSendMessage}
+                      className="bg-amber-600 hover:bg-amber-700 text-black"
+                      disabled={!newMessage.trim()}
+                    >
+                      <Send className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="md:col-span-2 lg:col-span-3 text-center py-10">
-                <p className="text-amber-200/80">No events found matching your search.</p>
               </div>
             )}
           </div>
-        )}
+        </div>
 
-        {/* --- Chat Tab --- */}
-        {activeTab === 'chat' && (
-          <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 flex flex-col h-[70vh]">
-            <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
-              <h2 className="text-xl font-bold text-amber-300 flex items-center">
-                <MessageCircle className="h-5 w-5 mr-2" />
-                Community Chat
-              </h2>
+        {/* Upcoming Events Section */}
+        <div className="mt-8 bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl p-6">
+          <h2 className="text-xl font-bold text-amber-300 mb-6">Upcoming Events</h2>
+
+          {loading.events ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
             </div>
-            
-            <div className="flex-1 p-6 space-y-4 overflow-y-auto">
-              {loading.messages ? (
-                <div className="flex justify-center items-center h-full">
-                  <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
-                </div>
-              ) : messages.length > 0 ? (
-                messages.map(msg => (
-                  <div 
-                    key={msg.id} 
-                    className={`flex items-start gap-3 ${msg.userId === userProfile?.id ? 'justify-end' : 'justify-start'}`}
-                  >
-                    {msg.userId !== userProfile?.id && (
-                      <div className="w-8 h-8 rounded-full bg-amber-900/50 flex-shrink-0 flex items-center justify-center text-xs text-amber-100">
-                        {msg.userName?.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <div className={`flex flex-col max-w-xs ${msg.userId === userProfile?.id ? 'items-end' : 'items-start'}`}>
-                      <span className={`text-xs mb-1 ${msg.userId === userProfile?.id ? 'text-amber-300/80' : 'text-amber-200/80'}`}>
-                        {msg.userId === userProfile?.id ? 'You' : msg.userName}
-                      </span>
-                      <div className={`p-3 rounded-xl ${msg.userId === userProfile?.id ? 'bg-amber-600/50 text-white' : 'bg-amber-900/50 text-amber-100'}`}>
-                        {msg.content}
-                      </div>
-                      <span className="text-[10px] text-amber-200/60 mt-1">{formatTime(msg.timestamp)}</span>
+          ) : filteredEvents.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {filteredEvents.map((event) => (
+                <div key={event.id} className="bg-black/50 p-6 rounded-lg border border-amber-800/30">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-lg font-bold text-amber-300">{event.title}</h3>
+                    <div className="flex items-center gap-2 text-sm text-amber-200/60">
+                      <MapPin className="h-4 w-4" />
+                      <span>{event.attendees} attending</span>
                     </div>
                   </div>
-                ))
-              ) : (
-                <div className="text-center text-amber-200/80 py-6">
-                  <p>No messages yet. Be the first to start the conversation!</p>
-                </div>
-              )}
-            </div>
 
-            <div className="p-4 border-t border-amber-800/30 bg-black/50">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Type your message..."
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage() }}
-                  className="flex-1 p-3 rounded-lg bg-black/50 border border-amber-800/30 focus:outline-none focus:ring-1 focus:ring-amber-500 text-white"
-                />
-                <Button onClick={handleSendMessage} className="bg-amber-600 hover:bg-amber-700 text-black font-bold">
-                  <Send className="h-5 w-5" />
-                </Button>
-              </div>
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-amber-400" />
+                      <span className="text-sm">{formatDate(event.date)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-amber-200/60">{event.time}</span>
+                    </div>
+                  </div>
+
+                  <p className="text-amber-200/80 mb-4">{event.description}</p>
+
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-amber-400" />
+                    <span className="text-sm">{event.location}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <p className="text-amber-200/80">No upcoming events</p>
+          )}
+        </div>
       </main>
     </div>
   )
