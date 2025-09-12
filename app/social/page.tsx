@@ -2,28 +2,29 @@
 'use client'
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
+import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, set, push, onValue, off } from 'firebase/database'
 import { getAuth, signOut } from 'firebase/auth'
 import { Button } from '@/components/ui/button'
-import { 
-  User, 
-  FileText, 
-  Users, 
-  CreditCard, 
-  LogOut, 
-  MessageCircle, 
-  Bell, 
-  Search,
-  Send,
-  MoreHorizontal,
-  Image as ImageIcon,
-  Award,
-  Loader2,
-  Calendar,
-  MapPin,
-  Mail,
-  Phone,
-  Link as LinkIcon,
+import { 
+  User, 
+  FileText, 
+  Users, 
+  CreditCard, 
+  LogOut, 
+  MessageCircle, 
+  Bell, 
+  Search,
+  Send,
+  MoreHorizontal,
+  Image as ImageIcon,
+  Award,
+  Loader2,
+  Calendar,
+  MapPin,
+  Mail,
+  Phone,
+  Link as LinkIcon,
   BarChart,
   LayoutDashboard
 } from 'lucide-react'
@@ -33,90 +34,94 @@ import Image from 'next/image'
 
 // Reuse your existing Firebase config
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 }
 
-// Initialize Firebase App
+// Corrected Firebase App Initialization
 let app;
-if (typeof window !== 'undefined' && !getAuth(app).app.name) {
-  app = initializeApp(firebaseConfig)
+try {
+  app = initializeApp(firebaseConfig);
+} catch (e) {
+  // Gracefully handle the error if the app is already initialized
+  // This is a common issue with Next.js hot-reloading in development
+  console.error("Firebase app already initialized", e);
 }
 
 // Types from the provided code
 type UserProfile = {
-  id: string
-  name: string
-  email: string
-  institution: string
-  experience: number
-  committee: string
-  country: string
-  bio?: string
-  interests?: string[]
-  avatar?: string
-  phone?: string
-  socialLinks?: {
-    website?: string
-    linkedin?: string
-    twitter?: string
-    instagram?: string
-  }
+  id: string
+  name: string
+  email: string
+  institution: string
+  experience: number
+  committee: string
+  country: string
+  bio?: string
+  interests?: string[]
+  avatar?: string
+  phone?: string
+  socialLinks?: {
+    website?: string
+    linkedin?: string
+    twitter?: string
+    instagram?: string
+  }
 }
 
 type Society = {
-  id: string
-  name: string
-  description: string
-  members: number
-  isMember: boolean
-  image?: string
-  meetings?: Array<{
-    date: string
-    time: string
-    location: string
-    topic: string
-  }>
+  id: string
+  name: string
+  description: string
+  members: number
+  isMember: boolean
+  image?: string
+  meetings?: Array<{
+    date: string
+    time: string
+    location: string
+    topic: string
+  }>
 }
 
 type Payment = {
-  id: string
-  amount: string
-  status: 'completed' | 'pending' | 'failed'
-  date: string
-  description: string
+  id: string
+  amount: string
+  status: 'completed' | 'pending' | 'failed'
+  date: string
+  description: string
 }
 
 type Message = {
-  id: string
-  userId: string
-  userName: string
-  userAvatar?: string
-  content: string
-  timestamp: Date
-  type: 'text' | 'image'
+  id: string
+  userId: string
+  userName: string
+  userAvatar?: string
+  content: string
+  timestamp: Date
+  type: 'text' | 'image'
 }
 
 type Event = {
-  id: string
-  title: string
-  date: string
-  time: string
-  location: string
-  description: string
-  image?: string
-  attendees: number
+  id: string
+  title: string
+  date: string
+  time: string
+  location: string
+  description: string
+  image?: string
+  attendees: number
 }
 
 // Main component
 export default function SocialPortal() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState('profile') // Default to a more informative tab
+  const [activeTab, setActiveTab] = useState('profile')
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [societies, setSocieties] = useState<Society[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
@@ -134,8 +139,11 @@ export default function SocialPortal() {
 
   // Check authentication and fetch data
   useEffect(() => {
-    const auth = getAuth()
-    const user = auth.currentUser
+    // We now have to get auth after the app is initialized
+    const auth = getAuth(app);
+    const user = auth.currentUser;
+
+    // Check if the user is authenticated
     if (!user) {
       router.push('/delegate')
       return
@@ -147,7 +155,7 @@ export default function SocialPortal() {
     fetchPayments()
     fetchEvents()
     setupChatListener()
-  }, [router])
+  }, [router, app]) // app is now a dependency to ensure useEffect has access to it
 
   const fetchUserProfile = async (email: string) => {
     try {
