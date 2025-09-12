@@ -1,17 +1,42 @@
 // app/delegate/page.tsx
 'use client'
 import { useState, useEffect, Suspense } from 'react'
-import { initializeApp } from 'firebase/app'
-import { getDatabase, ref, get, query, orderByChild, equalTo } from 'firebase/database'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { 
+  initializeApp 
+} from 'firebase/app'
+import { 
+  getDatabase, 
+  ref, 
+  get
+} from 'firebase/database'
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signOut,
+  onAuthStateChanged,
+  User
+} from 'firebase/auth'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Mail, Lock, User, FileText, Award, Download, QrCode, ChevronDown, ChevronUp, Loader2,Copy,Eye } from 'lucide-react'
+import { 
+  Mail, 
+  Lock, 
+  User as UserIcon, 
+  FileText, 
+  Award, 
+  Download, 
+  QrCode, 
+  ChevronDown, 
+  ChevronUp, 
+  Loader2, 
+  Copy, 
+  Eye 
+} from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import Link from 'next/link'
 import Image from 'next/image'
 import { generateCertificate } from '@/components/CertificateGenerator'
-import { CertificatePreview } from '@/components/CertificatePreview'
-
 
 // Firebase configuration
 const firebaseConfig = {
@@ -27,6 +52,8 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig)
 const db = getDatabase(app)
+const auth = getAuth(app)
+const googleProvider = new GoogleAuthProvider()
 
 type Mark = {
   total: number
@@ -97,8 +124,6 @@ type Coupon = {
 
 function DelegateDashboardContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const step = searchParams.get('step')
   const [previewCertificate, setPreviewCertificate] = useState<{
     show: boolean
     imageUrl: string
@@ -108,37 +133,8 @@ function DelegateDashboardContent() {
     imageUrl: '',
     name: ''
   })
-  const handleDownloadCertificate = async () => {
-    if (!delegate || !committee) return
-
-    try {
-      const doc = await generateCertificate(delegate, committee, portfolio)
-      doc.save(`KIMUN_Certificate_${delegate.name.replace(/\s+/g, '_')}.pdf`)
-    } catch (error) {
-      console.error('Failed to generate certificate:', error)
-      toast.error('Failed to generate certificate. Please try again.')
-    }
-  }
-  const handlePreviewCertificate = async () => {
-    if (!delegate || !committee) return
-
-    try {
-      setLoading(prev => ({ ...prev, certificate: true }))
-      const { imageDataUrl } = await generateCertificate(delegate, committee, portfolio, true)
-      setPreviewCertificate({
-        show: true,
-        imageUrl: imageDataUrl,
-        name: delegate.name
-      })
-    } catch (error) {
-      console.error('Failed to preview certificate:', error)
-      toast.error('Failed to preview certificate. Please try again.')
-    } finally {
-      setLoading(prev => ({ ...prev, certificate: false }))
-    }
-  }
-  const [email, setEmail] = useState('')
-  const [otp, setOtp] = useState('')
+  
+  const [user, setUser] = useState<User | null>(null)
   const [loggedIn, setLoggedIn] = useState(false)
   const [delegate, setDelegate] = useState<DelegateData | null>(null)
   const [committee, setCommittee] = useState<CommitteeData | null>(null)
@@ -147,31 +143,71 @@ function DelegateDashboardContent() {
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [loading, setLoading] = useState({
     login: false,
-    verify: false,
     data: false,
     resources: false,
     coupons: false,
     certificate: false
   })
   const [error, setError] = useState({
-    login: null as string | null,
-    verify: null as string | null
+    login: null as string | null
   })
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
 
-  // Check for existing session on initial load
+  // Auth state listener
   useEffect(() => {
-    const storedLoggedIn = localStorage.getItem('delegateLoggedIn') === 'true'
-    const storedEmail = localStorage.getItem('delegateEmail')
-    
-    if (storedLoggedIn) {
-      setLoggedIn(true)
-      fetchDelegateData(storedEmail || '')
-    } else if (storedEmail) {
-      setEmail(storedEmail)
-      router.push('/delegate?step=verify')
-    }
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUser(user)
+        setLoggedIn(true)
+        await fetchDelegateData(user.email!)
+      } else {
+        setUser(null)
+        setLoggedIn(false)
+        setDelegate(null)
+        setCommittee(null)
+        setPortfolio(null)
+      }
+    })
+
+    return () => unsubscribe()
   }, [router])
+
+  const signInWithGoogle = async () => {
+    try {
+      setLoading(prev => ({ ...prev, login: true }))
+      setError(prev => ({ ...prev, login: null }))
+      
+      const result = await signInWithPopup(auth, googleProvider)
+      const user = result.user
+      
+      setUser(user)
+      setLoggedIn(true)
+      toast.success('Login successful!')
+      
+    } catch (error: any) {
+      console.error('Google sign-in error:', error)
+      setError(prev => ({ ...prev, login: error.message }))
+      toast.error('Failed to sign in with Google')
+    } finally {
+      setLoading(prev => ({ ...prev, login: false }))
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth)
+      setLoggedIn(false)
+      setDelegate(null)
+      setCommittee(null)
+      setPortfolio(null)
+      setResources([])
+      setCoupons([])
+      toast.info('Logged out successfully')
+    } catch (error) {
+      console.error('Logout error:', error)
+      toast.error('Failed to logout')
+    }
+  }
 
   const fetchDelegateData = async (email: string) => {
     try {
@@ -187,19 +223,19 @@ function DelegateDashboardContent() {
       // Search through all registrations for matching email
       const registrations = snapshot.val()
       let foundDelegate = null
-      let registrationKey = ''
 
       for (const key in registrations) {
         const registration = registrations[key]
+        
         // Check delegate1
         if (registration.delegateInfo?.delegate1?.email === email) {
           foundDelegate = {
             id: key,
             ...registration.delegateInfo.delegate1,
             committeeId: registration.committeeId,
-            portfolioId: registration.portfolioId
+            portfolioId: registration.portfolioId,
+            isCheckedIn: registration.isCheckedIn || false
           }
-          registrationKey = key
           break
         }
         // Check delegate2
@@ -208,15 +244,30 @@ function DelegateDashboardContent() {
             id: key,
             ...registration.delegateInfo.delegate2,
             committeeId: registration.committeeId,
-            portfolioId: registration.portfolioId
+            portfolioId: registration.portfolioId,
+            isCheckedIn: registration.isCheckedIn || false
           }
-          registrationKey = key
+          break
+        }
+        
+        // Also check if email is directly in the registration
+        if (registration.email === email) {
+          foundDelegate = {
+            id: key,
+            name: registration.name,
+            email: registration.email,
+            committeeId: registration.committeeId,
+            portfolioId: registration.portfolioId,
+            isCheckedIn: registration.isCheckedIn || false,
+            experience: registration.experience,
+            institution: registration.institution
+          }
           break
         }
       }
 
       if (!foundDelegate) {
-        throw new Error('No delegate found with this email')
+        throw new Error('No delegate found with this email. Please ensure you used the same email you registered with.')
       }
 
       setDelegate(foundDelegate)
@@ -320,93 +371,43 @@ function DelegateDashboardContent() {
     }
   }
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(prev => ({ ...prev, login: true }))
-    setError(prev => ({ ...prev, login: null }))
+  const handleDownloadCertificate = async () => {
+    if (!delegate || !committee) return
 
     try {
-      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        throw new Error('Please enter a valid email address')
-      }
-
-      const response = await fetch('/api/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to send OTP')
-      }
-      
-      localStorage.setItem('delegateEmail', email)
-      router.push('/delegate?step=verify')
-      toast.success('OTP sent to your email')
-    } catch (err: any) {
-      setError(prev => ({ ...prev, login: err.message }))
-      toast.error(err.message)
-    } finally {
-      setLoading(prev => ({ ...prev, login: false }))
+      const doc = await generateCertificate(delegate, committee, portfolio)
+      doc.save(`KIMUN_Certificate_${delegate.name.replace(/\s+/g, '_')}.pdf`)
+    } catch (error) {
+      console.error('Failed to generate certificate:', error)
+      toast.error('Failed to generate certificate. Please try again.')
     }
   }
 
-  const verifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(prev => ({ ...prev, verify: true }))
-    setError(prev => ({ ...prev, verify: null }))
+  const handlePreviewCertificate = async () => {
+    if (!delegate || !committee) return
 
     try {
-      if (!otp || otp.length !== 6 || !/^\d+$/.test(otp)) {
-        throw new Error('Please enter a valid 6-digit OTP')
-      }
-
-      const response = await fetch('/api/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp })
+      setLoading(prev => ({ ...prev, certificate: true }))
+      const { imageDataUrl } = await generateCertificate(delegate, committee, portfolio, true)
+      setPreviewCertificate({
+        show: true,
+        imageUrl: imageDataUrl,
+        name: delegate.name
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Invalid OTP')
-      }
-
-      setLoggedIn(true)
-      localStorage.setItem('delegateLoggedIn', 'true')
-      localStorage.removeItem('delegateEmail')
-      
-      fetchDelegateData(email)
-      router.push('/delegate')
-      toast.success('Login successful')
-    } catch (err: any) {
-      setError(prev => ({ ...prev, verify: err.message }))
-      toast.error(err.message)
+    } catch (error) {
+      console.error('Failed to preview certificate:', error)
+      toast.error('Failed to preview certificate. Please try again.')
     } finally {
-      setLoading(prev => ({ ...prev, verify: false }))
+      setLoading(prev => ({ ...prev, certificate: false }))
     }
-  }
-
-  const handleLogout = () => {
-    setLoggedIn(false)
-    setDelegate(null)
-    setCommittee(null)
-    setPortfolio(null)
-    setResources([])
-    setCoupons([])
-    localStorage.removeItem('delegateLoggedIn')
-    localStorage.removeItem('delegateEmail')
-    router.push('/delegate')
-    toast.info('Logged out successfully')
   }
 
   const toggleCard = (cardId: string) => {
     setExpandedCard(expandedCard === cardId ? null : cardId)
   }
-
-  // Login form (step 1)
-  if (!loggedIn && step !== 'verify') {
+  
+    // Login form
+  if (!loggedIn) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-black to-amber-950/20 flex items-center justify-center p-4">
         <Toaster position="top-center" richColors theme="dark" />
@@ -417,109 +418,59 @@ function DelegateDashboardContent() {
             <p className="text-amber-100/80 mt-2">Sign in to access your dashboard</p>
           </div>
           
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-amber-200 mb-1">Email Address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 bg-black/70 border border-amber-500/50 rounded-lg text-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                placeholder="your@email.com"
-                required
-                disabled={loading.login}
-              />
-              {error.login && (
-                <p className="mt-1 text-sm text-red-400">{error.login}</p>
-              )}
-            </div>
+          <div className="space-y-6">
+            {error.login && (
+              <div className="bg-red-900/50 border border-red-700/50 p-3 rounded-lg">
+                <p className="text-sm text-red-300">{error.login}</p>
+              </div>
+            )}
+            
             <Button 
-              type="submit" 
-              className="w-full bg-amber-600 hover:bg-amber-700 h-11 text-black font-bold"
+              onClick={signInWithGoogle}
+              className="w-full bg-white hover:bg-gray-100 h-11 text-black font-bold border border-gray-300"
               disabled={loading.login}
             >
               {loading.login ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending OTP...
+                  Signing in...
                 </>
               ) : (
                 <>
-                  <Mail className="mr-2 h-4 w-4" /> 
-                  Send OTP
+                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+                    <path
+                      fill="currentColor"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    />
+                  </svg>
+                  Sign in with Google
                 </>
               )}
             </Button>
-          </form>
+            
+            <div className="text-center">
+              <p className="text-sm text-amber-200/80">
+                Use the same Google account you registered with
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     )
   }
 
-  // OTP verification form (step 2)
-  if (!loggedIn && step === 'verify') {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-black to-amber-950/20 flex items-center justify-center p-4">
-        <Toaster position="top-center" richColors theme="dark" />
-        <div className="bg-gradient-to-b from-black to-amber-950/80 border border-amber-800/50 p-8 rounded-xl shadow-lg shadow-amber-900/10 w-full max-w-md">
-          <div className="text-center mb-8">
-            <Award className="h-12 w-12 text-amber-400 mx-auto" />
-            <h1 className="text-3xl font-bold mt-4 text-amber-300">Verify Your OTP</h1>
-            <p className="text-amber-100/80 mt-2">We sent a 6-digit code to {email}</p>
-          </div>
-          
-          <form onSubmit={verifyOtp} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-amber-200 mb-1">OTP Code</label>
-              <input
-                type="text"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="w-full px-4 py-2 bg-black/70 border border-amber-500/50 rounded-lg text-white text-center text-xl tracking-widest focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                placeholder="123456"
-                required
-                disabled={loading.verify}
-              />
-              {error.verify && (
-                <p className="mt-1 text-sm text-red-400">{error.verify}</p>
-              )}
-            </div>
-            <div className="flex gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full border-amber-500 text-amber-300 hover:bg-amber-900/30 h-11"
-                onClick={() => {
-                  setOtp('')
-                  router.push('/delegate')
-                }}
-                disabled={loading.verify}
-              >
-                Back
-              </Button>
-              <Button 
-                type="submit" 
-                className="w-full bg-amber-600 hover:bg-amber-700 h-11 text-black font-bold"
-                disabled={loading.verify}
-              >
-                {loading.verify ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Verifying...
-                  </>
-                ) : (
-                  <>
-                    <Lock className="mr-2 h-4 w-4" /> 
-                    Verify & Login
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
-        </div>
-      </div>
-    )
-  }
 
   // Main dashboard
   return (
@@ -585,7 +536,7 @@ function DelegateDashboardContent() {
           >
             <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30 flex justify-between items-center cursor-pointer">
               <h2 className="text-xl font-bold text-amber-300 flex items-center">
-                <User className="h-5 w-5 mr-2" /> 
+  <UserIcon className="h-5 w-5 mr-2" />  {/* Use UserIcon instead of User */}
                 Committee Information
               </h2>
               {expandedCard === 'committee' ? (

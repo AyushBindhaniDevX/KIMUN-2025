@@ -39,32 +39,59 @@ export async function POST(request: Request) {
       attempts: 0
     })
 
-    // Send email
+    // For development/testing - log OTP to console instead of sending email
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`OTP for ${email}: ${otp}`)
+      return NextResponse.json({ success: true, debug: true, otp })
+    }
+
+    // Gmail SMTP Configuration (for production)
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT),
-      secure: true,
+      service: 'gmail',
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD, // Use App Password, not regular password
       },
     })
 
     await transporter.sendMail({
-      from: `"KIMUN Secretariat" <${process.env.SMTP_USER}>`,
+      from: `"KIMUN Secretariat" <${process.env.GMAIL_USER}>`,
       to: email,
       subject: "Your KIMUN Login OTP",
       html: `
-        <p>Your OTP for KIMUN delegate login is: <strong>${otp}</strong></p>
-        <p>This OTP is valid for 15 minutes.</p>
-      `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #D97706;">KIMUN 2025 Delegate Portal</h2>
+          </div>
+          <p>Hello,</p>
+          <p>Your verification code for KIMUN delegate login is:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <span style="font-size: 32px; font-weight: bold; color: #D97706; letter-spacing: 5px;">${otp}</span>
+          </div>
+          <p>This code will expire in 15 minutes for security reasons.</p>
+          <p>If you didn't request this code, please ignore this email.</p>
+          <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+          <p style="font-size: 12px; color: #666;">KIMUN Secretariat Team</p>
+        </div>
+      `,
+      text: `Your KIMUN verification code is: ${otp}. This code will expire in 15 minutes.`
     })
 
+    console.log('OTP sent successfully to:', email)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error in send-otp:', error)
+    
+    // More specific error messages
+    let errorMessage = 'Failed to send OTP. Please try again later.'
+    if (error.code === 'EAUTH') {
+      errorMessage = 'Email authentication failed. Please check email credentials.'
+    } else if (error.code === 'ECONNECTION') {
+      errorMessage = 'Cannot connect to email server. Please try again later.'
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to send OTP. Please try again later.' },
+      { error: errorMessage },
       { status: 500 }
     )
   }
