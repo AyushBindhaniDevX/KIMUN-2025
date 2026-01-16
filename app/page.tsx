@@ -1,122 +1,96 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { motion, useScroll, useTransform } from "framer-motion"
+import React, { useState, useEffect, useRef } from "react"
+import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
 import { useInView } from "react-intersection-observer"
-import { Button } from "@/components/ui/button"
-import { Calendar, ChevronRight, Globe, MapPin, Sparkles, Star, Users, Loader2 } from "lucide-react"
-import MobileNav from "@/components/mobile-nav"
-import ParallaxText from "@/components/parallax-text"
+import { 
+  Calendar, ChevronRight, Globe, MapPin, Sparkles, Star, Users, Loader2,
+  Zap, Shield, Fingerprint, Activity, ShieldCheck, Play, Mic, MicOff, LogOut,
+  ArrowRight, Ticket, Menu, X
+} from "lucide-react"
 import { initializeApp } from "firebase/app"
 import { getDatabase, ref, get, set } from "firebase/database"
 
-// Firebase configuration
+// --- Firebase configuration (Using your provided MUN config) ---
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+  apiKey: "", // Left empty for runtime environment injection
+  authDomain: "kimun-2025.firebaseapp.com",
+  databaseURL: "https://kimun-2025-default-rtdb.firebaseio.com",
+  projectId: "kimun-2025",
+  storageBucket: "kimun-2025.appspot.com",
+  messagingSenderId: "367175515228",
+  appId: "1:367175515228:web:7586526e0310245037233a"
 }
 
-type Committee = {
-  id: string
-  name: string
-  emoji: string
-  portfolios: Portfolio[]
-}
+// --- Components ---
+const Button = React.forwardRef(({ className, variant = "default", size = "default", ...props }, ref) => {
+  const variants = {
+    default: "bg-white text-black hover:bg-violet-600 hover:text-white shadow-xl shadow-violet-500/10",
+    outline: "border border-white/10 bg-white/5 text-white hover:bg-white hover:text-black",
+    ghost: "text-zinc-500 hover:text-rose-500 hover:bg-rose-500/10",
+    secondary: "bg-violet-600 text-white hover:bg-violet-700 shadow-lg shadow-violet-500/20"
+  }
+  const sizes = {
+    default: "h-12 px-6",
+    lg: "h-16 px-10 text-lg",
+    icon: "h-10 w-10 p-0"
+  }
+  return (
+    <button
+      ref={ref}
+      className={`inline-flex items-center justify-center rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 disabled:opacity-50 ${variants[variant] || variants.default} ${sizes[size] || sizes.default} ${className}`}
+      {...props}
+    />
+  )
+})
+Button.displayName = "Button"
 
-type Portfolio = {
-  id: string
-  country: string
-  countryCode: string
-  isDoubleDelAllowed: boolean
-  isVacant: boolean
-  minExperience: number
-}
 const sponsors = [
   {
     name: "Venue Partner",
     tier: "gold",
-    logos: [
-      { 
-        url: "https://www.asbm.ac.in/wp-content/uploads/2021/02/FINAL-LOGO-1.png", 
-        alt: "ASBMU",
-        website: "https://www.asbm.ac.in" // ASBM University website
-      }
-    ]
+    logos: [{ url: "https://www.asbm.ac.in/wp-content/uploads/2021/02/FINAL-LOGO-1.png", alt: "ASBMU", website: "https://www.asbm.ac.in" }]
   },
   {
     name: "Coupon Partner",
     tier: "silver",
     logos: [
-      { 
-        url: "https://upload.wikimedia.org/wikipedia/en/thumb/d/d3/Starbucks_Corporation_Logo_2011.svg/320px-Starbucks_Corporation_Logo_2011.svg.png", 
-        alt: "STBK",
-        website: "https://www.starbucks.in" // Starbucks India website
-      },
-      { 
-        url: "https://kimun497636615.wordpress.com/wp-content/uploads/2025/05/gali-no.-19-logo.png", 
-        alt: "G19",
-        website: "https://www.instagram.com/galino19_bbsr/" // Placeholder for Gali No. 19
-      }
+      { url: "https://upload.wikimedia.org/wikipedia/en/thumb/d/d3/Starbucks_Corporation_Logo_2011.svg/320px-Starbucks_Corporation_Logo_2011.svg.png", alt: "STBK", website: "https://www.starbucks.in" },
+      { url: "https://kimun497636615.wordpress.com/wp-content/uploads/2025/05/gali-no.-19-logo.png", alt: "G19", website: "https://www.instagram.com/galino19_bbsr/" }
     ]
   }
-];
+]
 
-export default function Home() {
-  const { scrollY } = useScroll()
-  const y1 = useTransform(scrollY, [0, 500], [0, 100])
-  const y2 = useTransform(scrollY, [0, 500], [0, -100])
-  const opacity = useTransform(scrollY, [0, 200, 300, 500], [1, 0.5, 0.5, 0])
-
+export default function App() {
   const [isMounted, setIsMounted] = useState(false)
-  const [committees, setCommittees] = useState<Committee[]>([])
+  const [committees, setCommittees] = useState([])
   const [loading, setLoading] = useState(true)
   const [underMaintenance, setUnderMaintenance] = useState(false)
-  const [countdown, setCountdown] = useState(600) // 10 minutes in seconds
+  const [countdown, setCountdown] = useState(600)
+  const [scrolled, setScrolled] = useState(false)
 
-  const [ref1, inView1] = useInView({
-    triggerOnce: false,
-    threshold: 0.1,
-  })
-
-  const [ref2, inView2] = useInView({
-    triggerOnce: false,
-    threshold: 0.1,
-  })
-
-  const [ref3, inView3] = useInView({
-    triggerOnce: false,
-    threshold: 0.1,
-  })
+  const { scrollY } = useScroll()
+  const yHero = useTransform(scrollY, [0, 500], [0, 150])
 
   useEffect(() => {
     setIsMounted(true)
+    const handleScroll = () => setScrolled(window.scrollY > 50)
+    window.addEventListener("scroll", handleScroll)
     
     const fetchData = async () => {
       try {
         const app = initializeApp(firebaseConfig)
         const db = getDatabase(app)
-        
-        // Check maintenance status first
         const maintenanceRef = ref(db, 'maintenance')
         const maintenanceSnapshot = await get(maintenanceRef)
         
         if (!maintenanceSnapshot.exists()) {
-          // If maintenance flag doesn't exist, create it with false
           await set(maintenanceRef, { enabled: false })
           setUnderMaintenance(false)
         } else {
           const maintenanceData = maintenanceSnapshot.val()
           setUnderMaintenance(maintenanceData.enabled)
-          
           if (maintenanceData.enabled) {
-            // Start countdown if in maintenance mode
             const timer = setInterval(() => {
               setCountdown(prev => {
                 if (prev <= 1) {
@@ -127,632 +101,315 @@ export default function Home() {
                 return prev - 1
               })
             }, 1000)
-            
             return () => clearInterval(timer)
           }
         }
 
-        // Only fetch committees if not in maintenance mode
         if (!underMaintenance) {
           const committeesRef = ref(db, 'committees')
           const snapshot = await get(committeesRef)
-          
           if (snapshot.exists()) {
-            const committeesData = snapshot.val()
-            const committeesArray = Object.keys(committeesData).map(key => ({
+            const data = snapshot.val()
+            const arr = Object.keys(data).map(key => ({
               id: key,
-              ...committeesData[key],
-              portfolios: Object.keys(committeesData[key].portfolios || {}).map(portfolioKey => ({
-                id: portfolioKey,
-                ...committeesData[key].portfolios[portfolioKey]
+              ...data[key],
+              portfolios: Object.keys(data[key].portfolios || {}).map(pk => ({
+                id: pk,
+                ...data[key].portfolios[pk]
               }))
             }))
-            setCommittees(committeesArray)
+            setCommittees(arr)
           }
         }
         setLoading(false)
       } catch (err) {
-        console.error("Failed to load data:", err)
+        console.error("Sync Error:", err)
         setLoading(false)
       }
     }
-
     fetchData()
+    return () => window.removeEventListener("scroll", handleScroll)
   }, [underMaintenance])
 
   if (!isMounted) return null
 
+  // --- Maintenance Mode (VYBB Style) ---
   if (underMaintenance) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4 text-center">
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="max-w-2xl mx-auto"
-        >
-          <div className="mb-8">
-            <Image 
-              src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" 
-              alt="KIMUN Logo" 
-              width={120} 
-              height={120} 
-              className="mx-auto"
-            />
-          </div>
-          <h1 className="text-4xl md:text-6xl font-bold text-amber-400 mb-6">
-            Under Maintenance
+      <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center justify-center p-6 text-center font-sans">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+           <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-rose-600/10 blur-[140px] rounded-full animate-pulse" />
+        </div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 space-y-8">
+          <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Logo" className="w-[100px] h-[100px] mx-auto grayscale" />
+          <h1 className="text-6xl md:text-8xl font-black italic tracking-tighter uppercase leading-none">
+            Registry <br/><span className="text-rose-500">Locked.</span>
           </h1>
-          <p className="text-xl md:text-2xl text-gray-300 mb-8">
-            We're currently performing scheduled maintenance. Please check back soon.
-          </p>
-          
-          <div className="bg-amber-900/20 border border-amber-800 rounded-xl p-6 mb-8">
-            <h2 className="text-2xl font-bold text-amber-300 mb-4">
-              Automatic Refresh In
-            </h2>
-            <div className="text-5xl font-mono font-bold text-white">
+          <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em]">Scheduled Maintenance Protocol</p>
+          <div className="p-12 rounded-[3rem] bg-zinc-950 border border-white/5 shadow-2xl">
+            <div className="text-5xl font-mono font-black italic text-white mb-4">
               {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, '0')}
             </div>
-            <p className="text-gray-400 mt-4">
-              The page will automatically refresh when maintenance is complete
-            </p>
+            <p className="text-zinc-600 text-[9px] font-black uppercase tracking-widest">Automatic Sync In Progress</p>
           </div>
-          
-          <Button 
-            onClick={() => window.location.reload()} 
-            className="bg-amber-500 hover:bg-amber-600 text-black font-bold px-8 py-6 text-lg rounded-full"
-          >
-            Refresh Now
-          </Button>
+          <Button onClick={() => window.location.reload()} variant="outline" className="px-12">MANUAL REFRESH</Button>
         </motion.div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-hidden">
-      {/* Navigation */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-md border-b border-amber-800/20">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center gap-2">
-              <motion.div
-                initial={{ rotate: -10, scale: 0.9 }}
-                animate={{ rotate: 0, scale: 1 }}
-                transition={{ duration: 0.5 }}
-              >
-                <Image src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Kalinga International MUN Logo" width={40} height={40} className="mr-2" />
-              </motion.div>
-              <motion.span
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-                className="text-lg font-bold text-amber-300 hidden sm:inline-block"
-              >
-                Kalinga International Model United Nations
-              </motion.span>
-            </Link>
+    <div className="min-h-screen bg-[#050505] text-white selection:bg-violet-500/30 overflow-x-hidden font-sans">
+      
+      {/* NAVBAR */}
+      <nav className={`fixed top-0 w-full z-[100] transition-all duration-500 px-6 ${scrolled ? 'py-4 bg-black/60 backdrop-blur-2xl border-b border-white/5' : 'py-8'}`}>
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <a href="/" className="flex items-center gap-3">
+             <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Logo" className="w-8 h-8" />
+             <div className="text-xl font-black italic tracking-tighter uppercase">KIMUN <span className="text-violet-500">2025</span></div>
+          </a>
+          <div className="hidden md:flex items-center gap-10 text-[9px] font-black uppercase tracking-[0.4em] text-zinc-500">
+            {["About", "Registration", "Matrix", "Resources", "Committees"].map(item => (
+              <a key={item} href={`/${item.toLowerCase()}`} className="hover:text-white transition-colors">{item}</a>
+            ))}
           </div>
-          <nav className="hidden md:flex space-x-8">
-            {["Home", "About", "Registration", "Matrix", "Resources", "Committees", "Delegate"].map(
-              (item, i) => (
-                <motion.div
-                  key={item}
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 * i, duration: 0.5 }}
-                >
-                  <Link
-                    href={item === "Home" ? "/" : `/${item.toLowerCase()}`}
-                    className="text-amber-100 hover:text-amber-400 transition-colors relative group"
-                  >
-                    {item}
-                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-amber-400 transition-all group-hover:w-full"></span>
-                  </Link>
-                </motion.div>
-              ),
-            )}
-          </nav>
-          <MobileNav />
+          <a href="/registration">
+            <Button className="rounded-xl h-10 text-[9px]">INITIALIZE ACCESS</Button>
+          </a>
         </div>
-      </header>
+      </nav>
 
-      {/* Hero Section */}
-      <section className="relative h-screen flex items-center justify-center overflow-hidden">
-        <motion.div className="absolute inset-0 z-0" style={{ y: y1 }}>
-          <div className="absolute inset-0 bg-gradient-to-b from-black via-transparent to-black opacity-95 z-50"></div>
-          <Image
+      {/* HERO SECTION */}
+      <section className="relative h-screen flex items-center pt-20">
+        <motion.div style={{ y: yHero }} className="absolute inset-0 z-0">
+          <div className="absolute inset-0 bg-gradient-to-b from-[#050505] via-transparent to-[#050505] z-10" />
+          <img
             src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/chatgpt-image-mar-29-2025-12_03_59-pm.png"
-            alt="Background"
-            fill
-            className="object-cover"
-            priority
+            alt="Background" className="w-full h-full object-cover opacity-20 grayscale"
           />
         </motion.div>
 
-        <div className="absolute inset-0 bg-[url('/hero-pattern.svg')] opacity-20 z-10"></div>
-
-        <div className="container mx-auto px-4 z-20 mt-16">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1 }}
-            style={{ opacity }}
-            className="absolute top-1/3 right-10 hidden lg:block"
-          >
-          </motion.div>
-
-          <div className="max-w-3xl">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-              <h1 className="text-5xl md:text-7xl font-bold text-amber-300 mb-4 leading-tight">
-                KALINGA <br />
-                <span className="text-white">INTERNATIONAL</span> <br />
-                <span className="relative">
-                  MUN
-                  <motion.span
-                    className="absolute -top-1 -right-12 text-3xl text-amber-400"
-                    initial={{ rotate: -10, scale: 0.8 }}
-                    animate={{ rotate: 0, scale: 1 }}
-                    transition={{ delay: 1, duration: 0.5 }}
-                  >
-                    <Sparkles />
-                  </motion.span>
-                </span>
-              </h1>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.8 }}
-            >
-              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
-                <span className="text-amber-400">5</span> - <span className="text-amber-400">6</span> {" "}
-                JULY 2025
-              </h2>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6, duration: 0.8 }}
-            >
-              <div className="flex flex-wrap gap-4">
-                <Link href="/registration" passHref>
-                  <Button className="bg-amber-500 hover:bg-amber-600 text-black font-bold px-8 py-6 text-lg rounded-full group">
-                    Register Now
-                    <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-                  </Button>
-                </Link>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-
-        <div className="absolute bottom-10 left-0 right-0 z-20">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1, duration: 0.8 }}
-            className="flex justify-center"
-          >
-            <motion.div
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY }}
-              className="text-amber-300"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="40"
-                height="40"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 5v14"></path>
-                <path d="m19 12-7 7-7-7"></path>
-              </svg>
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Marquee Section */}
-      <section className="py-8 bg-gradient-to-r from-amber-900/20 via-black to-amber-900/20 overflow-hidden">
-        <ParallaxText baseVelocity={-3}>DIPLOMACY • LEADERSHIP • GLOBAL ISSUES • DEBATE • NETWORKING</ParallaxText>
-      </section>
-
-      {/* Status Banner */}
-      <section className="bg-gradient-to-r from-amber-900 to-black py-8">
-        <div className="container mx-auto px-4 text-center">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-2xl font-bold text-amber-400">KALINGA INTERNATIONAL MUN &apos;25</h2>
-            <h3 className="text-3xl font-bold text-white mt-2 flex items-center justify-center gap-2">
-              <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+        <div className="container mx-auto px-6 relative z-10">
+          <div className="max-w-5xl space-y-12">
+            <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
+              <span className="inline-block px-6 py-2 rounded-full border border-violet-500/20 bg-violet-500/5 text-[9px] font-black uppercase tracking-[0.4em] text-violet-400 mb-8 backdrop-blur-xl">
+                <Activity className="inline-block h-3 w-3 mr-3" /> Diplomacy Protocol v1.0
               </span>
-              {loading ? "LOADING..." : (
-                committees.some(c => c.portfolios.some(p => p.isVacant)) 
-                ? "REGISTRATION OPEN" 
-                : "REGISTRATION CLOSED"
-              )}
-            </h3>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* About Section */}
-      <section ref={ref1} className="py-20 bg-black relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/hero-pattern.svg')] opacity-5"></div>
-        <div className="container mx-auto px-4 relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={inView1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
-            transition={{ duration: 0.8 }}
-            className="mb-12 text-center"
-          >
-            <span className="text-amber-500 text-lg font-medium">Kalinga International MUN 2025</span>
-            <h2 className="text-4xl md:text-5xl font-bold text-white mt-2">About The Event</h2>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={inView1 ? { opacity: 1, x: 0 } : { opacity: 0, x: -50 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-            >
-              <div className="prose prose-lg text-gray-300 max-w-none">
-                <p className="text-xl leading-relaxed">
-                  A debonair personification of international diplomacy, Kalinga International MUN has been a conduit,
-                  transcending academia into pertinent leadership. An assorted collection of UN committees to pursue, it
-                  proffers an engaging opportunity for delegates vying for meaningful deliberation.
+              <h1 className="text-7xl md:text-[10rem] font-black italic tracking-tighter uppercase leading-[0.8] mb-12">
+                KALINGA <br />
+                <span className="bg-gradient-to-r from-violet-500 via-rose-400 to-amber-400 bg-clip-text text-transparent">INTERNATIONAL.</span>
+              </h1>
+              <div className="flex flex-col md:flex-row items-end gap-8">
+                <p className="text-xl md:text-2xl text-zinc-500 max-w-xl font-medium lowercase border-l-2 border-violet-500/30 pl-8 text-left leading-relaxed">
+                  The debonair personification of international diplomacy. Transcending academia into pertinent leadership loops.
                 </p>
-                <p className="text-xl leading-relaxed">
-                  Kalinga International MUN is back again, with its inaugural installment in 2025 as a two day
-                  conference on the <strong className="text-amber-400">5th and 6th of July</strong>.
-                </p>
-              </div>
-
-              <div className="mt-8 flex flex-wrap gap-4">
-                <div className="flex items-center gap-3 bg-amber-900/20 px-4 py-3 rounded-full">
-                  <Calendar className="text-amber-400 h-5 w-5" />
-                  <span className="text-amber-100">2 Days</span>
+                <div className="text-right flex-1 hidden md:block">
+                  <p className="text-5xl font-black italic tracking-tighter text-white">05-06 JULY</p>
+                  <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">BHUBANESWAR REGISTRY</p>
                 </div>
-                <div className="flex items-center gap-3 bg-amber-900/20 px-4 py-3 rounded-full">
-                  <Users className="text-amber-400 h-5 w-5" />
-                  <span className="text-amber-100">300+ Delegates</span>
-                </div>
-                <div className="flex items-center gap-3 bg-amber-900/20 px-4 py-3 rounded-full">
-                  <Globe className="text-amber-400 h-5 w-5" />
-                  <span className="text-amber-100">7 Committees</span>
-                </div>
-                <a
-  href="https://maps.app.goo.gl/2rP1Kp8fFzY8rABy6"
-  target="_blank"
-  rel="noopener noreferrer"
->
-  <div className="flex items-center gap-3 bg-amber-900/20 px-4 py-3 rounded-full hover:bg-amber-800/30 transition">
-    <MapPin className="text-amber-400 h-5 w-5" />
-    <span className="text-amber-100">ASBMU Bhubaneswar, India</span>
-  </div>
-</a>
-
               </div>
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={inView1 ? { opacity: 1, x: 0 } : { opacity: 0, x: 50 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              className="relative"
-            >
-              <div className="absolute -inset-4 bg-amber-500/20 rounded-2xl blur-xl"></div>
-              <div className="relative aspect-video rounded-2xl overflow-hidden border border-amber-500/30">
-                <Image
-                  src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/chatgpt-image-mar-29-2025-08_39_55-pm.png"
-                  alt="Conference"
-                  width={800}
-                  height={450}
-                  className="object-cover w-full h-full"
-                />
-              </div>
-              <motion.div
-                className="absolute -bottom-6 -right-6 bg-amber-500 rounded-full p-3 shadow-lg"
-                animate={{ rotate: [0, 10, 0] }}
-                transition={{ duration: 5, repeat: Number.POSITIVE_INFINITY }}
-              >
-                <Star className="h-8 w-8 text-black" />
-              </motion.div>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="flex gap-6">
+              <a href="/registration">
+                <Button size="lg" className="group h-20 px-12">
+                  Initialize Registration <ArrowRight className="ml-3 h-5 w-5 group-hover:translate-x-2 transition-transform" />
+                </Button>
+              </a>
             </motion.div>
           </div>
         </div>
       </section>
 
-      {/* Sponsors Section */}
-<section ref={ref3} className="py-20 bg-black relative overflow-hidden">
-  <div className="container mx-auto px-4 relative z-10">
-    <motion.h2 
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, ease: "easeOut" }}
-      className="text-4xl md:text-5xl font-bold text-center mb-12 text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-400"
-    >
-      Our Partners
-    </motion.h2>
-
-    <div className="space-y-16">
-      {sponsors.map((sponsor, index) => (
-        <motion.div
-          key={sponsor.name}
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: index * 0.2 }}
+      {/* MARQUEE */}
+      <section className="py-20 bg-black overflow-hidden border-y border-white/5">
+        <motion.div 
+          animate={{ x: [0, -2000] }}
+          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+          className="flex gap-20 whitespace-nowrap"
         >
-          <h3 className="text-xl md:text-2xl font-semibold text-center mb-8 text-white">
-            {sponsor.name}
-          </h3>
-          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16">
-            {sponsor.logos.map((logo, logoIndex) => (
-              <motion.div
-                key={logo.alt}
-                initial={{ scale: 0.8, opacity: 0 }}
-                whileInView={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.5, delay: logoIndex * 0.1 }}
-              >
-                <a 
-                  href={logo.website} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="block hover:opacity-80 transition-opacity"
-                >
-                  <Image
-                    src={logo.url}
-                    alt={logo.alt}
-                    width={sponsor.tier === 'gold' ? 300 : 250}
-                    height={sponsor.tier === 'gold' ? 150 : 100}
-                    className="object-contain"
-                  />
-                </a>
-              </motion.div>
-            ))}
-          </div>
+          {Array(10).fill(["DIPLOMACY", "LEADERSHIP", "GLOBAL ISSUES", "DEBATE", "NETWORKING"]).flat().map((word, i) => (
+            <span key={i} className="text-8xl font-black italic tracking-tighter uppercase text-zinc-900 hover:text-violet-500 transition-colors cursor-default select-none">
+              {word}
+            </span>
+          ))}
         </motion.div>
-      ))}
-    </div>
+      </section>
 
-    <motion.div
-      initial={{ opacity: 0 }}
-      whileInView={{ opacity: 1 }}
-      transition={{ duration: 0.5, delay: 0.2 }}
-      className="text-center mt-16"
-    >
-      <a
-        href="mailto:info@kimun.in.net"
-        className="inline-block px-8 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold rounded-lg hover:scale-105 transition-transform"
-      >
-        Become a Sponsor
-      </a>
-    </motion.div>
-  </div>
-</section>
+      {/* STATUS BANNER */}
+      <section className="py-24 bg-zinc-950/50">
+        <div className="container mx-auto px-6 text-center">
+          <div className="inline-flex flex-col items-center">
+             <div className="flex items-center gap-3 mb-4">
+                <div className={`h-2 w-2 rounded-full ${loading ? 'bg-zinc-700' : 'bg-emerald-500 animate-pulse'}`} />
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500">System Status</span>
+             </div>
+             <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-center">
+                {loading ? "SYNCING..." : (
+                  committees.some(c => c.portfolios.some(p => p.isVacant)) 
+                  ? <span className="text-emerald-500">Registration Loop: Open</span>
+                  : <span className="text-rose-500">Registry: Locked</span>
+                )}
+             </h2>
+          </div>
+        </div>
+      </section>
 
-      {/* Committees Preview */}
-      <section ref={ref2} className="py-20 bg-gradient-to-b from-amber-950/20 to-amber-950/20 relative overflow-hidden">
-        <div className="container mx-auto px-4 relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={inView2 ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
-            transition={{ duration: 0.8 }}
-            className="mb-16 text-center"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold text-white">Our Committees</h2>
-            <p className="text-xl text-amber-100/80 mt-4 max-w-2xl mx-auto">
-              {loading ? "Loading committee data..." : ``}
-            </p>
-          </motion.div>
+      {/* INTEL SECTION (ABOUT) */}
+      <section className="py-40 relative">
+        <div className="container mx-auto px-6">
+          <div className="grid lg:grid-cols-2 gap-24 items-center">
+             <div className="space-y-12">
+                <h2 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter leading-none">The Intel <br/><span className="text-violet-500">Protocol.</span></h2>
+                <p className="text-zinc-500 text-lg lowercase leading-relaxed border-l-2 border-violet-500/20 pl-8">
+                  Kalinga International MUN is back with its inaugural installment. A two-day intensive loop designed for delegates vying for meaningful deliberation and kinetic leadership growth.
+                </p>
+                <div className="grid grid-cols-2 gap-6">
+                   {[
+                     { label: "Duration", val: "48 Hours", icon: Calendar },
+                     { label: "Registry", val: "300+ Minds", icon: Users },
+                     { label: "Committees", val: "07 Circles", icon: Globe },
+                     { label: "Arena", val: "ASBMU Hub", icon: MapPin }
+                   ].map((item, i) => (
+                     <div key={i} className="p-6 rounded-3xl bg-zinc-950 border border-white/5 space-y-3">
+                        <item.icon className="h-5 w-5 text-violet-500" />
+                        <p className="text-xl font-black italic uppercase tracking-tight">{item.val}</p>
+                        <p className="text-[8px] font-black uppercase text-zinc-700 tracking-widest">{item.label}</p>
+                     </div>
+                   ))}
+                </div>
+             </div>
+             <div className="relative group">
+                <div className="absolute inset-0 bg-violet-600/10 blur-[100px] rounded-full group-hover:bg-violet-600/20 transition-all" />
+                <div className="relative rounded-[3.5rem] overflow-hidden border border-white/10 aspect-video grayscale group-hover:grayscale-0 transition-all duration-700">
+                  <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/chatgpt-image-mar-29-2025-08_39_55-pm.png" alt="Intel" className="w-full h-full object-cover" />
+                </div>
+                <div className="absolute -bottom-8 -right-8 h-24 w-24 bg-violet-600 rounded-[2rem] flex items-center justify-center shadow-3xl">
+                   <ShieldCheck className="text-white h-10 w-10" />
+                </div>
+             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* COMMITTEE REGISTRY */}
+      <section className="py-40 bg-zinc-950/30">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-24">
+            <h2 className="text-6xl md:text-8xl font-black italic uppercase tracking-tighter mb-4">The <span className="text-violet-500">Registry.</span></h2>
+            <p className="text-zinc-600 text-[10px] font-black uppercase tracking-[0.4em]">Authorized Committee Loops</p>
+          </div>
 
           {loading ? (
-            <div className="flex justify-center">
-              <div className="animate-pulse flex flex-col items-center gap-4">
-                <Loader2 className="h-12 w-12 text-amber-500 animate-spin" />
-                <p className="text-amber-300">Loading committees...</p>
-              </div>
+            <div className="flex flex-col items-center gap-6 py-20">
+               <Zap className="h-10 w-10 text-violet-500 animate-pulse fill-current" />
+               <span className="text-[9px] font-black uppercase tracking-[0.5em] text-zinc-800">Synchronizing Database...</span>
             </div>
           ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {committees.slice(0, 6).map((committee, index) => {
-                  const vacantPortfolios = committee.portfolios.filter(p => p.isVacant).length
-                  const allocatedPortfolios = committee.portfolios.length - vacantPortfolios
-
-                  return (
-                    <motion.div
-                      key={committee.id}
-                      initial={{ opacity: 0, y: 50 }}
-                      animate={inView2 ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
-                      transition={{ duration: 0.5, delay: 0.1 * index }}
-                      whileHover={{ y: -10, transition: { duration: 0.2 } }}
-                      className="bg-black/50 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden hover:border-amber-500 transition-colors"
-                    >
-                      <div className="h-48 overflow-hidden relative">
-                        <Image
-                          src={`https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/bone-white-blue-groovy-you-matter-desktop-wallpaper.png`}
-                          alt={committee.name}
-                          width={600}
-                          height={400}
-                          className="object-cover w-full h-full transition-transform duration-500 hover:scale-110"
-                        />
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-4">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-amber-300">
-                              {vacantPortfolios} of {committee.portfolios.length} available
-                            </span>
-                            <div className="flex items-center gap-1">
-                              {Array.from({ length: 5 }).map((_, i) => (
-                                <div 
-                                  key={i} 
-                                  className={`h-1 w-4 rounded-full ${
-                                    i < Math.min(5, Math.ceil((allocatedPortfolios / committee.portfolios.length) * 5))
-                                      ? 'bg-amber-500'
-                                      : 'bg-amber-900/50'
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="p-6">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-xl font-bold text-amber-300">{committee.name}</h3>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <Link
-                            href="/matrix"
-                            className="text-amber-500 hover:text-amber-400 font-medium inline-flex items-center text-sm"
-                          >
-                            View Portfolios
-                            <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                          </Link>
-                          <span className="text-xs px-2 py-1 rounded-full bg-amber-900/30 text-amber-300">
-                            {Math.round((allocatedPortfolios / committee.portfolios.length) * 100)}% filled
-                          </span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )
-                })}
-              </div>
-
-              <div className="mt-12 flex flex-col md:flex-row justify-center gap-4">
-                <Link href="/committees" passHref>
-                  <Button className="bg-amber-500 hover:bg-amber-600 text-black font-bold px-8 py-6 text-lg rounded-full">
-                    View All Committees
-                  </Button>
-                </Link>
-                <Link href="/matrix" passHref>
-                  <Button variant="outline" className="border-amber-500 text-amber-300 hover:bg-amber-900/30 font-bold px-8 py-6 text-lg rounded-full">
-                    View Allocation Matrix
-                  </Button>
-                </Link>
-              </div>
-            </>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {committees.map((committee, idx) => {
+                const vacant = committee.portfolios ? committee.portfolios.filter(p => p.isVacant).length : 0
+                const total = committee.portfolios ? committee.portfolios.length : 1
+                return (
+                  <motion.div 
+                    key={committee.id}
+                    whileHover={{ y: -10 }}
+                    className="group p-8 rounded-[3rem] bg-zinc-950 border border-white/5 hover:border-violet-500/20 transition-all shadow-3xl relative overflow-hidden text-left"
+                  >
+                    <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                      <Ticket size={80} className="text-violet-500" />
+                    </div>
+                    <Badge className="bg-violet-600/10 text-violet-500 border-none text-[8px] font-black mb-6">COMMITTEE {idx + 1}</Badge>
+                    <h3 className="text-3xl font-black italic uppercase tracking-tighter mb-4 leading-none">{committee.name}</h3>
+                    <div className="space-y-4 pt-4 border-t border-white/5">
+                       <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-zinc-600">
+                          <span>Portfolio Pool</span>
+                          <span className="text-white">{vacant} / {total} Vacant</span>
+                       </div>
+                       <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            whileInView={{ width: `${((total - vacant) / total) * 100}%` }}
+                            className="h-full bg-violet-600" 
+                          />
+                       </div>
+                    </div>
+                    <a href="/matrix" className="inline-block mt-8">
+                       <Button variant="outline" className="rounded-xl h-10 px-6">Inspect Matrix</Button>
+                    </a>
+                  </motion.div>
+                )
+              })}
+            </div>
           )}
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-black border-t border-amber-800/20 py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <h3 className="text-xl font-bold text-amber-300 mb-4 flex items-center gap-2">
-                <Image src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Kalinga International MUN Logo" width={30} height={30} className="mr-2" />
-                Kalinga International MUN
-              </h3>
-              <p className="text-gray-400">The premier Model United Nations conference in the region.</p>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-amber-300 mb-4">Quick Links</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link href="/" className="text-gray-400 hover:text-amber-400 transition-colors">
-                    Home
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/about" className="text-gray-400 hover:text-amber-400 transition-colors">
-                    About Us
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/registration" className="text-gray-400 hover:text-amber-400 transition-colors">
-                    Register
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/committees" className="text-gray-400 hover:text-amber-400 transition-colors">
-                    Committees
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-amber-300 mb-4">Resources</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link href="/resources" className="text-gray-400 hover:text-amber-400 transition-colors">
-                    Study Guides
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/resources" className="text-gray-400 hover:text-amber-400 transition-colors">
-                    Rules of Procedure
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/resources" className="text-gray-400 hover:text-amber-400 transition-colors">
-                    Position Papers
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/resources" className="text-gray-400 hover:text-amber-400 transition-colors">
-                    FAQs
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-amber-300 mb-4">Contact</h3>
-              <ul className="space-y-2">
-                <li className="text-gray-400">Email: info@kimun.in.net</li>
-                <li className="text-gray-400">Phone: +918249979557</li>
-                <li className="flex space-x-4 mt-4">
-                  <a href="https://www.facebook.com/kimun24" className="text-gray-400 hover:text-amber-400 transition-colors">
-                    <span className="sr-only">Facebook</span>
-                    <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        fillRule="evenodd"
-                        d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
+      {/* PARTNERS */}
+      <section className="py-40">
+        <div className="container mx-auto px-6">
+          <h2 className="text-4xl font-black italic uppercase tracking-tighter text-center mb-24 opacity-20 hover:opacity-100 transition-opacity duration-700">Official Partners.</h2>
+          <div className="space-y-24">
+            {sponsors.map(tier => (
+              <div key={tier.name} className="flex flex-wrap justify-center items-center gap-16 grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-700">
+                {tier.logos.map(logo => (
+                  <a key={logo.alt} href={logo.website} target="_blank" rel="noreferrer" className="block max-w-[200px]">
+                    <img src={logo.url} alt={logo.alt} className="w-full h-auto object-contain" />
                   </a>
-                  <a href="https://www.instagram.com/kalingainternationalmun" className="text-gray-400 hover:text-amber-400 transition-colors">
-                    <span className="sr-only">Instagram</span>
-                    <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        fillRule="evenodd"
-                        d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 2.525c.636-.247 1.363-.416 2.427-.465C8.901 2.013 9.256 2 11.685 2h.63zm-.081 1.802h-.468c-2.456 0-2.784.011-3.807.058-.975.045-1.504.207-1.857.344-.467.182-.8.398-1.15.748-.35.35-.566.683-.748 1.15-.137.353-.3.882-.344 1.857-.047 1.023-.058 1.351-.058 3.807v.468c0 2.456.011 2.784.058 3.807.045.975.207 1.504.344 1.857.182.466.399.8.748 1.15.35.35.683.566 1.15.748.353.137.882.3 1.857.344 1.054.048 1.37.058 4.041.058h.08c2.597 0 2.917-.01 3.96-.058.976-.045 1.505-.207 1.858-.344.466-.182.8-.398 1.15-.748.35-.35.566-.683.748-1.15.137-.353.3-.882.344-1.857.048-1.055.058-1.37.058-4.041v-.08c0-2.597-.01-2.917-.058-3.96-.045-.976-.207-1.505-.344-1.858a3.097 3.097 0 00-.748-1.15 3.098 3.098 0 00-1.15-.748c-.353-.137-.882-.3-1.857-.344-1.023-.047-1.351-.058-3.807-.058zM12 6.865a5.135 5.135 0 110 10.27 5.135 5.135 0 010-10.27zm0 1.802a3.333 3.333 0 100 6.666 3.333 3.333 0 000-6.666zm5.338-3.205a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </a>
-                  <a href="https://x.com/kimun2025" className="text-gray-400 hover:text-amber-400 transition-colors">
-                    <span className="sr-only">Twitter</span>
-                    <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
-                    </svg>
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="mt-12 pt-8 border-t border-amber-800/20 text-center text-gray-400">
-            <p>© 2025 Kalinga International MUN. All rights reserved.</p>
+                ))}
+              </div>
+            ))}
           </div>
         </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="py-40 bg-black border-t border-white/5">
+         <div className="container mx-auto px-6 text-center space-y-20">
+            <div className="space-y-12">
+               <h2 className="text-6xl md:text-[9rem] font-black italic uppercase tracking-tighter leading-none">JOIN THE <br/><span className="text-violet-500">CIRCLE.</span></h2>
+               <div className="flex flex-wrap justify-center gap-6">
+                  <a href="/registration"><Button size="lg" className="h-20 px-16 text-xl">Initialize Registration</a >
+                  <a href="mailto:info@kimun.in.net"><Button variant="outline" size="lg" className="h-20 px-16 text-xl">Inquire Protocol</Button></a>
+               </div>
+            </div>
+            
+            <div className="grid md:grid-cols-3 items-center gap-12 pt-20 border-t border-white/5">
+              <div className="text-2xl font-black italic uppercase tracking-tighter text-left">KIMUN <span className="text-violet-500">2025</span></div>
+              <div className="flex justify-center gap-10 text-[9px] font-black uppercase tracking-[0.3em] text-zinc-600">
+                 <a href="/about" className="hover:text-white">Registry</a>
+                 <a href="/registration" className="hover:text-white">Access</a>
+                 <a href="/matrix" className="hover:text-white">The Matrix</a>
+              </div>
+              <div className="text-right text-[10px] font-black text-zinc-800 uppercase tracking-widest">© 2026 Protocol Secured.</div>
+            </div>
+         </div>
       </footer>
+
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,900;1,900&display=swap');
+        
+        body {
+          background-color: #050505;
+          margin: 0;
+          padding: 0;
+          font-family: 'Inter', sans-serif;
+        }
+
+        /* Smoothing for heavy font weights */
+        * {
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+        }
+      `}</style>
     </div>
+  )
+}
+
+function Badge({ children, className }) {
+  return (
+    <span className={`inline-block px-3 py-1 rounded-lg text-[9px] font-black tracking-widest uppercase ${className}`}>
+      {children}
+    </span>
   )
 }
