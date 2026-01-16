@@ -6,7 +6,8 @@ import { useInView } from "react-intersection-observer"
 import { 
   Calendar, ChevronRight, Globe, MapPin, Users, Loader2,
   Shield, Activity, Play, FileText, Search, ExternalLink,
-  Info, AlertCircle, Menu, X, CheckCircle2, Award, Briefcase, Landmark
+  Info, AlertCircle, Menu, X, CheckCircle2, Award, Briefcase, Landmark,
+  ShieldCheck, Scale, Gavel, Globe2
 } from "lucide-react"
 import { initializeApp } from "firebase/app"
 import { getDatabase, ref, get, set } from "firebase/database"
@@ -37,23 +38,23 @@ interface Committee {
   portfolios: Portfolio[];
 }
 
-// --- UN Themed Components ---
+// --- UN Institutional Components ---
 const Button = React.forwardRef<HTMLButtonElement, any>(({ className, variant = "default", size = "default", ...props }, ref) => {
   const variants = {
-    default: "bg-[#009EDB] text-white hover:bg-[#0077B3] shadow-sm",
-    outline: "border border-[#009EDB] text-[#009EDB] hover:bg-[#F0F8FF]",
+    default: "bg-[#009EDB] text-white hover:bg-[#0077B3] shadow-sm font-bold",
+    outline: "border-2 border-[#009EDB] text-[#009EDB] hover:bg-[#F0F8FF] font-bold",
     secondary: "bg-[#4D4D4D] text-white hover:bg-[#333333]",
     ghost: "text-gray-600 hover:bg-gray-100"
   }
   const sizes = {
-    default: "h-10 px-6 py-2",
-    lg: "h-12 px-8 text-lg font-bold",
-    sm: "h-8 px-4 text-xs"
+    default: "h-10 px-6 py-2 text-xs",
+    lg: "h-14 px-10 text-sm font-black",
+    sm: "h-8 px-4 text-[10px]"
   }
   return (
     <button
       ref={ref}
-      className={`inline-flex items-center justify-center font-sans font-medium uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 ${variants[variant as keyof typeof variants] || variants.default} ${sizes[size as keyof typeof sizes] || sizes.default} ${className}`}
+      className={`inline-flex items-center justify-center font-sans uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 ${variants[variant as keyof typeof variants] || variants.default} ${sizes[size as keyof typeof sizes] || sizes.default} ${className}`}
       {...props}
     />
   )
@@ -127,169 +128,196 @@ export default function App() {
 
   if (!isMounted) return null
 
-  // --- Formal Maintenance Mode ---
+  // --- Diplomatic Maintenance Notice ---
   if (underMaintenance) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center font-sans">
-        <div className="max-w-xl bg-white p-12 border border-gray-200 shadow-xl rounded-sm">
-          <div className="w-20 h-20 bg-[#009EDB] text-white rounded-full flex items-center justify-center mx-auto mb-8">
-            <Shield size={40} />
+      <div className="min-h-screen bg-[#F4F4F4] flex flex-col items-center justify-center p-6 text-center font-sans">
+        <div className="max-w-2xl bg-white p-16 border-t-8 border-[#009EDB] shadow-2xl rounded-sm">
+          <div className="w-24 h-24 bg-[#009EDB]/10 text-[#009EDB] rounded-full flex items-center justify-center mx-auto mb-10">
+            <Landmark size={48} />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4 uppercase tracking-tight">Official Notice: Protocol Suspension</h1>
-          <p className="text-gray-600 mb-8 leading-relaxed text-sm">
-            The Kalinga International Model United Nations Secretariat is currently performing an audit of the Accreditation & Liaison System. Access is restricted per Administrative Instruction KIMUN/AI/2026/01.
+          <h1 className="text-3xl font-black text-[#003366] mb-6 uppercase tracking-tighter">Accreditation Gateway Suspended</h1>
+          <p className="text-gray-600 mb-10 leading-relaxed text-sm max-w-md mx-auto">
+            Per Administrative Instruction **KIMUN/AI/2026/04**, the permanent mission portal is currently undergoing a security audit. Diplomatic access will be restored shortly.
           </p>
-          <div className="bg-gray-100 p-6 mb-8">
-            <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2 font-bold">Estimated Restoration of Service</p>
-            <div className="text-4xl font-mono font-bold text-[#009EDB]">
+          <div className="bg-[#003366] p-8 mb-10 text-white">
+            <p className="text-[10px] uppercase tracking-[0.3em] font-bold mb-3 opacity-70">Estimated Time to Restoration</p>
+            <div className="text-5xl font-mono font-black italic">
               {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, '0')}
             </div>
           </div>
-          <Button onClick={() => window.location.reload()} variant="outline" className="w-full">
-            Retry Gateway Access
+          <Button onClick={() => window.location.reload()} variant="outline" className="w-full h-16">
+            Re-Initialize Credentials
           </Button>
         </div>
-        <p className="mt-8 text-gray-400 text-[10px] uppercase tracking-widest font-bold">© 2026 KIMUN Secretariat • Permanent Mission Info System</p>
+        <p className="mt-10 text-gray-400 text-[10px] uppercase tracking-[0.4em] font-black">Official Liaison System • KIMUN 2026</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 font-sans selection:bg-[#009EDB]/20">
+    <div className="min-h-screen bg-white text-gray-900 font-sans selection:bg-[#009EDB]/30">
       
-      {/* 1. TOP UTILITY BAR: MEMBER STATE SELECTION */}
-      <div className="bg-[#4D4D4D] text-white py-1 px-6 text-[10px] uppercase font-bold tracking-widest flex justify-between items-center">
-        <div className="flex gap-6">
-          <span>Official Portal of the KIMUN Secretariat</span>
-          <div className="hidden md:flex gap-4 border-l border-white/20 pl-4">
-             <span className="cursor-pointer hover:text-[#009EDB]">English</span>
-             <span className="opacity-50 cursor-not-allowed">Français</span>
-             <span className="opacity-50 cursor-not-allowed">Español</span>
-             <span className="opacity-50 cursor-not-allowed">عربي</span>
+      {/* 1. SECRETARIAT UTILITY BAR */}
+      <div className="bg-[#333333] text-white py-1.5 px-8 text-[9px] uppercase font-black tracking-[0.3em] flex justify-between items-center">
+        <div className="flex gap-8 items-center">
+          <span className="flex items-center gap-2"><Globe2 size={10} className="text-[#009EDB]" /> Welcome to the KIMUN Secretariat</span>
+          <div className="hidden lg:flex gap-6 border-l border-white/10 pl-6">
+             <span className="cursor-pointer hover:text-[#009EDB] transition-colors">English</span>
+             <span className="opacity-30 cursor-not-allowed">Français</span>
+             <span className="opacity-30 cursor-not-allowed">Español</span>
+             <span className="opacity-30 cursor-not-allowed">عربي</span>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-           <Search size={12} className="cursor-pointer" />
-           <span className="cursor-pointer hover:text-[#009EDB]">Member State Index</span>
+        <div className="flex items-center gap-6">
+           <div className="flex items-center gap-2 cursor-pointer hover:text-[#009EDB]">
+              <Search size={10} />
+              <span>Permanent Mission Index</span>
+           </div>
         </div>
       </div>
 
-      {/* 2. MAIN NAV: INSTITUTIONAL HIERARCHY */}
-      <nav className={`w-full z-[100] transition-all bg-white border-b border-gray-200 sticky top-0`}>
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
+      {/* 2. DIPLOMATIC NAVIGATION */}
+      <nav className={`w-full z-[100] transition-all bg-white border-b border-gray-200 sticky top-0 shadow-sm`}>
+        <div className="max-w-7xl mx-auto px-8 py-5 flex justify-between items-center">
+          <div className="flex items-center gap-6">
             <img 
               src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" 
-              alt="KIMUN Emblem" 
-              className="h-14 w-14" 
+              alt="Official Emblem" 
+              className="h-16 w-16 transition-transform hover:scale-105" 
             />
-            <div className="border-l border-gray-300 pl-4">
-               <h1 className="text-lg font-bold text-[#003366] leading-none uppercase tracking-tight">KIMUN Secretariat</h1>
-               <p className="text-[11px] font-bold text-[#009EDB] uppercase">Accreditation & Liaison Service 2026</p>
+            <div className="border-l-2 border-gray-100 pl-6">
+               <h1 className="text-xl font-black text-[#003366] leading-none uppercase tracking-tighter">United Nations</h1>
+               <p className="text-[10px] font-black text-[#009EDB] uppercase tracking-[0.2em] mt-1">Kalinga International Model UN 2026</p>
             </div>
           </div>
           
-          <div className="hidden lg:flex items-center gap-8 text-[12px] font-bold uppercase text-gray-600">
-            {["Overview", "The Secretariat", "Accreditation", "Organs", "Documents"].map(item => (
-              <a key={item} href="#" className="hover:text-[#009EDB] border-b-2 border-transparent hover:border-[#009EDB] pb-1 transition-all">{item}</a>
+          <div className="hidden lg:flex items-center gap-10 text-[11px] font-black uppercase text-gray-500 tracking-widest">
+            {["The Secretariat", "Accreditation", "Principal Organs", "Plenary Documents"].map(item => (
+              <a key={item} href="#" className="hover:text-[#003366] relative group py-2">
+                {item}
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#009EDB] transition-all group-hover:w-full" />
+              </a>
             ))}
-            <Button size="sm">Submit Credentials</Button>
+            <a href="/registration">
+                <Button size="sm">Request Credentials</Button>
+            </a>
           </div>
 
-          <button className="lg:hidden text-gray-600" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+          <button className="lg:hidden text-[#003366]" onClick={() => setIsMenuOpen(!isMenuOpen)}>
              {isMenuOpen ? <X /> : <Menu />}
           </button>
         </div>
       </nav>
 
-      {/* 3. HERO SECTION: PLENARY THEME */}
-      <section ref={refHero} className="relative bg-[#003366] text-white overflow-hidden">
+      {/* 3. HERO: PLENARY SESSION OVERVIEW */}
+      <section ref={refHero} className="relative bg-[#003366] text-white overflow-hidden border-b-8 border-[#009EDB]">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2">
-           <div className="p-12 lg:p-24 flex flex-col justify-center space-y-6 relative z-10 bg-[#003366]/85">
-              <span className="inline-block bg-[#009EDB] text-[10px] font-bold px-3 py-1 uppercase tracking-widest">Administrative Circular</span>
-              <h2 className="text-4xl lg:text-6xl font-black leading-tight tracking-tight uppercase">
-                Multilateralism for <span className="text-[#009EDB]">Global Cooperation</span>
+           <div className="p-12 lg:p-24 flex flex-col justify-center space-y-8 relative z-10 bg-[#003366]/90">
+              <div className="flex items-center gap-3">
+                 <span className="inline-block bg-[#009EDB] text-[9px] font-black px-4 py-1.5 uppercase tracking-[0.3em]">Session KIMUN/2026/01</span>
+              </div>
+              <h2 className="text-5xl lg:text-7xl font-black leading-[0.9] tracking-tighter uppercase">
+                Multilateral <br/><span className="text-[#009EDB]">Discourse.</span>
               </h2>
-              <p className="text-lg text-gray-200 max-w-lg leading-relaxed font-light">
-                The Office of the Secretary-General invites all Member States to the 2026 Plenary Session in Bhubaneswar. Addressing systemic challenges through diplomatic discourse and collaborative resolution.
+              <p className="text-xl text-gray-300 max-w-lg leading-relaxed font-light italic border-l-4 border-[#009EDB] pl-8">
+                The Office of the Secretary-General officially convenes Member States for the 2026 Plenary in Bhubaneswar. Forging strategic alliances for intergovernmental cooperation and stability.
               </p>
-              <div className="flex gap-4 pt-4">
-                 <Button size="lg">Request Accreditation</Button>
+              <div className="flex flex-wrap gap-6 pt-6">
+                 <a href="/registration">
+                    <Button size="lg">Apply for Accreditation</Button>
+                 </a>
                  <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-[#003366]">Consult Charter</Button>
               </div>
            </div>
-           <div className="relative min-h-[400px] lg:min-h-full">
+           <div className="relative min-h-[500px] lg:min-h-full">
               <img 
                 src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/chatgpt-image-mar-29-2025-12_03_59-pm.png" 
-                className="absolute inset-0 w-full h-full object-cover grayscale-[30%] contrast-125" 
-                alt="Plenary Session Hall" 
+                className="absolute inset-0 w-full h-full object-cover grayscale brightness-[0.4] contrast-125" 
+                alt="Plenary Hall" 
               />
               <div className="absolute inset-0 bg-gradient-to-r from-[#003366] to-transparent lg:block hidden" />
+              <div className="absolute bottom-12 right-12 text-right">
+                  <p className="text-6xl font-black italic tracking-tighter text-white/20 uppercase">Bhubaneswar</p>
+                  <p className="text-[12px] font-bold text-[#009EDB] uppercase tracking-[0.5em]">Liaison HQ 2026</p>
+              </div>
            </div>
         </div>
       </section>
 
-      {/* 4. OFFICIAL ANNOUNCEMENT BAR */}
-      <div className="bg-[#009EDB] text-white py-4 px-6 border-b border-[#0077B3]">
-         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-               <AlertCircle size={20} className="flex-shrink-0" />
-               <span className="font-bold text-sm tracking-tight">KIMUN/2026/CIRCULAR: The permanent portal for delegate accreditation and country preference is now live.</span>
+      {/* 4. OFFICIAL COMMUNIQUÉ */}
+      <div className="bg-[#F8F9FA] border-b border-gray-200">
+         <div className="max-w-7xl mx-auto px-8 py-6 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-5">
+               <div className="p-3 bg-[#009EDB]/10 rounded-full text-[#009EDB]">
+                  <AlertCircle size={24} />
+               </div>
+               <div className="space-y-1">
+                  <p className="text-[10px] font-black text-[#009EDB] uppercase tracking-widest">Secretariat Communiqué</p>
+                  <span className="font-bold text-sm tracking-tight text-[#003366]">Official accreditation portal for institutional delegates and permanent missions is now operational.</span>
+               </div>
             </div>
-            <Button size="sm" variant="secondary" className="whitespace-nowrap text-[10px]">Verify Credentials</Button>
+            <a href="/registration">
+                <Button size="sm" variant="secondary" className="whitespace-nowrap px-8">Verify Diplomatic Status</Button>
+            </a>
          </div>
       </div>
 
-      {/* 5. PRINCIPAL ORGANS (COMMITTEES) */}
-      <section ref={refNews} className="py-20 max-w-7xl mx-auto px-6">
-         <div className="flex justify-between items-end border-b-2 border-gray-100 pb-6 mb-12">
+      {/* 5. PRINCIPAL ORGANS & SUBSIDIARY BODIES */}
+      <section ref={refNews} className="py-32 max-w-7xl mx-auto px-8">
+         <div className="flex flex-col md:flex-row justify-between items-end border-b-4 border-gray-50 pb-8 mb-16 gap-6">
             <div>
-               <h3 className="text-2xl font-black text-[#003366] uppercase tracking-tighter">Intergovernmental Bodies</h3>
-               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Sessions Convening in July 2026</p>
+               <div className="flex items-center gap-3 mb-4">
+                  <Landmark size={20} className="text-[#009EDB]" />
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em]">Governance Hierarchy</span>
+               </div>
+               <h3 className="text-4xl font-black text-[#003366] uppercase tracking-tighter leading-none">Intergovernmental <br/>Committees.</h3>
             </div>
-            <a href="#" className="text-xs font-bold text-[#009EDB] hover:underline flex items-center gap-1 uppercase tracking-widest">
-               Full Subsidiary Body List <ChevronRight size={14} />
+            <a href="#" className="text-[11px] font-black text-[#009EDB] hover:text-[#003366] flex items-center gap-2 uppercase tracking-[0.2em] transition-colors">
+               Full Subsidiary Body Registry <ChevronRight size={14} />
             </a>
          </div>
 
          {loading ? (
-            <div className="flex flex-col items-center gap-4 py-24">
-               <Loader2 className="animate-spin text-[#009EDB]" size={48} strokeWidth={3} />
-               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.3em]">Querying Member State Registry...</span>
+            <div className="flex flex-col items-center gap-8 py-32">
+               <Loader2 className="animate-spin text-[#009EDB]" size={64} strokeWidth={4} />
+               <span className="text-[12px] font-black text-gray-300 uppercase tracking-[0.5em]">Synchronizing Member State Registry...</span>
             </div>
          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-12">
               {committees.map((committee, idx) => (
                  <motion.div 
                     key={committee.id}
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 30 }}
                     animate={inViewNews ? { opacity: 1, y: 0 } : {}}
-                    transition={{ delay: idx * 0.05 }}
-                    className="border border-gray-200 bg-white flex flex-col group"
+                    transition={{ delay: idx * 0.08 }}
+                    className="group border-2 border-gray-100 bg-white hover:border-[#009EDB] transition-all duration-500 shadow-sm flex flex-col"
                  >
-                    <div className="h-56 bg-gray-100 relative overflow-hidden">
+                    <div className="h-64 bg-gray-200 relative overflow-hidden">
                        <img 
                           src={`https://images.unsplash.com/photo-1521295121783-8a321d551ad2?auto=format&fit=crop&w=800&q=80`} 
-                          className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-1000 brightness-75 grayscale-[20%]" 
+                          className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-1000 brightness-[0.35] grayscale" 
                           alt={committee.name}
                        />
-                       <div className="absolute top-4 left-4 bg-[#003366] px-3 py-1 text-[9px] font-bold text-white shadow-lg uppercase tracking-widest">
+                       <div className="absolute top-6 left-6 bg-[#003366] px-4 py-1.5 text-[10px] font-black text-white shadow-xl uppercase tracking-[0.2em]">
                           Organ Code: KIMUN/C-{idx + 1}
                        </div>
+                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-8">
+                          <h4 className="text-2xl font-black text-white leading-tight uppercase tracking-tight group-hover:text-[#009EDB] transition-colors">{committee.name}</h4>
+                       </div>
                     </div>
-                    <div className="p-8 flex-1 flex flex-col">
-                       <h4 className="text-xl font-bold text-[#003366] mb-4 leading-tight uppercase tracking-tight">{committee.name}</h4>
-                       <p className="text-sm text-gray-500 mb-8 flex-1 leading-relaxed font-light">
-                          Mandated to address regional stability and the codification of international legal frameworks within the 2026 agenda.
+                    <div className="p-10 flex-1 flex flex-col">
+                       <p className="text-sm text-gray-500 mb-10 flex-1 leading-loose font-light">
+                          Mandated under the 2026 agenda to address systemic regional challenges and the codification of international legal frameworks.
                        </p>
-                       <div className="flex justify-between items-center pt-6 border-t border-gray-100">
-                          <div className="flex items-center gap-2">
-                             <div className={`h-2 w-2 rounded-full ${committee.portfolios?.some(p => p.isVacant) ? 'bg-emerald-500' : 'bg-gray-300'}`} />
-                             <span className="text-[10px] font-bold text-gray-400 uppercase">
-                                Allocation: {committee.portfolios?.some(p => p.isVacant) ? "Seats Available" : "Quorum Met"}
+                       <div className="flex justify-between items-center pt-8 border-t-2 border-gray-50">
+                          <div className="flex items-center gap-3">
+                             <div className={`h-2.5 w-2.5 rounded-full ${committee.portfolios?.some(p => p.isVacant) ? 'bg-emerald-500 shadow-[0_0_10px_#10b981]' : 'bg-gray-300'}`} />
+                             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                {committee.portfolios?.some(p => p.isVacant) ? "Open for Accreditation" : "Delegations Assigned"}
                              </span>
                           </div>
-                          <a href="#" className="text-[#009EDB] text-[10px] font-bold uppercase hover:underline tracking-widest">Country Matrix</a>
+                          <a href="/matrix" className="text-[#009EDB] text-[11px] font-black uppercase hover:underline tracking-[0.1em]">View Matrix</a>
                        </div>
                     </div>
                  </motion.div>
@@ -298,107 +326,111 @@ export default function App() {
          )}
       </section>
 
-      {/* 6. DIPLOMATIC RESOURCES */}
-      <section className="bg-gray-50 py-24 border-t border-gray-200">
-         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-3 gap-16 text-center">
-            <div className="space-y-6">
-               <div className="w-20 h-20 bg-white border border-gray-200 rounded-full flex items-center justify-center mx-auto text-[#003366] shadow-sm">
-                  <FileText size={32} />
+      {/* 6. DIPLOMATIC MISSION RESOURCES */}
+      <section className="bg-[#003366] py-32 border-t-8 border-[#009EDB] relative overflow-hidden">
+         <div className="absolute inset-0 opacity-5 grayscale brightness-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
+         <div className="max-w-7xl mx-auto px-8 grid md:grid-cols-3 gap-20 text-center relative z-10">
+            <div className="space-y-8">
+               <div className="w-24 h-24 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto text-[#009EDB] hover:scale-110 transition-transform cursor-pointer">
+                  <FileText size={40} strokeWidth={1.5} />
                </div>
-               <h5 className="font-bold text-[#003366] uppercase tracking-tight">Background Documentation</h5>
-               <p className="text-xs text-gray-600 leading-relaxed uppercase tracking-wider px-4">Rules of Procedure, Study Guides, and Position Paper Protocol.</p>
+               <h5 className="font-black text-white uppercase tracking-tighter text-xl">Background Guides</h5>
+               <p className="text-[11px] text-gray-400 leading-relaxed uppercase tracking-[0.2em] font-bold px-4">Standardized Rules of Procedure and Regional Security Frameworks.</p>
             </div>
-            <div className="space-y-6">
-               <div className="w-20 h-20 bg-white border border-gray-200 rounded-full flex items-center justify-center mx-auto text-[#003366] shadow-sm">
-                  <Globe size={32} />
+            <div className="space-y-8">
+               <div className="w-24 h-24 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto text-[#009EDB] hover:scale-110 transition-transform cursor-pointer">
+                  <Scale size={40} strokeWidth={1.5} />
                </div>
-               <h5 className="font-bold text-[#003366] uppercase tracking-tight">Observer Accreditation</h5>
-               <p className="text-xs text-gray-600 leading-relaxed uppercase tracking-wider px-4">Procedures for International Schools and Academic Missions.</p>
+               <h5 className="font-black text-white uppercase tracking-tighter text-xl">Charter Compliance</h5>
+               <p className="text-[11px] text-gray-400 leading-relaxed uppercase tracking-[0.2em] font-bold px-4">Codification of intergovernmental conduct and deliberation protocols.</p>
             </div>
-            <div className="space-y-6">
-               <div className="w-20 h-20 bg-white border border-gray-200 rounded-full flex items-center justify-center mx-auto text-[#003366] shadow-sm">
-                  <Award size={32} />
+            <div className="space-y-8">
+               <div className="w-24 h-24 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto text-[#009EDB] hover:scale-110 transition-transform cursor-pointer">
+                  <Award size={40} strokeWidth={1.5} />
                </div>
-               <h5 className="font-bold text-[#003366] uppercase tracking-tight">Citations of Merit</h5>
-               <p className="text-xs text-gray-600 leading-relaxed uppercase tracking-wider px-4">Recognizing Excellence in Diplomacy and Deliberative Contribution.</p>
+               <h5 className="font-black text-white uppercase tracking-tighter text-xl">Diplomatic Citations</h5>
+               <p className="text-[11px] text-gray-400 leading-relaxed uppercase tracking-[0.2em] font-bold px-4">Awards recognizing Excellence in Diplomacy and Policy Research.</p>
             </div>
          </div>
       </section>
 
-      {/* 7. INSTITUTIONAL FOOTER */}
-      <footer className="bg-[#003366] text-white pt-24 pb-12 px-6">
+      {/* 7. LIAISON OFFICE FOOTER */}
+      <footer className="bg-[#1A1A1A] text-white pt-24 pb-12 px-8">
          <div className="max-w-7xl mx-auto">
-            <div className="grid md:grid-cols-4 gap-16 mb-24">
-               <div className="col-span-2 space-y-8">
-                  <div className="flex items-center gap-5">
-                    <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Emblem" className="h-20 brightness-0 invert" />
+            <div className="grid md:grid-cols-4 gap-20 mb-24">
+               <div className="col-span-2 space-y-10">
+                  <div className="flex items-center gap-6">
+                    <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Emblem" className="h-24 brightness-0 invert opacity-50" />
                     <div>
-                       <h6 className="text-2xl font-bold uppercase tracking-tighter">KIMUN Secretariat</h6>
-                       <p className="text-[10px] text-gray-400 uppercase tracking-[0.4em] font-bold">Diplomatic Mission System</p>
+                       <h6 className="text-3xl font-black uppercase tracking-tighter leading-none">KIMUN Secretariat</h6>
+                       <p className="text-[10px] text-[#009EDB] uppercase tracking-[0.5em] font-black mt-2">Bhubaneswar Mission System</p>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-400 max-w-md leading-loose font-light">
-                     The Kalinga International Model United Nations is an institutional forum established to facilitate the simulate work of the United Nations Organs, promoting the principles of the UN Charter among global youth.
+                  <p className="text-sm text-gray-500 max-w-md leading-loose font-light">
+                     The Kalinga International Model United Nations is a formal institutional body established to simulate intergovernmental deliberation, adhering strictly to the procedures of the United Nations General Assembly.
                   </p>
                </div>
                <div>
-                  <h6 className="text-xs font-bold uppercase mb-8 border-b border-white/10 pb-4 tracking-widest text-[#009EDB]">Official Registry</h6>
-                  <ul className="text-[11px] space-y-4 text-gray-300 font-bold uppercase tracking-widest">
-                     <li className="hover:text-white cursor-pointer flex items-center gap-2"><ChevronRight size={10} /> Background Guides</li>
-                     <li className="hover:text-white cursor-pointer flex items-center gap-2"><ChevronRight size={10} /> Rules of Procedure</li>
-                     <li className="hover:text-white cursor-pointer flex items-center gap-2"><ChevronRight size={10} /> Member State Index</li>
-                     <li className="hover:text-white cursor-pointer flex items-center gap-2"><ChevronRight size={10} /> Plenary Archives</li>
+                  <h6 className="text-[10px] font-black uppercase mb-10 border-b border-white/5 pb-4 tracking-[0.4em] text-[#009EDB]">Principal Registry</h6>
+                  <ul className="text-[11px] space-y-5 text-gray-400 font-black uppercase tracking-[0.2em]">
+                     <li className="hover:text-white cursor-pointer transition-colors">Study Guides</li>
+                     <li className="hover:text-white cursor-pointer transition-colors">Liaison Procedures</li>
+                     <li className="hover:text-white cursor-pointer transition-colors">Member State Index</li>
+                     <li className="hover:text-white cursor-pointer transition-colors">Plenary Archives</li>
                   </ul>
                </div>
                <div>
-                  <h6 className="text-xs font-bold uppercase mb-8 border-b border-white/10 pb-4 tracking-widest text-[#009EDB]">Liaison Office</h6>
-                  <ul className="text-[11px] space-y-4 text-gray-300 font-bold uppercase tracking-widest">
-                     <li className="flex items-center gap-3"><MapPin size={14} className="text-[#009EDB]" /> Bhubaneswar, India</li>
-                     <li className="flex items-center gap-3"><Globe size={14} className="text-[#009EDB]" /> secretariat@kimun.in.net</li>
-                     <li className="flex items-center gap-3"><Briefcase size={14} className="text-[#009EDB]" /> +91 8249979557</li>
+                  <h6 className="text-[10px] font-black uppercase mb-10 border-b border-white/5 pb-4 tracking-[0.4em] text-[#009EDB]">Diplomatic HQ</h6>
+                  <ul className="text-[11px] space-y-5 text-gray-400 font-black uppercase tracking-[0.2em]">
+                     <li className="flex items-center gap-4 hover:text-white transition-colors"><MapPin size={14} className="text-[#009EDB]" /> Bhubaneswar, India</li>
+                     <li className="flex items-center gap-4 hover:text-white transition-colors"><Globe size={14} className="text-[#009EDB]" /> secretariat@kimun.in.net</li>
+                     <li className="flex items-center gap-4 hover:text-white transition-colors"><Briefcase size={14} className="text-[#009EDB]" /> Contact Mission</li>
                   </ul>
                </div>
             </div>
 
-            <div className="flex flex-col md:flex-row justify-between items-center pt-12 border-t border-white/10 gap-8">
-               <div className="flex gap-10 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
-                  <span className="hover:text-white cursor-pointer">Copyright</span>
-                  <span className="hover:text-white cursor-pointer">Terms of Use</span>
-                  <span className="hover:text-white cursor-pointer">Privacy Protocol</span>
-                  <span className="hover:text-white cursor-pointer">Security Warning</span>
+            <div className="flex flex-col md:flex-row justify-between items-center pt-16 border-t border-white/5 gap-10">
+               <div className="flex gap-12 text-[10px] font-black uppercase tracking-[0.4em] text-gray-600">
+                  <span className="hover:text-white cursor-pointer transition-colors">Charter</span>
+                  <span className="hover:text-white cursor-pointer transition-colors">Privacy</span>
+                  <span className="hover:text-white cursor-pointer transition-colors">Copyright</span>
                </div>
-               <div className="flex items-center gap-3 text-[10px] font-bold uppercase text-[#009EDB] tracking-[0.3em] bg-white/5 px-4 py-2 rounded-full">
-                  <ShieldCheck size={14} />
-                  Official Permanent Mission Records 2026
+               <div className="flex items-center gap-4 text-[10px] font-black uppercase text-[#009EDB] tracking-[0.5em] bg-white/5 px-8 py-3 rounded-sm border border-white/5">
+                  <ShieldCheck size={16} />
+                  SECURED DIPLOMATIC PORTAL 2026
                </div>
             </div>
          </div>
       </footer>
 
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;900&display=swap');
         
         body {
           background-color: #ffffff;
           margin: 0;
           padding: 0;
-          font-family: 'Roboto', sans-serif;
-          color: #333;
+          font-family: 'Inter', sans-serif;
+          color: #1A1A1A;
         }
 
-        h1, h2, h3, h4, h5, h6 {
-           font-family: 'Roboto', sans-serif;
-           font-weight: 700;
-        }
-
-        .shadow-sm {
-           box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-
-        /* Institutional smoothing */
+        /* High-fidelity anti-aliasing */
         * {
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
+        }
+
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+          background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #003366;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #009EDB;
         }
       `}</style>
     </div>
