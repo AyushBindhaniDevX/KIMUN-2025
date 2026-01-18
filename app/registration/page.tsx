@@ -397,7 +397,7 @@ export default function App() {
       }
 
       // --- DIPLOMATIC REDIRECT ---
-      // Using window.location instead of next/navigation for maximum compatibility
+      // Teleporting representive to the Delegate Portal
       window.location.href = '/delegate';
 
     } catch (err: any) {
@@ -638,7 +638,7 @@ function FormInput({ label, icon: Icon, value, onChange, type = "text" }: any) {
     return (
         <div className="space-y-1">
             <label className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 flex items-center gap-2"><Icon size={10} /> {label}</label>
-            <input type={type} className="w-full bg-white border-b-2 border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors" placeholder={`Enter ${label}`} value={value} onChange={(e) => onChange(e.target.value)} />
+            <input type={type} className="w-full bg-white border-b-2 border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors text-gray-900" placeholder={`Enter ${label}`} value={value} onChange={(e) => onChange(e.target.value)} />
         </div>
     )
 }
@@ -647,7 +647,7 @@ function FormSelect({ label, icon: Icon, value, onChange, options, labels }: any
     return (
         <div className="space-y-1">
             <label className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 flex items-center gap-2"><Icon size={10} /> {label}</label>
-            <select className="w-full bg-white border-b-2 border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors" value={value} onChange={(e) => onChange(e.target.value)}>
+            <select className="w-full bg-white border-b-2 border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors text-gray-900" value={value} onChange={(e) => onChange(e.target.value)}>
                {options.map((opt: string, i: number) => <option key={opt} value={opt}>{labels ? labels[i] : opt}</option>)}
             </select>
         </div>
