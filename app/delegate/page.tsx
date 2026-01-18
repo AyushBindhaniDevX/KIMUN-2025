@@ -1,7 +1,8 @@
 'use client'
 import React, { useState, useEffect, Suspense } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { initializeApp } from 'firebase/app'
-import { getDatabase, ref, get, set, update, onValue } from 'firebase/database'
+import { getDatabase, ref, get, update, onValue } from 'firebase/database'
 import { 
   getAuth, 
   GoogleAuthProvider, 
@@ -43,7 +44,9 @@ import {
   ArrowRight,
   UserCheck,
   CreditCard,
-  Briefcase
+  Briefcase,
+  MapPin,
+  FileBadge
 } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 
@@ -64,7 +67,7 @@ const db = getDatabase(app)
 const auth = getAuth(app)
 const googleProvider = new GoogleAuthProvider()
 
-// --- Data Schemas ---
+// --- Types ---
 type Mark = {
   total: number
   gsl: number
@@ -91,6 +94,7 @@ type DelegateData = {
   institution?: string
   positionPaperUrl?: string
   phone?: string
+  status?: string
 }
 
 type CommitteeData = {
@@ -110,7 +114,31 @@ type CommitteeData = {
   }
 }
 
-// --- Internal Components ---
+// --- Institutional UI Components ---
+const Button = React.forwardRef<HTMLButtonElement, any>(({ className, variant = "default", size = "default", ...props }, ref) => {
+  const variants = {
+    default: "bg-[#003366] text-white hover:bg-[#002244] shadow-sm font-bold uppercase tracking-widest",
+    primary: "bg-[#009EDB] text-white hover:bg-[#0077B3] shadow-md font-bold uppercase tracking-widest",
+    outline: "border-2 border-[#009EDB] text-[#009EDB] hover:bg-[#F0F8FF] font-bold uppercase tracking-widest",
+    secondary: "bg-[#4D4D4D] text-white hover:bg-[#333333] uppercase tracking-widest",
+    ghost: "text-gray-500 hover:bg-gray-100 uppercase tracking-widest",
+    google: "bg-white text-gray-900 border border-gray-300 hover:bg-gray-50 shadow-sm font-bold"
+  }
+  const sizes = {
+    default: "h-11 px-6 py-2 text-xs",
+    lg: "h-14 px-10 text-sm font-black",
+    sm: "h-8 px-4 text-[10px]"
+  }
+  return (
+    <button
+      ref={ref}
+      className={`inline-flex items-center justify-center rounded-sm transition-all active:scale-95 disabled:opacity-50 ${variants[variant as keyof typeof variants] || variants.default} ${sizes[size as keyof typeof sizes] || sizes.default} ${className}`}
+      {...props}
+    />
+  )
+})
+Button.displayName = "Button"
+
 const DiplomaticFlag = ({ countryCode, className = "" }: { countryCode: string, className?: string }) => {
   return (
     <img 
@@ -124,7 +152,7 @@ const DiplomaticFlag = ({ countryCode, className = "" }: { countryCode: string, 
 
 function DelegateDashboardContent() {
   const [user, setUser] = useState<User | null>(null)
-  const [activeView, setActiveView] = useState<'command' | 'registry' | 'vault'>('command')
+  const [activeView, setActiveView] = useState<'command' | 'registry' | 'vault' | 'profile'>('command')
   const [delegate, setDelegate] = useState<DelegateData | null>(null)
   const [committee, setCommittee] = useState<CommitteeData | null>(null)
   const [portfolio, setPortfolio] = useState<any>(null)
@@ -148,11 +176,11 @@ function DelegateDashboardContent() {
     return () => unsubscribe()
   }, [])
 
-  // 2. Fetch Full Plenary Dossier
+  // 2. Fetch Core Registry Data
   const fetchFullDossier = async (email: string) => {
     try {
       const snapshot = await get(ref(db, 'registrations'))
-      if (!snapshot.exists()) throw new Error('Dossier Not Found')
+      if (!snapshot.exists()) throw new Error('Registry Entry Not Found')
 
       const registrations = snapshot.val()
       let foundReg = null
@@ -160,14 +188,14 @@ function DelegateDashboardContent() {
 
       for (const key in registrations) {
         const reg = registrations[key]
-        if (reg.delegateInfo?.delegate1?.email === email || reg.email === email) {
+        if (reg.delegateInfo?.delegate1?.email === email || reg.delegateInfo?.delegate2?.email === email || reg.email === email) {
           foundReg = reg
           regId = key
           break
         }
       }
 
-      if (!foundReg) throw new Error('Registry ID Mismatch')
+      if (!foundReg) throw new Error('Identity Mismatch in Database')
 
       const delegateObj: DelegateData = {
         id: regId,
@@ -175,13 +203,13 @@ function DelegateDashboardContent() {
         committeeId: foundReg.committeeId,
         portfolioId: foundReg.portfolioId,
         isCheckedIn: foundReg.isCheckedIn || false,
-        positionPaperUrl: foundReg.positionPaperUrl || ''
+        positionPaperUrl: foundReg.positionPaperUrl || '',
+        phone: foundReg.delegateInfo?.delegate1?.phone || foundReg.phone || 'Not Logged'
       }
 
       setDelegate(delegateObj)
       setPosPaperInput(delegateObj.positionPaperUrl || '')
 
-      // Parallel Data Fetching
       fetchCommitteeInfo(delegateObj.committeeId, delegateObj.portfolioId)
       fetchRegistryDocs()
       listenToMarks(delegateObj.committeeId, delegateObj.portfolioId)
@@ -221,7 +249,7 @@ function DelegateDashboardContent() {
     })
   }
 
-  // 3. Functional Actions
+  // 3. Functional Handlers
   const handlePositionPaperSubmit = async () => {
     if (!delegate || !posPaperInput) return
     setIsSubmitting(true)
@@ -232,7 +260,7 @@ function DelegateDashboardContent() {
       setDelegate(prev => ({ ...prev!, positionPaperUrl: posPaperInput }))
       toast.success('Position Paper URL Registered')
     } catch (err) {
-      toast.error('Registry Update Failed')
+      toast.error('Database Sync Error')
     } finally {
       setIsSubmitting(false)
     }
@@ -241,7 +269,7 @@ function DelegateDashboardContent() {
   const handleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider)
-      toast.success('Identity Synced')
+      toast.success('Identity Verified')
     } catch (err) {
       toast.error('Sync Failed')
     }
@@ -252,27 +280,25 @@ function DelegateDashboardContent() {
     window.location.href = '/'
   }
 
-  // --- UI Loading State ---
   if (loading) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center font-sans">
         <Loader2 className="animate-spin text-[#009EDB] mb-6" size={48} strokeWidth={3} />
-        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-700">Syncing Registry Dossier...</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-700">Verifying Diplomatic Status...</span>
       </div>
     )
   }
 
-  // --- Unauthenticated State ---
   if (!user) {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-6 font-sans">
         <div className="max-w-md w-full bg-white border border-zinc-200 shadow-2xl p-12 text-center rounded-sm border-t-4 border-t-[#003366]">
           <Landmark size={64} className="text-[#003366] mx-auto mb-8" strokeWidth={1.5} />
-          <h1 className="text-2xl font-black text-[#003366] uppercase tracking-tighter mb-4">Delegate Entrance</h1>
-          <p className="text-zinc-500 text-sm mb-10 leading-relaxed italic">Synchronize your Google Identity to access the plenary mission controls.</p>
+          <h1 className="text-2xl font-black text-[#003366] uppercase tracking-tighter mb-4">Plenary Entrance</h1>
+          <p className="text-zinc-500 text-sm mb-10 leading-relaxed italic">Login to the KIMUN Secretariat via Google to access your dossier.</p>
           <button onClick={handleLogin} className="w-full h-14 bg-white hover:bg-zinc-50 border border-zinc-200 shadow-sm flex items-center justify-center gap-4 transition-all active:scale-95 group">
              <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-             <span className="text-[11px] font-black uppercase tracking-widest text-zinc-700">Identity Sync via Google</span>
+             <span className="text-[11px] font-black uppercase tracking-widest text-zinc-700">Identity Sync</span>
           </button>
         </div>
       </div>
@@ -283,13 +309,13 @@ function DelegateDashboardContent() {
     <div className="min-h-screen bg-[#F9FAFB] text-zinc-900 font-sans selection:bg-[#009EDB]/20">
       <Toaster position="top-right" richColors />
       
-      {/* --- INSTITUTIONAL NAVIGATION --- */}
+      {/* 1. SECRETARIAT UTILITY BAR */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-zinc-200 shadow-sm">
-        <div className="bg-[#4D4D4D] text-white py-1.5 px-8 text-[9px] uppercase font-black tracking-widest flex justify-between items-center">
+        <div className="bg-[#333333] text-white py-1.5 px-8 text-[9px] uppercase font-black tracking-[0.3em] flex justify-between items-center">
             <div className="flex items-center gap-4">
-                <span className="flex items-center gap-2 text-[#009EDB]"><ShieldCheck size={10} /> Plenary Access Verified: {user.email}</span>
+                <span className="flex items-center gap-2 text-[#009EDB]"><ShieldCheck size={10} /> Authenticated: {user.email}</span>
                 <span className="opacity-20">|</span>
-                <span className="text-zinc-400">ID: {delegate?.id?.substring(0, 10)}</span>
+                <span className="text-zinc-400">Registry Code: {delegate?.id?.substring(0, 10)}</span>
             </div>
             <button onClick={handleLogout} className="hover:text-red-400 flex items-center gap-1 transition-colors uppercase font-black">
                 <LogOut size={10} /> Terminate
@@ -297,176 +323,159 @@ function DelegateDashboardContent() {
         </div>
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-6">
-             <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Logo" className="h-10 w-10" />
+             <button onClick={() => setActiveView('command')} className="transition-transform active:scale-90">
+               <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Logo" className="h-10 w-10" />
+             </button>
              <div className="border-l border-zinc-200 pl-4 hidden md:block">
                 <h2 className="text-sm font-black text-[#003366] uppercase tracking-tighter leading-none">Delegate Command</h2>
-                <p className="text-[10px] font-bold text-[#009EDB] uppercase mt-0.5 tracking-widest">KIMUN 2026</p>
+                <p className="text-[10px] font-bold text-[#009EDB] uppercase mt-0.5 tracking-widest">Plenary 2026</p>
              </div>
           </div>
+          
           <div className="flex items-center gap-2 md:gap-8">
             <nav className="hidden lg:flex items-center gap-8 text-[10px] font-black uppercase text-zinc-500 tracking-widest">
-               {['command', 'registry', 'vault'].map(tab => (
-                 <button 
-                   key={tab} 
-                   onClick={() => setActiveView(tab as any)}
-                   className={`hover:text-[#009EDB] transition-colors ${activeView === tab ? 'text-[#009EDB] border-b-2 border-[#009EDB] pb-1' : ''}`}
-                 >
-                   {tab}
-                 </button>
-               ))}
+               <button onClick={() => setActiveView('command')} className={`hover:text-[#009EDB] ${activeView === 'command' ? 'text-[#009EDB] border-b-2 border-[#009EDB] pb-1' : ''}`}>Command</button>
+               <button onClick={() => setActiveView('registry')} className={`hover:text-[#009EDB] ${activeView === 'registry' ? 'text-[#009EDB] border-b-2 border-[#009EDB] pb-1' : ''}`}>Registry</button>
+               <button onClick={() => setActiveView('vault')} className={`hover:text-[#009EDB] ${activeView === 'vault' ? 'text-[#009EDB] border-b-2 border-[#009EDB] pb-1' : ''}`}>Vault</button>
+               <button onClick={() => setActiveView('profile')} className={`hover:text-[#009EDB] ${activeView === 'profile' ? 'text-[#009EDB] border-b-2 border-[#009EDB] pb-1' : ''}`}>Profile</button>
             </nav>
-            <button onClick={() => window.location.href = '/'} className="p-2 hover:bg-zinc-100 rounded-full text-zinc-400 hover:text-[#003366] transition-all">
-                <Globe size={18} />
-            </button>
+            <Button size="sm" variant="primary" onClick={() => window.location.href = '/'}>Portal Home</Button>
           </div>
         </div>
       </nav>
 
-      {/* --- MAIN CONTENT --- */}
       <main className="container mx-auto px-6 pt-32 pb-24">
         
+        {/* --- COMMAND VIEW --- */}
         {activeView === 'command' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
             
-            {/* HERO & DIGITAL ID CARD */}
+            {/* HERO HERO SECTION */}
             <div className="grid lg:grid-cols-3 gap-10">
-               {/* BANNER */}
                <div className="lg:col-span-2 bg-[#003366] text-white p-10 md:p-16 rounded-sm relative overflow-hidden flex flex-col justify-center border-b-8 border-b-[#009EDB]">
                   <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none"><Globe size={300} /></div>
                   <div className="relative z-10 space-y-6">
-                    <div className="flex items-center gap-3">
-                       <span className="bg-[#009EDB] text-[9px] font-black px-4 py-1.5 uppercase tracking-[0.2em]">Authorized Representative</span>
-                    </div>
+                    <span className="bg-[#009EDB] text-[9px] font-black px-4 py-1.5 uppercase tracking-[0.2em]">Institutional Command Hub</span>
                     <h1 className="text-4xl md:text-7xl font-black uppercase tracking-tighter leading-[0.85]">
-                       Distinguished, <br/> {delegate?.name?.split(' ')[0] || "Delegate"}
+                       Distinguished, <br/> {delegate?.name?.split(' ')[0] || "Representative"}
                     </h1>
                     <div className="flex items-center gap-4 pt-6 border-t border-white/10">
                        <DiplomaticFlag countryCode={portfolio?.countryCode} className="w-14 h-10 border border-white/20 shadow-xl" />
-                       <p className="text-xl text-zinc-300 italic font-light">Representing the sovereignty of <span className="text-white font-black uppercase tracking-tight">{portfolio?.country || "Registry Error"}</span></p>
+                       <p className="text-xl text-zinc-300 italic font-light uppercase tracking-tight">
+                        Representing <span className="text-white font-black">{portfolio?.country || "Sovereign State"}</span>
+                       </p>
                     </div>
                   </div>
                </div>
 
-               {/* DIGITAL ID CARD */}
-               <div className="bg-white border border-zinc-200 shadow-2xl p-10 flex flex-col items-center text-center relative overflow-hidden rounded-sm group">
-                  <div className="absolute top-0 left-0 w-full h-1 bg-[#009EDB]" />
-                  <div className="w-32 h-32 bg-zinc-50 rounded-full mb-8 flex items-center justify-center border-4 border-zinc-100 relative group-hover:border-[#003366] transition-colors">
-                     <UserIcon size={56} className="text-zinc-200 group-hover:text-[#003366] transition-colors" />
-                     {delegate?.isCheckedIn && (
-                       <div className="absolute bottom-1 right-1 bg-emerald-500 text-white p-1.5 rounded-full border-4 border-white shadow-lg">
-                          <ShieldCheck size={14} />
-                       </div>
-                     )}
-                  </div>
-                  <h3 className="text-lg font-black text-[#003366] uppercase tracking-tighter mb-1 leading-none">{delegate?.name}</h3>
-                  <p className="text-[10px] font-bold text-[#009EDB] uppercase tracking-[0.2em] mb-8 italic">{committee?.name || "Allocation Pending"}</p>
+               {/* DIGITAL ID CARD COMPONENT */}
+               <div className="bg-white border border-zinc-200 shadow-2xl p-10 flex flex-col items-center text-center relative overflow-hidden rounded-sm group hover:scale-[1.01] transition-transform duration-500">
+                  <div className="absolute top-0 left-0 w-full h-1.5 bg-[#009EDB]" />
+                  <div className="absolute top-4 right-4 text-zinc-100"><Shield size={24} /></div>
                   
-                  <div className="w-full bg-zinc-50 p-6 rounded-sm border border-zinc-100 space-y-4 mb-8">
-                     <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                        <span>Registry Ref</span>
-                        <span className="text-[#003366] font-mono">{delegate?.id?.substring(0, 8)}</span>
-                     </div>
-                     <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                        <span>Security Clear</span>
-                        <span className="text-emerald-600">LEVEL I (DIPLOMATIC)</span>
+                  <div className="w-32 h-32 bg-zinc-50 rounded-full mb-8 flex items-center justify-center border-4 border-zinc-100 relative shadow-inner">
+                     <UserIcon size={56} className="text-[#003366]" strokeWidth={1} />
+                     <div className="absolute bottom-1 right-1 bg-emerald-500 text-white p-1.5 rounded-full border-4 border-white shadow-lg">
+                        <CheckCircle size={14} />
                      </div>
                   </div>
 
-                  <div className="flex flex-col gap-3 w-full">
-                      <div className="bg-white p-2 border border-zinc-100 rounded-sm inline-block mx-auto mb-2">
-                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${delegate?.id}`} alt="Registry QR" className="w-20 h-20 grayscale hover:grayscale-0 transition-all cursor-zoom-in" />
-                      </div>
-                      <p className="text-[8px] font-bold text-zinc-300 uppercase tracking-widest">Secretariat Verification Code</p>
+                  <h3 className="text-xl font-black text-[#003366] uppercase tracking-tighter mb-1">{delegate?.name}</h3>
+                  <p className="text-[11px] font-bold text-[#009EDB] uppercase tracking-[0.2em] mb-8">{committee?.name || "Member State Assigned"}</p>
+                  
+                  <div className="w-full bg-[#003366] text-white p-6 rounded-sm space-y-4 mb-8">
+                     <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest opacity-60">
+                        <span>Liaison ID</span>
+                        <span className="font-mono text-white opacity-100">{delegate?.id?.substring(0, 8).toUpperCase()}</span>
+                     </div>
+                     <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest opacity-60">
+                        <span>Clearance</span>
+                        <span className="text-[#009EDB] opacity-100">DIPLOMATIC LEVEL I</span>
+                     </div>
                   </div>
+
+                  <div className="bg-white p-3 border border-zinc-100 rounded-sm mb-4">
+                     <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${delegate?.id}`} alt="Registry QR" className="w-24 h-24 grayscale hover:grayscale-0 transition-all duration-500" />
+                  </div>
+                  <p className="text-[8px] font-black text-zinc-300 uppercase tracking-[0.4em]">Official Credentials Portal</p>
                </div>
             </div>
 
-            {/* QUICK ACTIONS & FEED */}
+            {/* DASHBOARD TOOLS */}
             <div className="grid lg:grid-cols-3 gap-8">
                
-               {/* POSITION PAPER SUBMISSION */}
-               <div className="bg-white border border-zinc-200 p-8 shadow-sm flex flex-col">
-                  <div className="flex items-center gap-3 mb-8 border-b border-zinc-50 pb-4">
-                     <FilePlus className="text-[#009EDB]" size={20} />
-                     <h3 className="text-xs font-black text-[#003366] uppercase tracking-widest">Position Submission</h3>
+               {/* Position Paper Entry */}
+               <div className="bg-white border border-zinc-200 p-8 shadow-sm flex flex-col group hover:border-[#009EDB] transition-colors">
+                  <div className="flex items-center gap-3 mb-8 pb-4 border-b border-zinc-50">
+                     <FilePlus className="text-[#009EDB]" size={18} />
+                     <h3 className="text-xs font-black text-[#003366] uppercase tracking-widest">Dossier Submission</h3>
                   </div>
-                  <p className="text-[10px] text-zinc-500 mb-6 leading-relaxed italic font-medium">Please provide the public URL to your research document for evaluative review by the Moderator board.</p>
+                  <p className="text-[11px] text-zinc-500 mb-8 leading-relaxed font-medium italic">Representatives must submit Position Paper research documentation via an authorized public link (Google Drive/Dropbox).</p>
                   <div className="space-y-4 flex-1">
-                     <input 
-                       type="url" 
-                       placeholder="https://drive.google.com/..." 
-                       className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 text-xs focus:bg-white focus:border-[#009EDB] focus:outline-none transition-all"
-                       value={posPaperInput}
-                       onChange={(e) => setPosPaperInput(e.target.value)}
-                     />
-                     <button 
-                       onClick={handlePositionPaperSubmit}
-                       disabled={isSubmitting}
-                       className="w-full h-12 bg-[#003366] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#002244] flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-                     >
-                        {isSubmitting ? <Loader2 className="animate-spin" size={14} /> : <Send size={12} />}
-                        Update Registry
-                     </button>
-                     {delegate?.positionPaperUrl && (
-                        <div className="flex items-center gap-2 text-[9px] font-bold text-emerald-600 uppercase pt-2 animate-in fade-in">
-                           <CheckCircle2 size={12} /> Logged in Secretariat Database
-                        </div>
-                     )}
+                     <div className="relative">
+                        <input 
+                          type="url" 
+                          placeholder="https://authorized-link.com" 
+                          className="w-full px-4 py-4 bg-zinc-50 border border-zinc-100 text-xs focus:bg-white focus:border-[#009EDB] focus:outline-none transition-all pr-10"
+                          value={posPaperInput}
+                          onChange={(e) => setPosPaperInput(e.target.value)}
+                        />
+                        {delegate?.positionPaperUrl && <CheckCircle size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500" />}
+                     </div>
+                     <Button onClick={handlePositionPaperSubmit} disabled={isSubmitting} className="w-full h-12">
+                        {isSubmitting ? <Loader2 className="animate-spin" size={14} /> : <Send size={14} className="mr-2" />}
+                        Update Database
+                     </Button>
                   </div>
                </div>
 
-               {/* ASSESSMENT SCORECARD */}
+               {/* Live Assessment */}
                <div className="bg-white border border-zinc-200 p-8 shadow-sm">
-                  <div className="flex items-center gap-3 mb-8 border-b border-zinc-50 pb-4">
-                     <Award className="text-[#009EDB]" size={20} />
-                     <h3 className="text-xs font-black text-[#003366] uppercase tracking-widest">Plenary Assessment</h3>
+                  <div className="flex items-center gap-3 mb-8 pb-4 border-b border-zinc-50">
+                     <Award className="text-[#009EDB]" size={18} />
+                     <h3 className="text-xs font-black text-[#003366] uppercase tracking-widest">Live Assessment</h3>
                   </div>
                   {marks ? (
                     <div className="space-y-6">
-                       <div className="bg-[#003366] text-white p-6 text-center rounded-sm shadow-inner relative overflow-hidden">
-                          <p className="text-[9px] font-black uppercase tracking-[0.4em] opacity-40 mb-2">Aggregate Evaluation</p>
+                       <div className="bg-[#003366] text-white p-6 text-center shadow-inner rounded-sm">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.4em] opacity-40 mb-2">Aggregate Evaluation</p>
                           <p className="text-5xl font-black italic">{marks.total}<span className="text-lg opacity-20 ml-1">/50</span></p>
                        </div>
                        <div className="grid grid-cols-2 gap-3">
-                          {[
-                            { l: 'GSL', v: marks.gsl },
-                            { l: 'Mod', v: marks.mod1 },
-                            { l: 'Lobby', v: marks.lobby },
-                            { l: 'Rules', v: marks.fp }
-                          ].map(m => (
-                            <div key={m.l} className="p-3 border border-zinc-50 text-center bg-zinc-50/50">
-                               <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mb-1">{m.l}</p>
-                               <p className="text-sm font-black text-[#003366]">{m.v}</p>
-                            </div>
+                          {['GSL', 'Mod', 'Lobby', 'Rules'].map((l, i) => (
+                             <div key={l} className="p-3 bg-zinc-50 border border-zinc-100 text-center">
+                                <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1">{l}</p>
+                                <p className="text-sm font-black text-[#003366]">{Object.values(marks)[i+1]}</p>
+                             </div>
                           ))}
                        </div>
                     </div>
                   ) : (
-                    <div className="h-full flex flex-col items-center justify-center py-10 opacity-30 text-center">
-                       <Scale size={48} className="mb-4" strokeWidth={1} />
-                       <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed">Evaluation Phase <br/> Not Initialized</p>
+                    <div className="h-48 flex flex-col items-center justify-center opacity-20 text-center">
+                       <Scale size={40} className="mb-4" />
+                       <p className="text-[10px] font-black uppercase tracking-widest leading-loose">Assessment Pending <br/> Plenary Initialisation</p>
                     </div>
                   )}
                </div>
 
-               {/* SESSION PULSE ITINERARY */}
+               {/* Session Pulse */}
                <div className="bg-white border border-zinc-200 p-8 shadow-sm">
-                  <div className="flex items-center gap-3 mb-8 border-b border-zinc-50 pb-4">
-                     <Clock className="text-[#009EDB]" size={20} />
+                  <div className="flex items-center gap-3 mb-8 pb-4 border-b border-zinc-50">
+                     <Clock className="text-[#009EDB]" size={18} />
                      <h3 className="text-xs font-black text-[#003366] uppercase tracking-widest">Plenary Pulse</h3>
                   </div>
                   <div className="space-y-6">
                      {[
-                       { t: '09:00', l: 'Opening Convening', active: true },
-                       { t: '11:00', l: 'Subsidiary Session I', active: false },
-                       { t: '14:00', l: 'Subsidiary Session II', active: false },
-                       { t: '17:00', l: 'Bureau Review', active: false }
+                       { t: '09:00', l: 'Opening Convening', s: true },
+                       { t: '11:00', l: 'Subsidiary Session I', s: false },
+                       { t: '14:00', l: 'Subsidiary Session II', s: false },
+                       { t: '17:00', l: 'Plenary Review', s: false }
                      ].map(ev => (
                        <div key={ev.l} className="flex items-center gap-6">
-                          <span className={`text-[10px] font-black w-10 ${ev.active ? 'text-[#009EDB]' : 'text-zinc-300'}`}>{ev.t}</span>
+                          <span className={`text-[10px] font-black w-10 ${ev.s ? 'text-[#009EDB]' : 'text-zinc-300'}`}>{ev.t}</span>
                           <div className={`flex-1 border-b border-zinc-50 pb-2 flex justify-between items-center`}>
-                             <span className={`text-[11px] font-bold uppercase tracking-tight ${ev.active ? 'text-[#003366]' : 'text-zinc-400'}`}>{ev.l}</span>
-                             {ev.active && <span className="h-1.5 w-1.5 bg-[#009EDB] rounded-full animate-ping" />}
+                             <span className={`text-[11px] font-bold uppercase tracking-tight ${ev.s ? 'text-[#003366]' : 'text-zinc-400'}`}>{ev.l}</span>
+                             {ev.s && <span className="h-1.5 w-1.5 bg-[#009EDB] rounded-full animate-ping" />}
                           </div>
                        </div>
                      ))}
@@ -474,91 +483,62 @@ function DelegateDashboardContent() {
                </div>
             </div>
 
-            {/* DOCUMENTATION GRID */}
-            <div className="bg-white border border-zinc-200 p-10 shadow-sm">
-               <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
-                  <div>
-                    <h3 className="text-2xl font-black text-[#003366] uppercase tracking-tighter">Registry Vault</h3>
-                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1 italic">Official KIMUN documentation & background intel</p>
-                  </div>
-                  <button onClick={() => setActiveView('vault')} className="text-[#009EDB] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:underline">
-                    View Complete Index <ArrowRight size={14} />
-                  </button>
-               </div>
-               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {resources.slice(0, 3).map(res => (
-                    <div key={res.id} className="p-6 border border-zinc-100 hover:border-[#009EDB]/30 hover:bg-[#F0F8FF]/30 transition-all group rounded-sm">
-                        <div className="w-10 h-10 bg-zinc-50 rounded-sm mb-4 flex items-center justify-center text-zinc-400 group-hover:bg-[#009EDB] group-hover:text-white transition-colors">
-                           <FileText size={20} />
-                        </div>
-                        <h4 className="text-sm font-black text-[#003366] uppercase tracking-tight mb-1">{res.title}</h4>
-                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-4">Ref: KIMUN/PLN/{res.type?.toUpperCase()}</p>
-                        <a href={res.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-[#009EDB] text-[10px] font-black uppercase tracking-widest hover:text-[#003366]">
-                           Download <Download size={12} />
-                        </a>
-                    </div>
-                  ))}
-               </div>
-            </div>
-
           </motion.div>
         )}
 
-        {activeView === 'registry' && (
-          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-             <div className="bg-white border border-zinc-200 p-12 text-center space-y-4">
-                <Search size={48} className="mx-auto text-zinc-200" />
-                <h2 className="text-2xl font-black text-[#003366] uppercase tracking-tighter">Plenary Registry Access</h2>
-                <p className="text-sm text-zinc-500 max-w-md mx-auto italic font-light leading-relaxed">
-                   The public Member State matrix and committee allocations index is undergoing plenary synchronization. Access will be restored via the main gateway shortly.
-                </p>
-                <button onClick={() => setActiveView('command')} className="text-[#009EDB] text-[10px] font-black uppercase tracking-widest hover:underline pt-4">Return to Mission Control</button>
-             </div>
-          </div>
+        {/* --- PROFILE VIEW --- */}
+        {activeView === 'profile' && (
+           <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="max-w-4xl mx-auto space-y-12">
+              <div className="bg-white border border-zinc-200 p-12 shadow-sm rounded-sm">
+                 <h2 className="text-4xl font-black text-[#003366] uppercase tracking-tighter mb-12">Representative Dossier</h2>
+                 <div className="grid md:grid-cols-2 gap-12">
+                    <ProfileItem label="Full Legal Name" value={delegate?.name} icon={UserIcon} />
+                    <ProfileItem label="Diplomatic Email" value={delegate?.email} icon={Mail} />
+                    <ProfileItem label="Liaison Contact" value={delegate?.phone} icon={MessageSquare} />
+                    <ProfileItem label="Academic Mission" value={delegate?.institution} icon={Landmark} />
+                    <ProfileItem label="Member State Assigned" value={portfolio?.country} icon={Globe} />
+                    <ProfileItem label="Registry ID" value={delegate?.id} icon={Shield} />
+                 </div>
+                 <div className="mt-16 pt-8 border-t border-zinc-50 flex justify-end gap-6">
+                    <Button variant="outline" onClick={() => setActiveView('command')}>Command Hub</Button>
+                    <Button variant="primary" onClick={() => toast.info('Request for amendment sent to Liaison office.')}>Request Amendment</Button>
+                 </div>
+              </div>
+           </motion.div>
         )}
 
-        {activeView === 'vault' && (
-           <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-10">
-              <h2 className="text-4xl font-black text-[#003366] uppercase tracking-tighter">Plenary Vault Index</h2>
-              <div className="grid gap-4">
-                 {resources.map(res => (
-                   <div key={res.id} className="bg-white border border-zinc-200 p-6 flex justify-between items-center group hover:border-[#009EDB] transition-all">
-                      <div className="flex items-center gap-6">
-                         <div className="p-3 bg-zinc-50 rounded-sm text-zinc-300 group-hover:bg-[#009EDB]/10 group-hover:text-[#009EDB] transition-colors">
-                            <FileText size={24} />
-                         </div>
-                         <div>
-                            <h4 className="text-base font-black text-[#003366] uppercase tracking-tight">{res.title}</h4>
-                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest italic">{res.description || "Official Plenary Document"}</p>
-                         </div>
-                      </div>
-                      <a href={res.url} target="_blank" rel="noreferrer" className="p-4 hover:bg-zinc-50 rounded-full text-zinc-300 hover:text-[#009EDB] transition-colors">
-                         <Download size={20} />
-                      </a>
-                   </div>
-                 ))}
+        {/* --- REGISTRY / VAULT FALLBACKS --- */}
+        {(activeView === 'registry' || activeView === 'vault') && (
+           <div className="bg-white border border-zinc-200 p-16 text-center space-y-8 rounded-sm animate-in fade-in zoom-in-95 duration-500">
+              <div className="w-20 h-20 bg-zinc-50 rounded-full mx-auto flex items-center justify-center text-zinc-200">
+                 {activeView === 'registry' ? <Search size={40} /> : <FileBadge size={40} />}
               </div>
+              <div className="space-y-4">
+                <h3 className="text-2xl font-black text-[#003366] uppercase tracking-tighter">{activeView === 'registry' ? 'Plenary Matrix Access' : 'Digital Vault Index'}</h3>
+                <p className="text-zinc-500 italic max-w-md mx-auto text-sm leading-relaxed">The Secretariat information systems are currently synchronising session records. Access will be restored upon successful bureau verification.</p>
+              </div>
+              <Button variant="outline" onClick={() => setActiveView('command')}>Return to Control</Button>
            </div>
         )}
 
       </main>
 
-      {/* --- FOOTER --- */}
+      {/* --- INSTITUTIONAL FOOTER --- */}
       <footer className="bg-white border-t border-zinc-200 py-16">
         <div className="container mx-auto px-8">
-           <div className="flex flex-col md:flex-row justify-between items-center gap-10">
-              <div className="flex items-center gap-4">
-                 <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Logo" className="h-12 w-12 grayscale opacity-40" />
+           <div className="flex flex-col md:flex-row justify-between items-center gap-12">
+              <div className="flex items-center gap-5">
+                 <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Emblem" className="h-14 w-14 grayscale opacity-30" />
                  <div>
-                    <h4 className="text-sm font-black text-zinc-400 uppercase tracking-widest leading-none">Secretariat Info System</h4>
-                    <p className="text-[9px] font-bold text-zinc-300 uppercase mt-1 tracking-[0.2em]">Protocol Secured // 2026.01</p>
+                    <h4 className="text-sm font-black text-zinc-400 uppercase tracking-[0.3em] leading-none">Secretariat Records</h4>
+                    <p className="text-[9px] font-bold text-zinc-300 uppercase mt-1 tracking-widest italic">Encrypted Mission Data // Bhubaneswar Registry</p>
                  </div>
               </div>
               <div className="flex gap-10 text-[10px] font-black uppercase text-zinc-400 tracking-widest">
-                 <a href="/" className="hover:text-[#003366]">Gateway</a>
-                 <a href="/matrix" className="hover:text-[#003366]">Registry</a>
-                 <a href="#" className="hover:text-[#003366]">Charter</a>
-                 <a href="#" className="hover:text-[#003366]">Support</a>
+                 <button onClick={() => window.location.href = '/'} className="hover:text-[#003366]">Registry Gateway</button>
+                 <button className="hover:text-[#003366]">KIMUN Charter</button>
+                 <button className="hover:text-[#003366]">Identity Protocol</button>
+                 <button className="hover:text-[#003366]">Mission Support</button>
               </div>
            </div>
         </div>
@@ -569,7 +549,6 @@ function DelegateDashboardContent() {
         body { background-color: #F9FAFB; font-family: 'Inter', sans-serif; color: #1A1A1A; }
         * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
         
-        /* Diplomatic Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #F9FAFB; }
         ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 10px; }
@@ -577,6 +556,17 @@ function DelegateDashboardContent() {
       `}</style>
     </div>
   )
+}
+
+function ProfileItem({ label, value, icon: Icon }: any) {
+   return (
+      <div className="space-y-2">
+         <label className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400 flex items-center gap-2">
+            <Icon size={12} className="text-[#009EDB]" /> {label}
+         </label>
+         <p className="text-base font-bold text-[#003366] pb-3 border-b border-zinc-50">{value || "Unregistered"}</p>
+      </div>
+   )
 }
 
 function Scale(props: any) {
