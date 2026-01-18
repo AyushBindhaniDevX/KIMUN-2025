@@ -67,7 +67,7 @@ const ACCREDITATION_PHASES = [
   { name: "Early Bird", startDate: new Date('2025-04-20'), endDate: new Date('2025-05-11'), singlePrice: 1299, doublePrice: 2499 },
   { name: "Phase I Plenary", startDate: new Date('2025-05-12'), endDate: new Date('2025-05-29'), singlePrice: 1299, doublePrice: 2499 },
   { name: "Phase II Plenary", startDate: new Date('2025-05-30'), endDate: new Date('2025-06-14'), singlePrice: 1299, doublePrice: 2499 },
-  { name: "Final Convening", startDate: new Date('2025-06-15'), endDate: new Date('2025-12-30'), singlePrice: 999, doublePrice: 1999 }
+  { name: "Final Convening", startDate: new Date('2025-06-15'), endDate: new Date('2026-12-30'), singlePrice: 999, doublePrice: 1999 }
 ];
 
 const VALID_COUPONS: Record<string, number> = {
