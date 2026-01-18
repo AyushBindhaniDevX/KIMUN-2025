@@ -13,13 +13,13 @@ import {
   LogOut, Ban, RefreshCw, Send, Loader2, Ticket, 
   ShieldCheck, Landmark, Globe, Search, Info, 
   CheckCircle2, ChevronRight, Scale, Mail, ExternalLink,
-  ShieldAlert
+  ShieldAlert,
+  Clock
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, get, push, update, remove, onValue } from 'firebase/database';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import Select from 'react-select';
-import { jsPDF } from 'jspdf';
 import { Toaster, toast } from 'sonner';
 
 // --- Types ---
@@ -132,13 +132,8 @@ export default function AdminDashboard() {
   
   const [committees, setCommittees] = useState<Committee[]>([]);
   const [delegates, setDelegates] = useState<Delegate[]>([]);
-  const [resources, setResources] = useState<Resource[]>([]);
   const [barcodeInput, setBarcodeInput] = useState('');
-  const [selectedCommittee, setSelectedCommittee] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<'committee' | 'delegate' | 'resource'>('committee');
-  const [editingItem, setEditingItem] = useState<any>(null);
 
   // 1. Authentication Check
   useEffect(() => {
@@ -237,41 +232,75 @@ export default function AdminDashboard() {
   const exportToCSV = () => {
     const headers = ['Registry ID', 'Name', 'Email', 'Committee', 'Status'];
     const rows = delegates.map(d => [
-      d.id, d.name, d.email, d.committeeId, d.isCheckedIn ? 'Checked-In' : 'Pending'
+      `"${d.id}"`, 
+      `"${d.name}"`, 
+      `"${d.email}"`, 
+      `"${d.committeeId}"`, 
+      `"${d.isCheckedIn ? 'Checked-In' : 'Pending'}"`
     ]);
 
-    let csvContent = "data:text/csv;charset=utf-8," 
-      + headers.join(",") + "\n"
-      + rows.map(e => e.join(",")).join("\n");
-
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", url);
     link.setAttribute("download", `KIMUN_Registry_${new Date().toISOString().slice(0,10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  const generateIDCardsPDF = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text("Kalinga International MUN 2026", 20, 20);
-    doc.setFontSize(12);
-    doc.text("Official Registry Summary", 20, 30);
-    
-    let y = 50;
-    delegates.slice(0, 20).forEach((d, i) => {
-      doc.text(`${i+1}. ${d.name} [${d.id.substring(0,8)}] - ${d.isCheckedIn ? 'Verified' : 'Pending'}`, 20, y);
-      y += 10;
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
-    });
+  const generateIDCardsPrint = () => {
+    // We replace the jsPDF logic with a printable Summary Report
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
 
-    doc.save(`KIMUN_Summary_${new Date().toISOString().slice(0,10)}.pdf`);
-    toast.success("Summary PDF Generated via Native Protocol");
+    const summaryHtml = `
+      <html>
+        <head>
+          <title>KIMUN 2026 Registry Summary</title>
+          <style>
+            body { font-family: 'Inter', sans-serif; padding: 40px; color: #1a1a1a; }
+            h1 { color: #003366; border-bottom: 2px solid #009EDB; padding-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #e5e7eb; padding: 12px; text-align: left; font-size: 12px; }
+            th { background: #f9fafb; font-weight: bold; text-transform: uppercase; }
+          </style>
+        </head>
+        <body>
+          <h1>Kalinga International MUN 2026</h1>
+          <p>Official Registry Summary - ${new Date().toLocaleString()}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>No.</th>
+                <th>Name</th>
+                <th>Registry ID</th>
+                <th>Committee</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${delegates.map((d, i) => `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td>${d.name}</td>
+                  <td style="font-family: monospace;">${d.id.substring(0, 12)}</td>
+                  <td>${d.committeeId}</td>
+                  <td>${d.isCheckedIn ? 'Verified' : 'Pending'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(summaryHtml);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    toast.success("Summary Report transmitted to system print bureau.");
   };
 
   if (loading) return <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center"><Loader2 className="animate-spin text-[#009EDB]" size={40} /></div>;
@@ -336,11 +365,11 @@ export default function AdminDashboard() {
         <header className="bg-white border-b border-zinc-200 py-4 px-10 sticky top-0 z-50 flex justify-between items-center shadow-sm">
            <div className="flex items-center gap-4 text-zinc-400">
               <Clock size={16} />
-              <span className="text-[10px] font-bold uppercase tracking-widest">Plenary Data Stream Active</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest">Plenary Registry Operational</span>
            </div>
            <div className="flex gap-4">
-              <Button size="sm" variant="outline" onClick={exportToCSV}>CSV Export</Button>
-              <Button size="sm" variant="primary" onClick={generateIDCardsPDF}>Summary PDF</Button>
+              <Button size="sm" variant="outline" onClick={exportToCSV}>CSV Registry</Button>
+              <Button size="sm" variant="primary" onClick={generateIDCardsPrint}><Printer className="mr-2 h-4 w-4" /> Print Summary</Button>
            </div>
         </header>
 
@@ -349,9 +378,9 @@ export default function AdminDashboard() {
           {activeTab === 'dashboard' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <StatCard label="Dossiers" value={delegates.length} icon={Users} color="#003366" />
+                <StatCard label="Total Dossiers" value={delegates.length} icon={Users} color="#003366" />
                 <StatCard label="Credentialed" value={delegates.filter(d => d.isCheckedIn).length} icon={CheckCircle} color="#10b981" />
-                <StatCard label="Vacant" value={committees.reduce((acc, c) => acc + c.portfolios.filter(p => p.isVacant).length, 0)} icon={Globe} color="#009EDB" />
+                <StatCard label="Vacant Seats" value={committees.reduce((acc, c) => acc + c.portfolios.filter(p => p.isVacant).length, 0)} icon={Globe} color="#009EDB" />
                 <StatCard label="Organs" value={committees.length} icon={Landmark} color="#4D4D4D" />
               </div>
 
@@ -371,7 +400,7 @@ export default function AdminDashboard() {
                     </div>
                  </div>
                  <div className="bg-white border border-zinc-200 p-8 shadow-sm rounded-sm">
-                    <h3 className="text-xs font-black uppercase text-zinc-400 tracking-widest mb-8">Dossier Accuracy</h3>
+                    <h3 className="text-xs font-black uppercase text-zinc-400 tracking-widest mb-8">Credentialing Progress</h3>
                     <div className="h-[300px] flex items-center justify-center">
                        <PieChart width={300} height={300}>
                           <Pie 
@@ -397,10 +426,10 @@ export default function AdminDashboard() {
           {activeTab === 'delegates' && (
             <div className="bg-white border border-zinc-200 shadow-sm overflow-hidden">
                <div className="p-8 border-b border-zinc-100 flex justify-between items-center">
-                  <h2 className="text-xl font-black uppercase tracking-tighter text-[#003366]">Delegate Registry</h2>
+                  <h2 className="text-xl font-black uppercase tracking-tighter text-[#003366]">Registry Search</h2>
                   <div className="relative w-72">
                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-300" size={16} />
-                     <input type="text" placeholder="Search ID or Name..." className="w-full pl-10 pr-4 py-2 border border-zinc-200 text-xs outline-none" onChange={e => setBarcodeInput(e.target.value)} />
+                     <input type="text" placeholder="Registry ID or Name..." className="w-full pl-10 pr-4 py-2 border border-zinc-200 text-xs outline-none text-zinc-900" onChange={e => setBarcodeInput(e.target.value)} />
                   </div>
                </div>
                <table className="w-full text-left">
@@ -427,14 +456,14 @@ export default function AdminDashboard() {
                           <td className="p-6 font-mono text-xs text-zinc-500 uppercase tracking-tighter">{d.id.substring(0, 12)}</td>
                           <td className="p-6">
                              <span className={`inline-block px-3 py-1 rounded-sm text-[9px] font-black uppercase tracking-widest ${d.isCheckedIn ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                                {d.isCheckedIn ? 'Credentialed' : 'Liaison Pending'}
+                                {d.isCheckedIn ? 'Credentialed' : 'Pending'}
                              </span>
                           </td>
                           <td className="p-6 text-right">
                              {!d.isCheckedIn ? (
-                               <Button size="sm" onClick={() => handleCheckIn(d.id)}>Accredit</Button>
+                               <Button size="sm" onClick={() => handleCheckIn(d.id)}>Finalize Access</Button>
                              ) : (
-                               <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest">Registry Logged</span>
+                               <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest">Bureau Logged</span>
                              )}
                           </td>
                        </tr>
@@ -452,7 +481,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="grid md:grid-cols-2 gap-8">
                    {committees.map(c => (
-                      <div key={c.id} className="bg-white border border-zinc-200 p-8 shadow-sm flex flex-col group hover:border-[#009EDB] transition-all">
+                      <div key={c.id} className="bg-white border border-zinc-200 shadow-sm p-8 flex flex-col group hover:border-[#009EDB] transition-all">
                          <div className="flex items-center gap-4 mb-6">
                             <span className="text-3xl">{c.emoji}</span>
                             <div>
@@ -460,7 +489,7 @@ export default function AdminDashboard() {
                                <span className="text-[9px] font-bold text-[#009EDB] uppercase tracking-widest">{c.type} Body // {c.portfolios.length} Seats</span>
                             </div>
                          </div>
-                         <div className="space-y-4 flex-1">
+                         <div className="space-y-4 flex-1 text-left">
                             <p className="text-xs text-zinc-500 italic leading-relaxed">{c.description}</p>
                             <div className="grid grid-cols-6 gap-2">
                                {c.portfolios.map(p => (
@@ -493,7 +522,7 @@ function StatCard({ label, value, icon: Icon, color }: any) {
       <label className="text-[10px] font-black uppercase text-zinc-400 tracking-widest block mb-4">{label}</label>
       <div className="flex items-end gap-2 relative z-10">
          <p className="text-4xl font-black italic tracking-tighter" style={{ color }}>{value}</p>
-         <span className="text-[10px] font-bold text-zinc-300 uppercase mb-2">Registry</span>
+         <span className="text-[10px] font-bold text-zinc-300 uppercase mb-2">Logged</span>
       </div>
     </div>
   )
