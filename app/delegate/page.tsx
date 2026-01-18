@@ -32,7 +32,8 @@ import {
   ExternalLink,
   Info,
   CheckCircle2,
-  Users
+  Users,
+  Globe2
 } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 
@@ -117,6 +118,57 @@ type Coupon = {
   discount: string
   terms: string
 }
+
+// --- Institutional UI Components ---
+const Button = React.forwardRef<HTMLButtonElement, any>(({ className, variant = "default", size = "default", ...props }, ref) => {
+  const variants = {
+    default: "bg-[#009EDB] text-white hover:bg-[#0077B3] shadow-sm font-bold",
+    outline: "border-2 border-[#009EDB] text-[#009EDB] hover:bg-[#F0F8FF] font-bold",
+    secondary: "bg-[#4D4D4D] text-white hover:bg-[#333333]",
+    ghost: "text-gray-500 hover:bg-gray-100",
+    google: "bg-white text-gray-900 border border-gray-300 hover:bg-gray-50 shadow-sm font-bold"
+  }
+  const sizes = {
+    default: "h-11 px-6 py-2 text-xs",
+    lg: "h-14 px-10 text-sm font-black",
+    sm: "h-8 px-4 text-[10px]"
+  }
+  return (
+    <button
+      ref={ref}
+      className={`inline-flex items-center justify-center rounded-sm uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 ${variants[variant as keyof typeof variants] || variants.default} ${sizes[size as keyof typeof sizes] || sizes.default} ${className}`}
+      {...props}
+    />
+  )
+})
+Button.displayName = "Button"
+
+const ProgressStep = ({ current, step, label, icon: Icon }: any) => (
+  <div className="flex flex-col items-center flex-1 relative">
+    <div className={`w-10 h-10 rounded-full flex items-center justify-center z-10 border-2 transition-all duration-500 ${current >= step ? 'bg-[#009EDB] border-[#009EDB] text-white shadow-lg' : 'bg-white border-gray-200 text-gray-400'}`}>
+      <Icon size={18} />
+    </div>
+    <span className={`text-[9px] font-black uppercase tracking-tighter mt-2 text-center transition-colors ${current >= step ? 'text-[#003366]' : 'text-gray-300'}`}>
+      {label}
+    </span>
+    {step < 5 && (
+        <div className={`absolute top-5 left-[60%] w-full h-[2px] -z-0 ${current > step ? 'bg-[#009EDB]' : 'bg-gray-100'}`} />
+    )}
+  </div>
+);
+
+const DiplomaticFlag = ({ countryCode, className = "" }: { countryCode: string, className?: string }) => {
+  return (
+    <img 
+      src={`https://flagcdn.com/w80/${countryCode.toLowerCase()}.png`}
+      alt={`${countryCode} Representation`}
+      className={`object-contain ${className}`}
+      onError={(e) => {
+        (e.target as HTMLImageElement).src = 'https://flagcdn.com/w80/un.png';
+      }}
+    />
+  );
+};
 
 // --- Placeholder for Certificate Generator (User provides implementation) ---
 const generateCertificate = async (d: any, c: any, p: any, preview: boolean = false) => {
@@ -251,6 +303,12 @@ function DelegateDashboardContent() {
     }
   }
 
+  const handleDownloadCertificate = async () => {
+    if (!delegate || !committee) return
+    toast.loading('Generating Official Citation...')
+    // Implementation should be provided in CertificateGenerator.ts
+  }
+
   if (!loggedIn) {
     return (
       <div className="min-h-screen bg-[#F4F4F4] flex items-center justify-center p-6 font-sans">
@@ -338,7 +396,7 @@ function DelegateDashboardContent() {
           
           {/* Subsidiary Body Info */}
           <section className="bg-white border border-gray-200 shadow-sm flex flex-col group">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 cursor-pointer" onClick={() => toggleCard('committee')}>
                <h2 className="text-sm font-black text-[#003366] uppercase tracking-widest flex items-center gap-3">
                   <Landmark size={18} className="text-[#009EDB]" /> Plenary Body
                </h2>
@@ -371,10 +429,7 @@ function DelegateDashboardContent() {
             </div>
             <div className="p-8 flex-1 space-y-8">
                <div className="flex items-center gap-5">
-                  <img 
-                    src={`https://flagcdn.com/w80/${portfolio?.countryCode?.toLowerCase()}.png`} 
-                    alt="Flag" className="w-16 h-10 shadow-sm border border-gray-100 object-cover" 
-                  />
+                  <DiplomaticFlag countryCode={portfolio?.countryCode || 'un'} className="w-16 h-10 shadow-sm border border-gray-100 object-cover" />
                   <div>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Representation</p>
                     <p className="text-xl font-black text-[#003366] uppercase">{portfolio?.country}</p>
@@ -394,7 +449,7 @@ function DelegateDashboardContent() {
                   </div>
                </div>
                {delegate?.isCheckedIn && (
-                 <Button onClick={() => toast.info('Accessing Plenary Vault...')} className="w-full h-12 bg-[#003366]">
+                 <Button onClick={handleDownloadCertificate} className="w-full h-12 bg-[#003366]">
                     <Download size={14} className="mr-2" /> Plenary Citation
                  </Button>
                )}
@@ -403,10 +458,11 @@ function DelegateDashboardContent() {
 
           {/* Performance Assessment */}
           <section className="bg-white border border-gray-200 shadow-sm flex flex-col">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 cursor-pointer" onClick={() => toggleCard('performance')}>
                <h2 className="text-sm font-black text-[#003366] uppercase tracking-widest flex items-center gap-3">
                   <Award size={18} className="text-[#009EDB]" /> Performance Metrics
                </h2>
+               {expandedCard === 'performance' ? <ChevronUp size={14} className="text-gray-300" /> : <ChevronDown size={14} className="text-gray-300" />}
             </div>
             <div className="p-8 flex-1">
                {delegate?.marks ? (
@@ -426,7 +482,7 @@ function DelegateDashboardContent() {
                   </div>
                ) : (
                   <div className="text-center py-10 opacity-40">
-                     <Scale size={40} className="mx-auto mb-4" />
+                     <Scale size={40} className="mx-auto mb-4" strokeWidth={1} />
                      <p className="text-xs font-bold uppercase tracking-widest">Assessment Pending Plenary Session Conclusion</p>
                   </div>
                )}
@@ -449,7 +505,7 @@ function DelegateDashboardContent() {
                          </div>
                          <div>
                             <p className="text-sm font-bold text-gray-700 uppercase">{res.title}</p>
-                            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Document: KIMUN/REF/{res.type.toUpperCase()}</p>
+                            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Document: KIMUN/REF/{res.type?.toUpperCase()}</p>
                          </div>
                       </div>
                       <a href={res.url} target="_blank" rel="noreferrer" className="text-[#009EDB] hover:text-[#003366]"><Download size={18} /></a>
@@ -494,6 +550,25 @@ function DelegateDashboardContent() {
       `}</style>
     </div>
   )
+}
+
+function Scale(props: any) {
+  return (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      width="24" 
+      height="24" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      {...props}
+    >
+      <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h18"/>
+    </svg>
+  );
 }
 
 export default function App() {
