@@ -7,7 +7,7 @@ import {
   ChevronRight, Calendar, Clock, Lock, Unlock, FileText, 
   ShieldCheck, Landmark, Search, ArrowLeft, ArrowRight,
   UserCheck, ClipboardList, CreditCard, MessageSquare, Loader2,
-  Scale, Gavel, Globe2
+  Scale, Gavel, Globe2, Info
 } from 'lucide-react'
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, push, update } from 'firebase/database'
