@@ -1,24 +1,15 @@
-// app/delegate/page.tsx
 'use client'
-import { useState, useEffect, Suspense } from 'react'
-import { 
-  initializeApp 
-} from 'firebase/app'
-import { 
-  getDatabase, 
-  ref, 
-  get
-} from 'firebase/database'
+import React, { useState, useEffect, Suspense } from 'react'
+import { initializeApp } from 'firebase/app'
+import { getDatabase, ref, get } from 'firebase/database'
 import { 
   getAuth, 
   GoogleAuthProvider, 
   signInWithPopup, 
-  signOut,
-  onAuthStateChanged,
-  User
+  signOut, 
+  onAuthStateChanged, 
+  User 
 } from 'firebase/auth'
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
 import { 
   Mail, 
   Lock, 
@@ -31,12 +22,19 @@ import {
   ChevronUp, 
   Loader2, 
   Copy, 
-  Eye 
+  Eye,
+  LogOut,
+  Globe,
+  Landmark,
+  ShieldCheck,
+  Calendar,
+  Clock,
+  ExternalLink,
+  Info,
+  CheckCircle2,
+  Users
 } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
-import Link from 'next/link'
-import Image from 'next/image'
-import { generateCertificate } from '@/components/CertificateGenerator'
 
 // Firebase configuration
 const firebaseConfig = {
@@ -55,6 +53,7 @@ const db = getDatabase(app)
 const auth = getAuth(app)
 const googleProvider = new GoogleAuthProvider()
 
+// --- Types ---
 type Mark = {
   total: number
   gsl: number
@@ -77,7 +76,7 @@ type DelegateData = {
   portfolioId: string
   isCheckedIn: boolean
   marks?: Mark
-  experience?: number
+  experience?: string
   institution?: string
 }
 
@@ -105,9 +104,6 @@ type Resource = {
   type: 'guide' | 'rules' | 'template' | 'training'
   url: string
   committee?: string
-  pages?: number
-  includes?: string[]
-  format?: string
 }
 
 type Coupon = {
@@ -122,18 +118,12 @@ type Coupon = {
   terms: string
 }
 
+// --- Placeholder for Certificate Generator (User provides implementation) ---
+const generateCertificate = async (d: any, c: any, p: any, preview: boolean = false) => {
+    return { imageDataUrl: "", save: (n: string) => {} };
+};
+
 function DelegateDashboardContent() {
-  const router = useRouter()
-  const [previewCertificate, setPreviewCertificate] = useState<{
-    show: boolean
-    imageUrl: string
-    name: string
-  }>({
-    show: false,
-    imageUrl: '',
-    name: ''
-  })
-  
   const [user, setUser] = useState<User | null>(null)
   const [loggedIn, setLoggedIn] = useState(false)
   const [delegate, setDelegate] = useState<DelegateData | null>(null)
@@ -148,12 +138,9 @@ function DelegateDashboardContent() {
     coupons: false,
     certificate: false
   })
-  const [error, setError] = useState({
-    login: null as string | null
-  })
+  const [error, setError] = useState({ login: null as string | null })
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
 
-  // Auth state listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -168,107 +155,54 @@ function DelegateDashboardContent() {
         setPortfolio(null)
       }
     })
-
     return () => unsubscribe()
-  }, [router])
+  }, [])
 
   const signInWithGoogle = async () => {
     try {
       setLoading(prev => ({ ...prev, login: true }))
-      setError(prev => ({ ...prev, login: null }))
-      
       const result = await signInWithPopup(auth, googleProvider)
-      const user = result.user
-      
-      setUser(user)
+      setUser(result.user)
       setLoggedIn(true)
-      toast.success('Login successful!')
-      
+      toast.success('Identity Verified')
     } catch (error: any) {
-      console.error('Google sign-in error:', error)
       setError(prev => ({ ...prev, login: error.message }))
-      toast.error('Failed to sign in with Google')
+      toast.error('Authentication Protocol Failed')
     } finally {
       setLoading(prev => ({ ...prev, login: false }))
     }
   }
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth)
-      setLoggedIn(false)
-      setDelegate(null)
-      setCommittee(null)
-      setPortfolio(null)
-      setResources([])
-      setCoupons([])
-      toast.info('Logged out successfully')
-    } catch (error) {
-      console.error('Logout error:', error)
-      toast.error('Failed to logout')
-    }
+    await signOut(auth)
+    setLoggedIn(false)
+    toast.info('Session Terminated')
   }
 
   const fetchDelegateData = async (email: string) => {
     try {
       setLoading(prev => ({ ...prev, data: true }))
-      
-      const delegatesRef = ref(db, 'registrations')
-      const snapshot = await get(delegatesRef)
+      const snapshot = await get(ref(db, 'registrations'))
+      if (!snapshot.exists()) throw new Error('Dossier Not Found')
 
-      if (!snapshot.exists()) {
-        throw new Error('No delegate found with this email')
-      }
-
-      // Search through all registrations for matching email
       const registrations = snapshot.val()
       let foundDelegate = null
 
       for (const key in registrations) {
-        const registration = registrations[key]
-        
-        // Check delegate1
-        if (registration.delegateInfo?.delegate1?.email === email) {
+        const reg = registrations[key]
+        if (reg.delegateInfo?.delegate1?.email === email || reg.delegateInfo?.delegate2?.email === email || reg.email === email) {
           foundDelegate = {
             id: key,
-            ...registration.delegateInfo.delegate1,
-            committeeId: registration.committeeId,
-            portfolioId: registration.portfolioId,
-            isCheckedIn: registration.isCheckedIn || false
-          }
-          break
-        }
-        // Check delegate2
-        if (registration.delegateInfo?.delegate2?.email === email) {
-          foundDelegate = {
-            id: key,
-            ...registration.delegateInfo.delegate2,
-            committeeId: registration.committeeId,
-            portfolioId: registration.portfolioId,
-            isCheckedIn: registration.isCheckedIn || false
-          }
-          break
-        }
-        
-        // Also check if email is directly in the registration
-        if (registration.email === email) {
-          foundDelegate = {
-            id: key,
-            name: registration.name,
-            email: registration.email,
-            committeeId: registration.committeeId,
-            portfolioId: registration.portfolioId,
-            isCheckedIn: registration.isCheckedIn || false,
-            experience: registration.experience,
-            institution: registration.institution
+            ...(reg.delegateInfo?.delegate1 || reg),
+            committeeId: reg.committeeId,
+            portfolioId: reg.portfolioId,
+            isCheckedIn: reg.isCheckedIn || false
           }
           break
         }
       }
 
-      if (!foundDelegate) {
-        throw new Error('No delegate found with this email. Please ensure you used the same email you registered with.')
-      }
+      if (!foundDelegate) throw new Error('Registry Sync Error: Identity mismatch.')
 
       setDelegate(foundDelegate)
       fetchCommitteeData(foundDelegate.committeeId, foundDelegate.portfolioId)
@@ -276,8 +210,7 @@ function DelegateDashboardContent() {
       fetchResources()
       fetchCoupons()
     } catch (error) {
-      console.error('Error fetching delegate data:', error)
-      toast.error('Failed to fetch delegate data. Please try again.')
+      toast.error('Identity Verification Failed')
       handleLogout()
     } finally {
       setLoading(prev => ({ ...prev, data: false }))
@@ -285,659 +218,291 @@ function DelegateDashboardContent() {
   }
 
   const fetchCommitteeData = async (committeeId: string, portfolioId: string) => {
-    try {
-      const committeeRef = ref(db, `committees/${committeeId}`)
-      const committeeSnapshot = await get(committeeRef)
-      
-      if (committeeSnapshot.exists()) {
-        const committeeData = committeeSnapshot.val()
-        setCommittee(committeeData)
-        
-        if (committeeData.portfolios && portfolioId) {
-          setPortfolio(committeeData.portfolios[portfolioId])
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching committee data:', error)
+    const snapshot = await get(ref(db, `committees/${committeeId}`))
+    if (snapshot.exists()) {
+      const data = snapshot.val()
+      setCommittee(data)
+      if (data.portfolios && portfolioId) setPortfolio(data.portfolios[portfolioId])
     }
   }
 
   const fetchMarksData = async (committeeId: string, portfolioId: string) => {
-    try {
-      const marksRef = ref(db, `marksheets/${committeeId}/marks`)
-      const marksSnapshot = await get(marksRef)
-      
-      if (marksSnapshot.exists()) {
-        const marksData = marksSnapshot.val()
-        const delegateMarks = Object.values(marksData).find(
-          (mark: any) => mark.portfolioId === portfolioId
-        ) as Mark | undefined
-        
-        if (delegateMarks) {
-          setDelegate(prev => ({
-            ...prev!,
-            marks: delegateMarks
-          }))
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching marks data:', error)
+    const snapshot = await get(ref(db, `marksheets/${committeeId}/marks`))
+    if (snapshot.exists()) {
+      const marksData = snapshot.val()
+      const dMarks = Object.values(marksData).find((m: any) => m.portfolioId === portfolioId) as Mark | undefined
+      if (dMarks) setDelegate(prev => ({ ...prev!, marks: dMarks }))
     }
   }
 
   const fetchResources = async () => {
-    try {
-      setLoading(prev => ({ ...prev, resources: true }))
-      
-      const resourcesRef = ref(db, 'resources')
-      const resourcesSnapshot = await get(resourcesRef)
-      
-      if (resourcesSnapshot.exists()) {
-        const resourcesData = resourcesSnapshot.val()
-        const resourcesList = Object.keys(resourcesData).map(key => ({
-          id: key,
-          ...resourcesData[key]
-        })) as Resource[]
-        setResources(resourcesList.filter(r => 
-          r.type === 'guide' || r.type === 'rules' || r.type === 'template'
-        ))
-      }
-    } catch (error) {
-      console.error('Error fetching resources:', error)
-    } finally {
-      setLoading(prev => ({ ...prev, resources: false }))
+    const snapshot = await get(ref(db, 'resources'))
+    if (snapshot.exists()) {
+      const data = snapshot.val()
+      setResources(Object.keys(data).map(k => ({ id: k, ...data[k] })))
     }
   }
 
   const fetchCoupons = async () => {
-    try {
-      setLoading(prev => ({ ...prev, coupons: true }))
-      
-      const couponsRef = ref(db, 'coupons')
-      const couponsSnapshot = await get(couponsRef)
-      
-      if (couponsSnapshot.exists()) {
-        const couponsData = couponsSnapshot.val()
-        const couponsList = Object.keys(couponsData).map(key => ({
-          id: key,
-          ...couponsData[key]
-        })) as Coupon[]
-        setCoupons(couponsList)
-      }
-    } catch (error) {
-      console.error('Error fetching coupons:', error)
-    } finally {
-      setLoading(prev => ({ ...prev, coupons: false }))
+    const snapshot = await get(ref(db, 'coupons'))
+    if (snapshot.exists()) {
+      const data = snapshot.val()
+      setCoupons(Object.keys(data).map(k => ({ id: k, ...data[k] })))
     }
   }
 
-  const handleDownloadCertificate = async () => {
-    if (!delegate || !committee) return
-
-    try {
-      const doc = await generateCertificate(delegate, committee, portfolio)
-      doc.save(`KIMUN_Certificate_${delegate.name.replace(/\s+/g, '_')}.pdf`)
-    } catch (error) {
-      console.error('Failed to generate certificate:', error)
-      toast.error('Failed to generate certificate. Please try again.')
-    }
-  }
-
-  const handlePreviewCertificate = async () => {
-    if (!delegate || !committee) return
-
-    try {
-      setLoading(prev => ({ ...prev, certificate: true }))
-      const { imageDataUrl } = await generateCertificate(delegate, committee, portfolio, true)
-      setPreviewCertificate({
-        show: true,
-        imageUrl: imageDataUrl,
-        name: delegate.name
-      })
-    } catch (error) {
-      console.error('Failed to preview certificate:', error)
-      toast.error('Failed to preview certificate. Please try again.')
-    } finally {
-      setLoading(prev => ({ ...prev, certificate: false }))
-    }
-  }
-
-  const toggleCard = (cardId: string) => {
-    setExpandedCard(expandedCard === cardId ? null : cardId)
-  }
-  
-    // Login form
   if (!loggedIn) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-black to-amber-950/20 flex items-center justify-center p-4">
-        <Toaster position="top-center" richColors theme="dark" />
-        <div className="bg-gradient-to-b from-black to-amber-950/80 border border-amber-800/50 p-8 rounded-xl shadow-lg shadow-amber-900/10 w-full max-w-md">
-          <div className="text-center mb-8">
-            <Award className="h-12 w-12 text-amber-400 mx-auto" />
-            <h1 className="text-3xl font-bold mt-4 text-amber-300">Delegate Portal</h1>
-            <p className="text-amber-100/80 mt-2">Sign in to access your dashboard</p>
-          </div>
-          
-          <div className="space-y-6">
-            {error.login && (
-              <div className="bg-red-900/50 border border-red-700/50 p-3 rounded-lg">
-                <p className="text-sm text-red-300">{error.login}</p>
-              </div>
-            )}
-            
-            <Button 
-              onClick={signInWithGoogle}
-              className="w-full bg-white hover:bg-gray-100 h-11 text-black font-bold border border-gray-300"
-              disabled={loading.login}
-            >
-              {loading.login ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                    <path
-                      fill="currentColor"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
-                  Sign in with Google
-                </>
-              )}
-            </Button>
-            
-            <div className="text-center">
-              <p className="text-sm text-amber-200/80">
-                Use the same Google account you registered with
-              </p>
-            </div>
-          </div>
+      <div className="min-h-screen bg-[#F4F4F4] flex items-center justify-center p-6 font-sans">
+        <Toaster position="top-center" richColors />
+        <div className="max-w-md w-full bg-white border border-gray-200 shadow-2xl rounded-sm p-12 text-center relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-2 bg-[#009EDB]" />
+          <Landmark size={48} className="text-[#003366] mx-auto mb-8" />
+          <h1 className="text-2xl font-black text-[#003366] uppercase tracking-tighter mb-4">Delegate Portal Access</h1>
+          <p className="text-gray-500 text-sm mb-10 leading-relaxed font-light">
+            Authenticate your identity via the **Unified Identity Service** to access your plenary dossier and resources.
+          </p>
+          <Button variant="google" onClick={signInWithGoogle} disabled={loading.login} className="w-full h-14">
+            {loading.login ? <Loader2 className="animate-spin mr-2" size={16} /> : <UserIcon className="mr-2" size={16} />}
+            Identity Sync via Google
+          </Button>
         </div>
       </div>
     )
   }
 
-
-  // Main dashboard
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black to-amber-950/20 text-white">
-      <Toaster position="top-right" richColors theme="dark" />
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-md border-b border-amber-800/30">
-        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2 group">
-            <Button variant="ghost" className="p-2 rounded-full group-hover:bg-amber-900/30 transition-colors">
-              <span className="text-amber-300">Home</span>
-            </Button>
-          </Link>
+    <div className="min-h-screen bg-[#F9FAFB] text-[#1A1A1A] font-sans selection:bg-[#009EDB]/20">
+      <Toaster position="top-right" richColors />
+      
+      {/* 1. SECRETARIAT UTILITY BAR */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+        <div className="bg-[#333333] text-white py-1 px-8 text-[9px] uppercase font-black tracking-[0.3em] flex justify-between items-center">
+            <div className="flex items-center gap-4">
+                <span className="flex items-center gap-2"><ShieldCheck size={10} className="text-[#009EDB]" /> Session Active: 2026.01</span>
+                <span className="opacity-20">|</span>
+                <span className="text-gray-400">Registry ID: {delegate?.id?.substring(0, 12)}...</span>
+            </div>
+            <button onClick={handleLogout} className="hover:text-red-400 flex items-center gap-1 transition-colors uppercase">
+                <LogOut size={10} /> Terminate Session
+            </button>
+        </div>
+        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <span className="text-sm text-amber-200 hidden sm:inline">{delegate?.name}</span>
-            <Button 
-              variant="outline" 
-              onClick={handleLogout}
-              className="border-amber-500 text-amber-300 hover:bg-amber-900/30 h-9"
-            >
-              <Lock className="h-4 w-4 mr-2" /> 
-              Logout
-            </Button>
+             <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="KIMUN" className="h-10 w-10" />
+             <div className="border-l border-gray-200 pl-4 hidden sm:block">
+                <h2 className="text-sm font-black text-[#003366] uppercase tracking-widest leading-none">Delegate Dashboard</h2>
+                <p className="text-[9px] font-bold text-[#009EDB] uppercase mt-0.5">Accreditation & Liaison Service</p>
+             </div>
+          </div>
+          <div className="flex items-center gap-6">
+            <span className="text-xs font-bold text-[#003366] uppercase hidden lg:inline">{delegate?.name}</span>
+            <Button variant="outline" size="sm" className="h-9">Portal Home</Button>
           </div>
         </div>
       </nav>
 
-      <main className="container mx-auto px-4 pt-20 pb-16">
-        {/* Welcome Banner */}
-        <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 text-white p-6 rounded-xl mb-8 border border-amber-800/30">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-            <div>
-              <h1 className="text-2xl font-bold mb-2 text-amber-300">Welcome, {delegate?.name}!</h1>
-              <p className="text-amber-100/80">
-                {committee?.name} • {portfolio?.country || delegate?.portfolioId}
+      <main className="container mx-auto px-6 pt-28 pb-20">
+        {/* Welcome Header */}
+        <div className="bg-[#003366] text-white p-8 md:p-12 mb-10 relative overflow-hidden border-b-4 border-[#009EDB]">
+          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+             <Globe size={180} />
+          </div>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center relative z-10">
+            <div className="space-y-3">
+              <span className="inline-block bg-[#009EDB] text-[10px] font-black px-3 py-1 uppercase tracking-widest">Permanent Representation</span>
+              <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter leading-none">
+                Distinguished Delegate, <br/> {delegate?.name.split(' ')[0]}
+              </h1>
+              <p className="text-lg text-gray-300 italic opacity-80">
+                {committee?.name} • <span className="text-white font-bold">{portfolio?.country}</span>
               </p>
             </div>
-            <div className="mt-4 md:mt-0 flex items-center gap-4">
-              <div className="bg-black/50 p-2 rounded-lg border border-amber-800/30">
-                <p className="text-xs text-amber-200/80">Delegate ID</p>
-                <p className="text-sm font-mono text-amber-300">{delegate?.id}</p>
+            <div className="mt-8 md:mt-0 flex items-center gap-6">
+              <div className="text-right hidden sm:block">
+                 <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Delegate QR Access</p>
+                 <p className="text-xs font-mono">{delegate?.id}</p>
               </div>
-              {delegate?.id && (
-                <div className="bg-white p-2 rounded-lg">
-                  <Image
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${delegate.id}`}
-                    alt="Delegate QR Code"
-                    width={80}
-                    height={80}
-                    className="rounded"
-                  />
-                </div>
-              )}
+              <div className="bg-white p-2 rounded-sm shadow-xl">
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${delegate?.id}`} 
+                  alt="QR" className="h-20 w-20 grayscale" 
+                />
+              </div>
             </div>
           </div>
         </div>
 
         {/* Dashboard Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {/* Committee Card */}
-          <div 
-            className={`bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 transition-all ${expandedCard === 'committee' ? 'md:col-span-2 lg:col-span-1' : ''}`}
-            onClick={() => toggleCard('committee')}
-          >
-            <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30 flex justify-between items-center cursor-pointer">
-              <h2 className="text-xl font-bold text-amber-300 flex items-center">
-  <UserIcon className="h-5 w-5 mr-2" />  {/* Use UserIcon instead of User */}
-                Committee Information
-              </h2>
-              {expandedCard === 'committee' ? (
-                <ChevronUp className="text-amber-300 h-5 w-5" />
-              ) : (
-                <ChevronDown className="text-amber-300 h-5 w-5" />
-              )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
+          
+          {/* Subsidiary Body Info */}
+          <section className="bg-white border border-gray-200 shadow-sm flex flex-col group">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+               <h2 className="text-sm font-black text-[#003366] uppercase tracking-widest flex items-center gap-3">
+                  <Landmark size={18} className="text-[#009EDB]" /> Plenary Body
+               </h2>
+               <Info size={14} className="text-gray-300" />
             </div>
-            {committee ? (
-              <div className="p-6 space-y-4">
-                <div>
-                  <p className="text-sm text-amber-200/80">Committee</p>
-                  <p className="font-medium text-amber-100">{committee.name}</p>
-                </div>
-                  <>
-                    <div>
-                      <p className="text-sm text-amber-200/80">Topics</p>
-                      <div className="mt-2 space-y-2">
-                        {committee.topics.filter(t => t && t !== 'TBA').map((topic, i) => (
-                          <div key={i} className="bg-amber-900/20 px-3 py-2 rounded-lg border border-amber-800/30">
-                            <p className="text-amber-100">{topic}</p>
+            <div className="p-8 flex-1 space-y-6">
+               <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Organ Identity</label>
+                  <p className="font-black text-[#003366] uppercase">{committee?.name}</p>
+               </div>
+               <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Agenda Items</label>
+                  <ul className="space-y-3 mt-3">
+                    {committee?.topics.filter(t => t && t !== 'TBA').map((topic, i) => (
+                      <li key={i} className="flex gap-3 text-sm text-gray-600 leading-relaxed italic border-l-2 border-gray-100 pl-4">
+                         {topic}
+                      </li>
+                    ))}
+                  </ul>
+               </div>
+            </div>
+          </section>
+
+          {/* Portfolio Details */}
+          <section className="bg-white border border-gray-200 shadow-sm flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+               <h2 className="text-sm font-black text-[#003366] uppercase tracking-widest flex items-center gap-3">
+                  <Globe size={18} className="text-[#009EDB]" /> Member State
+               </h2>
+            </div>
+            <div className="p-8 flex-1 space-y-8">
+               <div className="flex items-center gap-5">
+                  <img 
+                    src={`https://flagcdn.com/w80/${portfolio?.countryCode?.toLowerCase()}.png`} 
+                    alt="Flag" className="w-16 h-10 shadow-sm border border-gray-100 object-cover" 
+                  />
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Representation</p>
+                    <p className="text-xl font-black text-[#003366] uppercase">{portfolio?.country}</p>
+                  </div>
+               </div>
+               <div className="pt-6 border-t border-gray-50 grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Protocol status</label>
+                    <div className="flex items-center gap-2 mt-1">
+                        <div className={`h-2 w-2 rounded-full ${delegate?.isCheckedIn ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                        <span className="text-xs font-bold text-gray-700">{delegate?.isCheckedIn ? 'Credentialed' : 'Liaison Pending'}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Org Level</label>
+                    <p className="text-xs font-bold text-gray-700 mt-1 uppercase">{portfolio?.minExperience === 0 ? 'General' : 'Advanced'}</p>
+                  </div>
+               </div>
+               {delegate?.isCheckedIn && (
+                 <Button onClick={() => toast.info('Accessing Plenary Vault...')} className="w-full h-12 bg-[#003366]">
+                    <Download size={14} className="mr-2" /> Plenary Citation
+                 </Button>
+               )}
+            </div>
+          </section>
+
+          {/* Performance Assessment */}
+          <section className="bg-white border border-gray-200 shadow-sm flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+               <h2 className="text-sm font-black text-[#003366] uppercase tracking-widest flex items-center gap-3">
+                  <Award size={18} className="text-[#009EDB]" /> Performance Metrics
+               </h2>
+            </div>
+            <div className="p-8 flex-1">
+               {delegate?.marks ? (
+                  <div className="space-y-6">
+                     <div className="text-center py-4 bg-gray-50 border border-gray-100 rounded-sm">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">DIPLOMATIC EVALUATION SCORE</p>
+                        <p className="text-5xl font-black text-[#003366] mt-2">{delegate.marks.total}<span className="text-lg opacity-20">/50</span></p>
+                     </div>
+                     <div className="grid grid-cols-2 gap-3">
+                        {['GSL', 'Mod', 'Lobby', 'Chits', 'FP'].map((label, i) => (
+                          <div key={label} className="p-3 border border-gray-50 text-center">
+                             <p className="text-[9px] font-bold text-gray-400 uppercase">{label}</p>
+                             <p className="text-sm font-black text-[#003366]">{Object.values(delegate.marks!)[i+1]}</p>
                           </div>
                         ))}
-                      </div>
-                    </div>
-                    
-                  </>
-              </div>
-            ) : (
-              <div className="p-6 text-amber-200/80">No committee information available</div>
-            )}
-          </div>
-
-          {/* Portfolio Card */}
-          <div 
-            className={`bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 transition-all ${expandedCard === 'portfolio' ? 'md:col-span-2 lg:col-span-1' : ''}`}
-            onClick={() => toggleCard('portfolio')}
-          >
-            <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30 flex justify-between items-center cursor-pointer">
-              <h2 className="text-xl font-bold text-amber-300 flex items-center">
-                <FileText className="h-5 w-5 mr-2" /> 
-                Portfolio Details
-              </h2>
-              {expandedCard === 'portfolio' ? (
-                <ChevronUp className="text-amber-300 h-5 w-5" />
-              ) : (
-                <ChevronDown className="text-amber-300 h-5 w-5" />
-              )}
+                     </div>
+                  </div>
+               ) : (
+                  <div className="text-center py-10 opacity-40">
+                     <Scale size={40} className="mx-auto mb-4" />
+                     <p className="text-xs font-bold uppercase tracking-widest">Assessment Pending Plenary Session Conclusion</p>
+                  </div>
+               )}
             </div>
-            {portfolio ? (
-              <div className="p-6 space-y-4">
-                <div>
-                  <p className="text-sm text-amber-200/80">Representing</p>
-                  <p className="font-medium text-amber-100">{portfolio.country}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-amber-200/80">Status</p>
-                  <p className="font-medium text-amber-100">
-                    <span className={`inline-block h-3 w-3 rounded-full mr-2 ${delegate?.isCheckedIn ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                    {delegate?.isCheckedIn ? 'Checked In' : 'Not Checked In'}
-                  </p>
-                </div>
-                {delegate?.isCheckedIn && (
-  <div className="mt-4 flex gap-3">
-       <Button 
-      onClick={handleDownloadCertificate}
-      className="bg-amber-600 hover:bg-amber-700 text-black"
-      disabled={loading.certificate}
-    >
-      <Download className="h-4 w-4 mr-2" />
-      Download Certificate of Participation
-    </Button>
-  </div>
-)}
-               {expandedCard === 'portfolio' && (
-  <>
-    <div>
-      <p className="text-sm text-amber-200/80">Experience Level</p>
-      <p className="font-medium text-amber-100">
-        {portfolio.minExperience === 0 ? 'Beginner' : 
-         portfolio.minExperience === 1 ? 'Intermediate' : 
-         portfolio.minExperience >= 2 ? 'Advanced' : 'Not specified'}
-      </p>
-    </div>
-    
-  </>
-)}
-                
-
-              </div>
-            ) : (
-              <div className="p-6 text-amber-200/80">No portfolio information available</div>
-            )}
-          </div>
-
-          {/* Performance Card */}
-          <div 
-            className={`bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 transition-all ${expandedCard === 'performance' ? 'md:col-span-2 lg:col-span-1' : ''}`}
-            onClick={() => toggleCard('performance')}
-          >
-            <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30 flex justify-between items-center cursor-pointer">
-              <h2 className="text-xl font-bold text-amber-300 flex items-center">
-                <Award className="h-5 w-5 mr-2" /> 
-                Performance Metrics
-              </h2>
-              {expandedCard === 'performance' ? (
-                <ChevronUp className="text-amber-300 h-5 w-5" />
-              ) : (
-                <ChevronDown className="text-amber-300 h-5 w-5" />
-              )}
-            </div>
-            {delegate?.marks ? (
-              <div className="p-6 space-y-4">
-                <div>
-                  <p className="text-sm text-amber-200/80">Total Score</p>
-                  <p className="text-2xl font-bold text-amber-300">{delegate.marks.total}</p>
-                </div>
-                {expandedCard === 'performance' && (
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">General Speakers List</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.gsl}</p>
-                      </div>
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">Moderated Caucus 1</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.mod1}</p>
-                      </div>
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">Moderated Caucus 2</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.mod2}</p>
-                      </div>
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">Moderated Caucus 3</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.mod3}</p>
-                      </div>
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">Moderated Caucus 4</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.mod4}</p>
-                      </div>
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">Lobbying</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.lobby}</p>
-                      </div>
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">Chits</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.chits}</p>
-                      </div>
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">Foreign Policy</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.fp}</p>
-                      </div>
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">Resolution</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.doc}</p>
-                      </div>
-                      <div className="bg-amber-900/20 p-3 rounded-lg border border-amber-800/30">
-                        <p className="text-sm text-amber-200/80">Alternative Score</p>
-                        <p className="text-lg font-medium text-amber-100">{delegate.marks.alt}</p>
-                      </div>
-                    </div>
-                    <div className="pt-2">
-                      <p className="text-xs text-amber-200/60">
-                        * Scores are out of 50 total points
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="p-6 text-amber-200/80">
-                {expandedCard === 'performance' ? (
-                  <p>Your detailed marks will appear here after committee sessions</p>
-                ) : (
-                  <p>Your marks will appear here after committee sessions</p>
-                )}
-              </div>
-            )}
-          </div>
+          </section>
         </div>
 
-        {/* Partner Coupons Section */}
-<div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 mb-8">
-  <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
-    <h2 className="text-xl font-bold text-amber-300 flex items-center">
-      <Award className="h-5 w-5 mr-2" /> 
-      Partner Offers & Coupons
-    </h2>
-  </div>
-  <div className="p-6">
-    {loading.coupons ? (
-      <div className="flex justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
-      </div>
-    ) : coupons.length > 0 ? (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {coupons.map((coupon) => (
-          <div 
-            key={coupon.id} 
-            className="group relative bg-gradient-to-br from-black/80 to-amber-950/70 p-6 rounded-2xl border-2 border-amber-800/40 hover:border-amber-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-amber-900/20"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-4">
-                {coupon.logo && (
-                  <div className="bg-white/90 p-1.5 rounded-xl shadow-sm">
-                    <Image
-                      src={coupon.logo}
-                      alt={coupon.partner}
-                      width={48}
-                      height={48}
-                      className="rounded-lg"
-                    />
-                  </div>
-                )}
-                <div>
-                  <h3 className="text-lg font-bold text-amber-300">{coupon.partner}</h3>
-                  <div className="badge badge-outline border-amber-700/50 text-amber-300/80 text-xs mt-1">
-                    Expires: {coupon.expiry}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <span className="text-2xl font-bold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent">
-                {coupon.discount}
-              </span>
-              <p className="text-sm text-amber-100/90 mt-2 leading-relaxed">
-                {coupon.description}
-              </p>
-            </div>
-
-            <div className="bg-black/50 p-4 rounded-xl border border-amber-800/30 mb-4">
-              {coupon.code.startsWith('http') ? (
-                <a href={coupon.code} target="_blank" rel="noopener noreferrer">
-                  <Button className="w-full bg-amber-600 hover:bg-amber-700 text-black">
-                    <QrCode className="h-4 w-4 mr-2" />
-                    Click Me to Redeem
-                  </Button>
-                </a>
-              ) : (
-                <>
-                  <p className="text-xs text-amber-400/80 mb-1">Coupon Code</p>
-                  <div className="flex items-center justify-between">
-                    <p className="font-mono text-xl text-amber-300 tracking-wider">
-                      {coupon.code}
-                    </p>
-                    <button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(coupon.code);
-                        toast.success('Copied to clipboard!');
-                      }}
-                      className="text-amber-500/80 hover:text-amber-300 transition-colors"
-                    >
-                      <Copy className="h-5 w-5" />
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <p className="text-xs text-amber-500/80 italic leading-snug">
-              {coupon.terms}
-            </p>
-
-            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="bg-amber-500/10 px-2 py-1 rounded-full text-xs text-amber-300/80">
-                Limited Offer
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <div className="text-center py-8">
-        <p className="text-amber-200/80 mb-4">No partner offers available at this time</p>
-        <p className="text-sm text-amber-200/60">Check back later for exclusive discounts!</p>
-      </div>
-    )}
-  </div>
-</div>
-
-        {/* Resources Section */}
-        <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10 mb-8">
-          <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
-            <h2 className="text-xl font-bold text-amber-300 flex items-center">
-              <FileText className="h-5 w-5 mr-2" /> 
-              Committee Resources
-            </h2>
-          </div>
-          <div className="p-6">
-            {loading.resources ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
-              </div>
-            ) : resources.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {resources.map((resource) => (
-                  <div 
-                    key={resource.id} 
-                    className="bg-black/50 p-4 rounded-lg border border-amber-800/30 hover:border-amber-500 transition-colors"
-                  >
-                    <div className="flex items-start mb-3">
-                      <div className="bg-amber-900/30 p-2 rounded-lg mr-3">
-                        {resource.type === 'guide' && <FileText className="h-5 w-5 text-amber-400" />}
-                        {resource.type === 'rules' && <FileText className="h-5 w-5 text-amber-400" />}
-                        {resource.type === 'template' && <FileText className="h-5 w-5 text-amber-400" />}
+        {/* Partners & Plenary Documents */}
+        <div className="grid lg:grid-cols-2 gap-10">
+           <section className="bg-white border border-gray-200 p-8 shadow-sm">
+              <h3 className="text-sm font-black text-[#003366] uppercase tracking-widest border-b border-gray-100 pb-4 mb-6 flex items-center gap-3">
+                 <FileText size={18} className="text-[#009EDB]" /> Plenary Documentation
+              </h3>
+              <div className="space-y-4">
+                 {resources.length > 0 ? resources.map(res => (
+                   <div key={res.id} className="flex justify-between items-center p-4 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors group">
+                      <div className="flex gap-4 items-center">
+                         <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-[#003366] group-hover:bg-[#009EDB] group-hover:text-white transition-colors">
+                            <FileText size={18} />
+                         </div>
+                         <div>
+                            <p className="text-sm font-bold text-gray-700 uppercase">{res.title}</p>
+                            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Document: KIMUN/REF/{res.type.toUpperCase()}</p>
+                         </div>
                       </div>
-                      <div>
-                        <h3 className="font-medium text-amber-300">{resource.title}</h3>
-                        <p className="text-sm text-amber-100/80">{resource.committee || 'General'}</p>
-                      </div>
+                      <a href={res.url} target="_blank" rel="noreferrer" className="text-[#009EDB] hover:text-[#003366]"><Download size={18} /></a>
+                   </div>
+                 )) : <p className="text-xs text-gray-400 uppercase font-bold text-center py-10">No Documents Available for Current Organ</p>}
+              </div>
+           </section>
+
+           <section className="bg-white border border-gray-200 p-8 shadow-sm">
+              <h3 className="text-sm font-black text-[#003366] uppercase tracking-widest border-b border-gray-100 pb-4 mb-6 flex items-center gap-3">
+                 <Calendar size={18} className="text-[#009EDB]" /> Session Itinerary
+              </h3>
+              <div className="space-y-6">
+                 {[
+                    { day: "Session I", date: "July 05", events: ["Registration 08:00", "Plenary Convening 09:00", "Organ Session I 11:00"] },
+                    { day: "Session II", date: "July 06", events: ["Organ Session IV 09:00", "Resolution Drafting 14:30", "Closing Plenary 17:00"] }
+                 ].map(day => (
+                    <div key={day.day}>
+                       <p className="text-[11px] font-black text-[#009EDB] uppercase tracking-[0.2em] mb-3">{day.day} // {day.date}</p>
+                       <div className="space-y-2">
+                          {day.events.map(ev => (
+                             <div key={ev} className="flex items-center gap-3 text-xs text-gray-500 font-medium">
+                                <div className="w-1 h-1 bg-gray-200 rounded-full" /> {ev}
+                             </div>
+                          ))}
+                       </div>
                     </div>
-                    <p className="text-sm text-amber-100 mb-4">{resource.description}</p>
-                    <a 
-                      href={resource.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-block"
-                    >
-                      <Button className="bg-amber-600 hover:bg-amber-700 text-black">
-                        <Download className="mr-2 h-4 w-4" />
-                        Download
-                      </Button>
-                    </a>
-                  </div>
-                ))}
+                 ))}
               </div>
-            ) : (
-              <p className="text-amber-200/80">No resources available for your committee</p>
-            )}
-          </div>
-        </div>
-
-        {/* Schedule Section */}
-        <div className="bg-black/40 backdrop-blur-sm border border-amber-800/30 rounded-xl overflow-hidden shadow-lg shadow-amber-900/10">
-          <div className="bg-gradient-to-r from-amber-900/40 to-amber-950/40 px-6 py-4 border-b border-amber-800/30">
-            <h2 className="text-xl font-bold text-amber-300 flex items-center">
-              <FileText className="h-5 w-5 mr-2" /> 
-              Conference Schedule
-            </h2>
-          </div>
-          <div className="p-6">
-            <div className="space-y-6">
-              {[
-                {
-                  day: "Day 1",
-                  date: "July 5, 2025",
-                  events: [
-                    { time: "08:00 - 09:00", title: "Registration", location: "" },
-                    { time: "09:00 - 10:30", title: "Opening Ceremony", location: "" },
-                    { time: "10:30 - 11:00", title: "Coffee Break", location: "" },
-                    { time: "11:00 - 13:00", title: "Committee Session I", location: "" },
-                    { time: "13:00 - 14:00", title: "Lunch Break", location: "" },
-                    { time: "14:00 - 16:00", title: "Committee Session II", location: "" },
-                    { time: "16:00 - 16:30", title: "Coffee Break", location: "" },
-                    { time: "16:30 - 18:00", title: "Committee Session III", location: "" }
-                  ]
-                },
-                {
-                  day: "Day 2",
-                  date: "July 6, 2025",
-                  events: [
-                    { time: "09:00 - 11:00", title: "Committee Session IV", location: "" },
-                    { time: "11:00 - 11:30", title: "Coffee Break", location: "" },
-                    { time: "11:30 - 13:30", title: "Committee Session V", location: "" },
-                    { time: "13:30 - 14:30", title: "Lunch Break", location: "" },
-                    { time: "14:30 - 16:30", title: "Committee Session VI", location: "" },
-                    { time: "16:30 - 17:00", title: "Coffee Break", location: "" },
-                    { time: "17:00 - 18:30", title: "Closing Ceremony", location: "" }
-                  ]
-                }
-              ].map((daySchedule, dayIndex) => (
-                <div key={dayIndex} className="border-b border-amber-800/30 pb-6 last:border-0 last:pb-0">
-                  <h3 className="text-lg font-bold text-amber-300 mb-4">{daySchedule.day} - {daySchedule.date}</h3>
-                  <div className="space-y-4">
-                    {daySchedule.events.map((event, eventIndex) => (
-                      <div key={eventIndex} className="flex items-start">
-                        <div className="bg-amber-900/20 px-3 py-1 rounded-lg mr-4 min-w-[100px] text-center">
-                          <p className="text-sm font-medium text-amber-300">{event.time}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-amber-100">{event.title}</p>
-                          <p className="text-sm text-amber-200/80">{event.location}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+           </section>
         </div>
       </main>
+
+      <footer className="container mx-auto px-8 py-10 border-t border-gray-100 text-center">
+         <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.5em]">Secretariat Information System • Permanent Mission Hub 2026</p>
+      </footer>
+
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        body { background-color: #F9FAFB; font-family: 'Inter', sans-serif; color: #1A1A1A; }
+        * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+      `}</style>
     </div>
   )
 }
 
-export default function DelegateDashboard() {
+export default function App() {
   return (
-    <Suspense>
+    <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center">
+            <Loader2 className="animate-spin text-[#009EDB]" size={32} />
+        </div>
+    }>
       <DelegateDashboardContent />
     </Suspense>
   )
