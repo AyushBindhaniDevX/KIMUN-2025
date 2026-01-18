@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect, Suspense } from 'react'
 import { initializeApp } from 'firebase/app'
-import { getDatabase, ref, get } from 'firebase/database'
+import { getDatabase, ref, get, set, update, onValue } from 'firebase/database'
 import { 
   getAuth, 
   GoogleAuthProvider, 
@@ -33,7 +33,13 @@ import {
   Info,
   CheckCircle2,
   Users,
-  Globe2
+  Globe2,
+  Bell,
+  FilePlus,
+  Send,
+  Shield,
+  Search,
+  CheckCircle
 } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 
@@ -55,6 +61,14 @@ const auth = getAuth(app)
 const googleProvider = new GoogleAuthProvider()
 
 // --- Types ---
+type Announcement = {
+  id: string
+  title: string
+  content: string
+  timestamp: number
+  priority: 'low' | 'medium' | 'high'
+}
+
 type Mark = {
   total: number
   gsl: number
@@ -79,6 +93,7 @@ type DelegateData = {
   marks?: Mark
   experience?: string
   institution?: string
+  positionPaperUrl?: string
 }
 
 type CommitteeData = {
@@ -107,25 +122,14 @@ type Resource = {
   committee?: string
 }
 
-type Coupon = {
-  id: string
-  title: string
-  description: string
-  code: string
-  partner: string
-  logo: string
-  expiry: string
-  discount: string
-  terms: string
-}
-
 // --- Institutional UI Components ---
 const Button = React.forwardRef<HTMLButtonElement, any>(({ className, variant = "default", size = "default", ...props }, ref) => {
   const variants = {
-    default: "bg-[#009EDB] text-white hover:bg-[#0077B3] shadow-sm font-bold",
-    outline: "border-2 border-[#009EDB] text-[#009EDB] hover:bg-[#F0F8FF] font-bold",
-    secondary: "bg-[#4D4D4D] text-white hover:bg-[#333333]",
-    ghost: "text-gray-500 hover:bg-gray-100",
+    default: "bg-[#003366] text-white hover:bg-[#002244] shadow-sm font-bold uppercase tracking-widest",
+    primary: "bg-[#009EDB] text-white hover:bg-[#0077B3] shadow-md font-bold uppercase tracking-widest",
+    outline: "border-2 border-[#009EDB] text-[#009EDB] hover:bg-[#F0F8FF] font-bold uppercase tracking-widest",
+    secondary: "bg-[#4D4D4D] text-white hover:bg-[#333333] uppercase tracking-widest",
+    ghost: "text-gray-500 hover:bg-gray-100 uppercase tracking-widest",
     google: "bg-white text-gray-900 border border-gray-300 hover:bg-gray-50 shadow-sm font-bold"
   }
   const sizes = {
@@ -136,31 +140,17 @@ const Button = React.forwardRef<HTMLButtonElement, any>(({ className, variant = 
   return (
     <button
       ref={ref}
-      className={`inline-flex items-center justify-center rounded-sm uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 ${variants[variant as keyof typeof variants] || variants.default} ${sizes[size as keyof typeof sizes] || sizes.default} ${className}`}
+      className={`inline-flex items-center justify-center rounded-sm transition-all active:scale-95 disabled:opacity-50 ${variants[variant as keyof typeof variants] || variants.default} ${sizes[size as keyof typeof sizes] || sizes.default} ${className}`}
       {...props}
     />
   )
 })
 Button.displayName = "Button"
 
-const ProgressStep = ({ current, step, label, icon: Icon }: any) => (
-  <div className="flex flex-col items-center flex-1 relative">
-    <div className={`w-10 h-10 rounded-full flex items-center justify-center z-10 border-2 transition-all duration-500 ${current >= step ? 'bg-[#009EDB] border-[#009EDB] text-white shadow-lg' : 'bg-white border-gray-200 text-gray-400'}`}>
-      <Icon size={18} />
-    </div>
-    <span className={`text-[9px] font-black uppercase tracking-tighter mt-2 text-center transition-colors ${current >= step ? 'text-[#003366]' : 'text-gray-300'}`}>
-      {label}
-    </span>
-    {step < 5 && (
-        <div className={`absolute top-5 left-[60%] w-full h-[2px] -z-0 ${current > step ? 'bg-[#009EDB]' : 'bg-gray-100'}`} />
-    )}
-  </div>
-);
-
 const DiplomaticFlag = ({ countryCode, className = "" }: { countryCode: string, className?: string }) => {
   return (
     <img 
-      src={`https://flagcdn.com/w80/${countryCode.toLowerCase()}.png`}
+      src={`https://flagcdn.com/w80/${countryCode?.toLowerCase() || 'un'}.png`}
       alt={`${countryCode} Representation`}
       className={`object-contain ${className}`}
       onError={(e) => {
@@ -170,11 +160,6 @@ const DiplomaticFlag = ({ countryCode, className = "" }: { countryCode: string, 
   );
 };
 
-// --- Placeholder for Certificate Generator (User provides implementation) ---
-const generateCertificate = async (d: any, c: any, p: any, preview: boolean = false) => {
-    return { imageDataUrl: "", save: (n: string) => {} };
-};
-
 function DelegateDashboardContent() {
   const [user, setUser] = useState<User | null>(null)
   const [loggedIn, setLoggedIn] = useState(false)
@@ -182,17 +167,16 @@ function DelegateDashboardContent() {
   const [committee, setCommittee] = useState<CommitteeData | null>(null)
   const [portfolio, setPortfolio] = useState<any>(null)
   const [resources, setResources] = useState<Resource[]>([])
-  const [coupons, setCoupons] = useState<Coupon[]>([])
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
+  const [posPaperInput, setPosPaperInput] = useState('')
   const [loading, setLoading] = useState({
     login: false,
     data: false,
-    resources: false,
-    coupons: false,
-    certificate: false
+    announcements: false
   })
-  const [error, setError] = useState({ login: null as string | null })
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
 
+  // 1. Authentication & Identity Sync
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -210,27 +194,7 @@ function DelegateDashboardContent() {
     return () => unsubscribe()
   }, [])
 
-  const signInWithGoogle = async () => {
-    try {
-      setLoading(prev => ({ ...prev, login: true }))
-      const result = await signInWithPopup(auth, googleProvider)
-      setUser(result.user)
-      setLoggedIn(true)
-      toast.success('Identity Verified')
-    } catch (error: any) {
-      setError(prev => ({ ...prev, login: error.message }))
-      toast.error('Authentication Protocol Failed')
-    } finally {
-      setLoading(prev => ({ ...prev, login: false }))
-    }
-  }
-
-  const handleLogout = async () => {
-    await signOut(auth)
-    setLoggedIn(false)
-    toast.info('Session Terminated')
-  }
-
+  // 2. Fetch Core Delegate Registry
   const fetchDelegateData = async (email: string) => {
     try {
       setLoading(prev => ({ ...prev, data: true }))
@@ -239,6 +203,7 @@ function DelegateDashboardContent() {
 
       const registrations = snapshot.val()
       let foundDelegate = null
+      let regKey = ''
 
       for (const key in registrations) {
         const reg = registrations[key]
@@ -248,19 +213,22 @@ function DelegateDashboardContent() {
             ...(reg.delegateInfo?.delegate1 || reg),
             committeeId: reg.committeeId,
             portfolioId: reg.portfolioId,
-            isCheckedIn: reg.isCheckedIn || false
+            isCheckedIn: reg.isCheckedIn || false,
+            positionPaperUrl: reg.positionPaperUrl || ''
           }
+          regKey = key
           break
         }
       }
 
-      if (!foundDelegate) throw new Error('Registry Sync Error: Identity mismatch.')
+      if (!foundDelegate) throw new Error('Identity Mismatch')
 
       setDelegate(foundDelegate)
+      setPosPaperInput(foundDelegate.positionPaperUrl || '')
       fetchCommitteeData(foundDelegate.committeeId, foundDelegate.portfolioId)
       fetchMarksData(foundDelegate.committeeId, foundDelegate.portfolioId)
       fetchResources()
-      fetchCoupons()
+      listenForAnnouncements(foundDelegate.committeeId)
     } catch (error) {
       toast.error('Identity Verification Failed')
       handleLogout()
@@ -295,18 +263,43 @@ function DelegateDashboardContent() {
     }
   }
 
-  const fetchCoupons = async () => {
-    const snapshot = await get(ref(db, 'coupons'))
-    if (snapshot.exists()) {
-      const data = snapshot.val()
-      setCoupons(Object.keys(data).map(k => ({ id: k, ...data[k] })))
+  const listenForAnnouncements = (committeeId: string) => {
+    const annRef = ref(db, `announcements/${committeeId}`)
+    onValue(annRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val()
+        setAnnouncements(Object.keys(data).map(k => ({ id: k, ...data[k] })).sort((a, b) => b.timestamp - a.timestamp))
+      }
+    })
+  }
+
+  const submitPositionPaper = async () => {
+    if (!delegate?.id || !posPaperInput) return
+    try {
+      const regRef = ref(db, `registrations/${delegate.id}`)
+      await update(regRef, { positionPaperUrl: posPaperInput })
+      setDelegate(prev => ({ ...prev!, positionPaperUrl: posPaperInput }))
+      toast.success('Position Paper Registry Updated')
+    } catch (err) {
+      toast.error('Failed to update Registry')
     }
   }
 
-  const handleDownloadCertificate = async () => {
-    if (!delegate || !committee) return
-    toast.loading('Generating Official Citation...')
-    // Implementation should be provided in CertificateGenerator.ts
+  const signInWithGoogle = async () => {
+    try {
+      setLoading(prev => ({ ...prev, login: true }))
+      await signInWithPopup(auth, googleProvider)
+      toast.success('Identity Verified')
+    } catch (error: any) {
+      toast.error('Auth Protocol Failed')
+    } finally {
+      setLoading(prev => ({ ...prev, login: false }))
+    }
+  }
+
+  const handleLogout = async () => {
+    await signOut(auth)
+    setLoggedIn(false)
   }
 
   const toggleCard = (cardId: string) => {
@@ -321,12 +314,10 @@ function DelegateDashboardContent() {
           <div className="absolute top-0 left-0 w-full h-2 bg-[#009EDB]" />
           <Landmark size={48} className="text-[#003366] mx-auto mb-8" />
           <h1 className="text-2xl font-black text-[#003366] uppercase tracking-tighter mb-4">Delegate Portal Access</h1>
-          <p className="text-gray-500 text-sm mb-10 leading-relaxed font-light">
-            Authenticate your identity via the **Unified Identity Service** to access your plenary dossier and resources.
-          </p>
+          <p className="text-gray-500 text-sm mb-10 leading-relaxed font-light">Authenticate identity via the **Unified Identity Service** to access your plenary dossier.</p>
           <Button variant="google" onClick={signInWithGoogle} disabled={loading.login} className="w-full h-14">
             {loading.login ? <Loader2 className="animate-spin mr-2" size={16} /> : <UserIcon className="mr-2" size={16} />}
-            Identity Sync via Google
+            Google Identity Sync
           </Button>
         </div>
       </div>
@@ -338,12 +329,12 @@ function DelegateDashboardContent() {
       <Toaster position="top-right" richColors />
       
       {/* 1. SECRETARIAT UTILITY BAR */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-        <div className="bg-[#333333] text-white py-1 px-8 text-[9px] uppercase font-black tracking-[0.3em] flex justify-between items-center">
+      <nav className="fixed top-0 left-0 right-0 z-[100] bg-white border-b border-gray-200 shadow-sm">
+        <div className="bg-[#333333] text-white py-1.5 px-8 text-[9px] uppercase font-black tracking-[0.3em] flex justify-between items-center">
             <div className="flex items-center gap-4">
-                <span className="flex items-center gap-2"><ShieldCheck size={10} className="text-[#009EDB]" /> Session Active: 2026.01</span>
+                <span className="flex items-center gap-2 text-[#009EDB]"><ShieldCheck size={10} /> Identity Verified: {user?.email}</span>
                 <span className="opacity-20">|</span>
-                <span className="text-gray-400">Registry ID: {delegate?.id?.substring(0, 12)}...</span>
+                <span className="text-gray-400">ID Ref: {delegate?.id?.substring(0, 8)}</span>
             </div>
             <button onClick={handleLogout} className="hover:text-red-400 flex items-center gap-1 transition-colors uppercase">
                 <LogOut size={10} /> Terminate Session
@@ -353,202 +344,219 @@ function DelegateDashboardContent() {
           <div className="flex items-center gap-4">
              <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="KIMUN" className="h-10 w-10" />
              <div className="border-l border-gray-200 pl-4 hidden sm:block">
-                <h2 className="text-sm font-black text-[#003366] uppercase tracking-widest leading-none">Delegate Dashboard</h2>
+                <h2 className="text-sm font-black text-[#003366] uppercase tracking-widest leading-none">Delegate Command</h2>
                 <p className="text-[9px] font-bold text-[#009EDB] uppercase mt-0.5">Accreditation & Liaison Service</p>
              </div>
           </div>
-          <div className="flex items-center gap-6">
-            <span className="text-xs font-bold text-[#003366] uppercase hidden lg:inline">{delegate?.name}</span>
-            <Button variant="outline" size="sm" className="h-9">Portal Home</Button>
+          <div className="flex items-center gap-4">
+            <div className="hidden lg:flex items-center gap-8 text-[10px] font-black uppercase text-gray-500 tracking-widest mr-8">
+              <a href="#" className="hover:text-[#009EDB]">Registry</a>
+              <a href="#" className="hover:text-[#009EDB]">Documents</a>
+              <a href="#" className="hover:text-[#009EDB]">Protocol</a>
+            </div>
+            <Button size="sm" variant="primary">Access Vault</Button>
           </div>
         </div>
       </nav>
 
       <main className="container mx-auto px-6 pt-28 pb-20">
-        {/* Welcome Header */}
-        <div className="bg-[#003366] text-white p-8 md:p-12 mb-10 relative overflow-hidden border-b-4 border-[#009EDB]">
-          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-             <Globe size={180} />
-          </div>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center relative z-10">
-            <div className="space-y-3">
-              <span className="inline-block bg-[#009EDB] text-[10px] font-black px-3 py-1 uppercase tracking-widest">Permanent Representation</span>
-              <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter leading-none">
-                Distinguished Delegate, <br/> {delegate?.name?.split(' ')[0] || "Representative"}
+        
+        {/* WELCOME BANNER & DIPLOMATIC ID */}
+        <div className="grid lg:grid-cols-3 gap-8 mb-10">
+          <div className="lg:col-span-2 bg-[#003366] text-white p-10 relative overflow-hidden border-b-4 border-[#009EDB] flex flex-col justify-center">
+            <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none"><Globe size={240} /></div>
+            <div className="relative z-10 space-y-4">
+              <span className="inline-block bg-[#009EDB] text-[9px] font-black px-3 py-1 uppercase tracking-widest">Plenary Session 2026.01</span>
+              <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none">
+                Excellency, <br/> {delegate?.name || "Representative"}
               </h1>
-              <p className="text-lg text-gray-300 italic opacity-80">
-                {committee?.name || "Organ Information Pending"} • <span className="text-white font-bold">{portfolio?.country || "Allocation Pending"}</span>
-              </p>
-            </div>
-            <div className="mt-8 md:mt-0 flex items-center gap-6">
-              <div className="text-right hidden sm:block">
-                 <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Delegate QR Access</p>
-                 <p className="text-xs font-mono">{delegate?.id}</p>
-              </div>
-              <div className="bg-white p-2 rounded-sm shadow-xl">
-                {delegate?.id && (
-                  <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${delegate?.id}`} 
-                    alt="QR" className="h-20 w-20 grayscale" 
-                  />
-                )}
+              <div className="flex items-center gap-4 pt-4">
+                 <DiplomaticFlag countryCode={portfolio?.countryCode} className="w-12 h-8 border border-white/20" />
+                 <p className="text-xl text-gray-300 italic">Representative of <span className="text-white font-bold uppercase">{portfolio?.country}</span></p>
               </div>
             </div>
+          </div>
+
+          {/* DIPLOMATIC ID CARD */}
+          <div className="bg-white border border-gray-200 p-8 shadow-xl flex flex-col items-center text-center relative">
+             <div className="absolute top-4 right-4"><QrCode size={16} className="text-gray-200" /></div>
+             <div className="w-24 h-24 bg-gray-100 rounded-full mb-6 flex items-center justify-center border-4 border-[#003366]">
+                <UserIcon size={40} className="text-[#003366]" />
+             </div>
+             <h3 className="text-sm font-black text-[#003366] uppercase tracking-widest mb-1">{delegate?.name}</h3>
+             <p className="text-[10px] font-bold text-[#009EDB] uppercase tracking-widest mb-4">{committee?.name}</p>
+             <div className="bg-gray-50 w-full py-4 rounded-sm border border-gray-100 space-y-2 mb-6">
+                <div className="flex justify-between px-6">
+                   <span className="text-[9px] font-bold text-gray-400 uppercase">Registry Status</span>
+                   <span className={`text-[9px] font-black uppercase ${delegate?.isCheckedIn ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      {delegate?.isCheckedIn ? 'VERIFIED' : 'PENDING'}
+                   </span>
+                </div>
+                <div className="flex justify-between px-6">
+                   <span className="text-[9px] font-bold text-gray-400 uppercase">Clearance</span>
+                   <span className="text-[9px] font-black text-[#003366] uppercase">LEVEL I</span>
+                </div>
+             </div>
+             <Button variant="outline" size="sm" className="w-full" onClick={() => toast.info("ID Card generation protocol initialized.")}>
+                <Download size={12} className="mr-2" /> Digital Credential
+             </Button>
           </div>
         </div>
 
-        {/* Dashboard Grid */}
+        {/* NOTIFICATIONS & ANNOUNCEMENTS */}
+        <section className="mb-10 bg-[#F0F8FF] border border-[#009EDB]/20 p-6 rounded-sm">
+           <div className="flex items-center gap-3 mb-6">
+              <Bell className="text-[#009EDB]" size={20} />
+              <h2 className="text-xs font-black text-[#003366] uppercase tracking-[0.3em]">Diplomatic Bulletin Board</h2>
+           </div>
+           <div className="space-y-4">
+              {announcements.length > 0 ? announcements.map(ann => (
+                <div key={ann.id} className="bg-white p-4 border-l-4 border-[#009EDB] shadow-sm flex justify-between items-start">
+                   <div>
+                      <h4 className="text-sm font-black text-[#003366] uppercase tracking-tight">{ann.title}</h4>
+                      <p className="text-xs text-gray-600 mt-1">{ann.content}</p>
+                   </div>
+                   <span className="text-[9px] font-bold text-gray-400 uppercase">{new Date(ann.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              )) : (
+                <p className="text-xs text-gray-400 italic text-center py-4 uppercase font-bold tracking-widest">No active alerts from the Secretariat.</p>
+              )}
+           </div>
+        </section>
+
+        {/* MAIN DASHBOARD GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
           
-          {/* Subsidiary Body Info */}
-          <section className="bg-white border border-gray-200 shadow-sm flex flex-col group">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 cursor-pointer" onClick={() => toggleCard('committee')}>
-               <h2 className="text-sm font-black text-[#003366] uppercase tracking-widest flex items-center gap-3">
-                  <Landmark size={18} className="text-[#009EDB]" /> Plenary Body
-               </h2>
-               <Info size={14} className="text-gray-300" />
-            </div>
-            <div className="p-8 flex-1 space-y-6">
-               <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Organ Identity</label>
-                  <p className="font-black text-[#003366] uppercase">{committee?.name || "Information Unavailable"}</p>
-               </div>
-               <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Agenda Items</label>
-                  <ul className="space-y-3 mt-3">
-                    {committee?.topics?.filter(t => t && t !== 'TBA').map((topic, i) => (
-                      <li key={i} className="flex gap-3 text-sm text-gray-600 leading-relaxed italic border-l-2 border-gray-100 pl-4">
-                         {topic}
-                      </li>
-                    )) || <li className="text-xs text-gray-400 italic">No topics assigned for this organ.</li>}
-                  </ul>
-               </div>
-            </div>
-          </section>
-
-          {/* Portfolio Details */}
-          <section className="bg-white border border-gray-200 shadow-sm flex flex-col">
+          {/* Performance Evaluation */}
+          <div className="bg-white border border-gray-200 shadow-sm">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-               <h2 className="text-sm font-black text-[#003366] uppercase tracking-widest flex items-center gap-3">
-                  <Globe size={18} className="text-[#009EDB]" /> Member State
+               <h2 className="text-xs font-black text-[#003366] uppercase tracking-widest flex items-center gap-3">
+                  <Award size={18} className="text-[#009EDB]" /> Plenary Assessment
                </h2>
             </div>
-            <div className="p-8 flex-1 space-y-8">
-               <div className="flex items-center gap-5">
-                  <DiplomaticFlag countryCode={portfolio?.countryCode || 'un'} className="w-16 h-10 shadow-sm border border-gray-100 object-cover" />
-                  <div>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Representation</p>
-                    <p className="text-xl font-black text-[#003366] uppercase">{portfolio?.country || "Sovereign Entity Pending"}</p>
-                  </div>
-               </div>
-               <div className="pt-6 border-t border-gray-50 grid grid-cols-2 gap-6">
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Protocol status</label>
-                    <div className="flex items-center gap-2 mt-1">
-                        <div className={`h-2 w-2 rounded-full ${delegate?.isCheckedIn ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                        <span className="text-xs font-bold text-gray-700">{delegate?.isCheckedIn ? 'Credentialed' : 'Liaison Pending'}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Org Level</label>
-                    <p className="text-xs font-bold text-gray-700 mt-1 uppercase">
-                      {portfolio?.minExperience === 0 ? 'General' : portfolio?.minExperience ? 'Advanced' : 'Registry Only'}
-                    </p>
-                  </div>
-               </div>
-               {delegate?.isCheckedIn && (
-                 <Button onClick={handleDownloadCertificate} className="w-full h-12 bg-[#003366]">
-                    <Download size={14} className="mr-2" /> Plenary Citation
-                 </Button>
-               )}
-            </div>
-          </section>
-
-          {/* Performance Assessment */}
-          <section className="bg-white border border-gray-200 shadow-sm flex flex-col">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 cursor-pointer" onClick={() => toggleCard('performance')}>
-               <h2 className="text-sm font-black text-[#003366] uppercase tracking-widest flex items-center gap-3">
-                  <Award size={18} className="text-[#009EDB]" /> Performance Metrics
-               </h2>
-               {expandedCard === 'performance' ? <ChevronUp size={14} className="text-gray-300" /> : <ChevronDown size={14} className="text-gray-300" />}
-            </div>
-            <div className="p-8 flex-1">
+            <div className="p-8">
                {delegate?.marks ? (
-                  <div className="space-y-6">
-                     <div className="text-center py-4 bg-gray-50 border border-gray-100 rounded-sm">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">DIPLOMATIC EVALUATION SCORE</p>
-                        <p className="text-5xl font-black text-[#003366] mt-2">{delegate.marks.total}<span className="text-lg opacity-20">/50</span></p>
+                  <div className="space-y-6 text-center">
+                     <div className="py-6 bg-[#003366] text-white rounded-sm shadow-inner">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-60 mb-2">Aggregate Evaluation</p>
+                        <p className="text-5xl font-black italic">{delegate.marks.total}<span className="text-lg opacity-30">/50</span></p>
                      </div>
-                     <div className="grid grid-cols-2 gap-3">
-                        {['GSL', 'Mod', 'Lobby', 'Chits', 'FP'].map((label, i) => (
-                          <div key={label} className="p-3 border border-gray-50 text-center">
-                             <p className="text-[9px] font-bold text-gray-400 uppercase">{label}</p>
-                             <p className="text-sm font-black text-[#003366]">{Object.values(delegate.marks!)[i+1]}</p>
-                          </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        {['GSL', 'Mod', 'Lobby', 'Chits'].map((key, i) => (
+                           <div key={key} className="p-3 border border-gray-100 rounded-sm">
+                              <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">{key}</p>
+                              <p className="text-sm font-black text-[#003366]">{Object.values(delegate.marks!)[i+1]}</p>
+                           </div>
                         ))}
                      </div>
                   </div>
                ) : (
-                  <div className="text-center py-10 opacity-40">
-                     <Scale size={40} className="mx-auto mb-4" strokeWidth={1} />
-                     <p className="text-xs font-bold uppercase tracking-widest text-center">Assessment Pending Plenary Session Conclusion</p>
+                  <div className="text-center py-12 opacity-30">
+                     <Scale size={48} className="mx-auto mb-4" strokeWidth={1} />
+                     <p className="text-[10px] font-black uppercase tracking-widest">EVALUATION IN PROGRESS</p>
                   </div>
                )}
             </div>
-          </section>
+          </div>
+
+          {/* Plenary Documentation */}
+          <div className="bg-white border border-gray-200 shadow-sm">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+               <h2 className="text-xs font-black text-[#003366] uppercase tracking-widest flex items-center gap-3">
+                  <FileText size={18} className="text-[#009EDB]" /> Registry Vault
+               </h2>
+            </div>
+            <div className="p-6 space-y-3">
+               {resources.map(res => (
+                 <div key={res.id} className="p-4 hover:bg-gray-50 border-b border-gray-50 last:border-0 flex justify-between items-center group transition-colors">
+                    <div>
+                       <p className="text-xs font-black text-[#003366] uppercase tracking-tight leading-none mb-1">{res.title}</p>
+                       <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest">REF: KIMUN/PLN/{res.type.toUpperCase()}</p>
+                    </div>
+                    <a href={res.url} target="_blank" rel="noreferrer" className="text-gray-300 hover:text-[#009EDB] transition-colors"><Download size={16} /></a>
+                 </div>
+               ))}
+            </div>
+          </div>
+
+          {/* Member State Representation */}
+          <div className="bg-white border border-gray-200 shadow-sm flex flex-col">
+            <div className="p-6 border-b border-gray-100 bg-gray-50">
+               <h2 className="text-xs font-black text-[#003366] uppercase tracking-widest flex items-center gap-3">
+                  <FilePlus size={18} className="text-[#009EDB]" /> Position Submission
+               </h2>
+            </div>
+            <div className="p-8 space-y-6 flex-1">
+               <div className="bg-blue-50 p-4 border border-blue-100 rounded-sm">
+                  <p className="text-[10px] text-blue-700 leading-relaxed font-bold uppercase tracking-tight italic">
+                     Delegates must submit a digital copy of their Position Paper to the Secretariat for evaluation.
+                  </p>
+               </div>
+               <div className="space-y-4">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Document URL (Google Drive/Dropbox)</label>
+                  <input 
+                    type="url" 
+                    placeholder="https://drive.google.com/..." 
+                    className="w-full px-4 py-3 border border-gray-200 text-xs focus:border-[#009EDB] focus:outline-none"
+                    value={posPaperInput}
+                    onChange={(e) => setPosPaperInput(e.target.value)}
+                  />
+                  <Button variant="primary" className="w-full" onClick={submitPositionPaper}>
+                     Update Registry <Send size={12} className="ml-2" />
+                  </Button>
+               </div>
+               {delegate?.positionPaperUrl && (
+                 <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 uppercase pt-2">
+                    <CheckCircle size={14} /> Submission Confirmed
+                 </div>
+               )}
+            </div>
+          </div>
         </div>
 
-        {/* Partners & Plenary Documents */}
-        <div className="grid lg:grid-cols-2 gap-10">
-           <section className="bg-white border border-gray-200 p-8 shadow-sm">
-              <h3 className="text-sm font-black text-[#003366] uppercase tracking-widest border-b border-gray-100 pb-4 mb-6 flex items-center gap-3">
-                 <FileText size={18} className="text-[#009EDB]" /> Plenary Documentation
-              </h3>
-              <div className="space-y-4">
-                 {resources.length > 0 ? resources.map(res => (
-                   <div key={res.id} className="flex justify-between items-center p-4 hover:bg-gray-50 border-b border-gray-50 last:border-0 transition-colors group">
-                      <div className="flex gap-4 items-center">
-                         <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-[#003366] group-hover:bg-[#009EDB] group-hover:text-white transition-colors">
-                            <FileText size={18} />
-                         </div>
-                         <div>
-                            <p className="text-sm font-bold text-gray-700 uppercase">{res.title}</p>
-                            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Document: KIMUN/REF/{res.type?.toUpperCase()}</p>
-                         </div>
-                      </div>
-                      <a href={res.url} target="_blank" rel="noreferrer" className="text-[#009EDB] hover:text-[#003366]"><Download size={18} /></a>
+        {/* SESSION ITINERARY */}
+        <div className="bg-white border border-gray-200 p-10 shadow-sm">
+           <h3 className="text-xs font-black text-[#003366] uppercase tracking-[0.4em] mb-10 flex items-center gap-4">
+              <Calendar size={20} className="text-[#009EDB]" /> Plenary Itinerary 2026
+           </h3>
+           <div className="grid md:grid-cols-2 gap-12 relative">
+              <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-100 hidden md:block" />
+              {[
+                { day: "Session I", date: "July 05", events: [
+                  { time: "09:00", title: "Opening Plenary", active: true },
+                  { time: "11:00", title: "Organ Session I", active: false },
+                  { time: "14:00", title: "Organ Session II", active: false }
+                ]},
+                { day: "Session II", date: "July 06", events: [
+                  { time: "10:00", title: "Organ Session IV", active: false },
+                  { time: "14:30", title: "Resolution Drafting", active: false },
+                  { time: "17:00", title: "Final Plenary", active: false }
+                ]}
+              ].map(day => (
+                <div key={day.day}>
+                   <div className="flex items-center gap-4 mb-6">
+                      <p className="text-xl font-black text-[#003366] italic">{day.day}</p>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{day.date}</span>
                    </div>
-                 )) : <p className="text-xs text-gray-400 uppercase font-bold text-center py-10">No Documents Available for Current Organ</p>}
-              </div>
-           </section>
-
-           <section className="bg-white border border-gray-200 p-8 shadow-sm">
-              <h3 className="text-sm font-black text-[#003366] uppercase tracking-widest border-b border-gray-100 pb-4 mb-6 flex items-center gap-3">
-                 <Calendar size={18} className="text-[#009EDB]" /> Session Itinerary
-              </h3>
-              <div className="space-y-6">
-                 {[
-                    { day: "Session I", date: "July 05", events: ["Registration 08:00", "Plenary Convening 09:00", "Organ Session I 11:00"] },
-                    { day: "Session II", date: "July 06", events: ["Organ Session IV 09:00", "Resolution Drafting 14:30", "Closing Plenary 17:00"] }
-                 ].map(day => (
-                    <div key={day.day}>
-                       <p className="text-[11px] font-black text-[#009EDB] uppercase tracking-[0.2em] mb-3">{day.day} // {day.date}</p>
-                       <div className="space-y-2">
-                          {day.events.map(ev => (
-                             <div key={ev} className="flex items-center gap-3 text-xs text-gray-500 font-medium">
-                                <div className="w-1 h-1 bg-gray-200 rounded-full" /> {ev}
-                             </div>
-                          ))}
-                       </div>
-                    </div>
-                 ))}
-              </div>
-           </section>
+                   <div className="space-y-6">
+                      {day.events.map(ev => (
+                        <div key={ev.title} className="flex items-center gap-6">
+                           <span className="text-[10px] font-black text-[#009EDB] w-12">{ev.time}</span>
+                           <div className="flex-1 flex items-center justify-between border-b border-gray-50 pb-2">
+                              <p className={`text-sm font-bold uppercase tracking-tight ${ev.active ? 'text-[#003366]' : 'text-gray-400'}`}>{ev.title}</p>
+                              {ev.active && <span className="bg-[#009EDB] h-1.5 w-1.5 rounded-full animate-ping" />}
+                           </div>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+              ))}
+           </div>
         </div>
       </main>
 
       <footer className="container mx-auto px-8 py-10 border-t border-gray-100 text-center">
-         <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.5em]">Secretariat Information System • Permanent Mission Hub 2026</p>
+         <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.5em]">Secretariat Information System • KIMUN Mission Control 2026</p>
       </footer>
 
       <style jsx global>{`
@@ -560,20 +568,10 @@ function DelegateDashboardContent() {
   )
 }
 
+// --- Icons Fallback ---
 function Scale(props: any) {
   return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      {...props}
-    >
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h18"/>
     </svg>
   );
@@ -581,11 +579,7 @@ function Scale(props: any) {
 
 export default function App() {
   return (
-    <Suspense fallback={
-        <div className="min-h-screen flex items-center justify-center">
-            <Loader2 className="animate-spin text-[#009EDB]" size={32} />
-        </div>
-    }>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#009EDB]" size={32} /></div>}>
       <DelegateDashboardContent />
     </Suspense>
   )
