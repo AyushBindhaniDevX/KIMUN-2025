@@ -46,7 +46,8 @@ import {
   CreditCard,
   Briefcase,
   MapPin,
-  FileBadge
+  FileBadge,
+  MessageSquare
 } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 
@@ -438,7 +439,7 @@ function DelegateDashboardContent() {
                   {marks ? (
                     <div className="space-y-6">
                        <div className="bg-[#003366] text-white p-6 text-center shadow-inner rounded-sm">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.4em] opacity-40 mb-2">Aggregate Evaluation</p>
+                          <p className="text-[9px] font-bold uppercase tracking-[0.4em] opacity-40 mb-2">Aggregate Evaluation</p>
                           <p className="text-5xl font-black italic">{marks.total}<span className="text-lg opacity-20 ml-1">/50</span></p>
                        </div>
                        <div className="grid grid-cols-2 gap-3">
@@ -483,6 +484,33 @@ function DelegateDashboardContent() {
                </div>
             </div>
 
+            {/* DOCUMENTATION GRID */}
+            <div className="bg-white border border-zinc-200 p-10 shadow-sm">
+               <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
+                  <div>
+                    <h3 className="text-2xl font-black text-[#003366] uppercase tracking-tighter">Registry Vault</h3>
+                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1 italic">Official KIMUN documentation & background intel</p>
+                  </div>
+                  <button onClick={() => setActiveView('vault')} className="text-[#009EDB] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:underline">
+                    View Complete Index <ArrowRight size={14} />
+                  </button>
+               </div>
+               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {resources.slice(0, 3).map(res => (
+                    <div key={res.id} className="p-6 border border-zinc-100 hover:border-[#009EDB]/30 hover:bg-[#F0F8FF]/30 transition-all group rounded-sm">
+                        <div className="w-10 h-10 bg-zinc-50 rounded-sm mb-4 flex items-center justify-center text-zinc-400 group-hover:bg-[#009EDB] group-hover:text-white transition-colors">
+                           <FileText size={20} />
+                        </div>
+                        <h4 className="text-sm font-black text-[#003366] uppercase tracking-tight mb-1">{res.title}</h4>
+                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-4">Ref: KIMUN/PLN/{res.type?.toUpperCase()}</p>
+                        <a href={res.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-[#009EDB] text-[10px] font-black uppercase tracking-widest hover:text-[#003366]">
+                           Download <Download size={12} />
+                        </a>
+                    </div>
+                  ))}
+               </div>
+            </div>
+
           </motion.div>
         )}
 
@@ -508,18 +536,40 @@ function DelegateDashboardContent() {
         )}
 
         {/* --- REGISTRY / VAULT FALLBACKS --- */}
-        {(activeView === 'registry' || activeView === 'vault') && (
+        {(activeView === 'registry' || activeView === 'vault') && ( activeView !== 'vault' ? (
            <div className="bg-white border border-zinc-200 p-16 text-center space-y-8 rounded-sm animate-in fade-in zoom-in-95 duration-500">
               <div className="w-20 h-20 bg-zinc-50 rounded-full mx-auto flex items-center justify-center text-zinc-200">
-                 {activeView === 'registry' ? <Search size={40} /> : <FileBadge size={40} />}
+                 <Search size={40} />
               </div>
               <div className="space-y-4">
-                <h3 className="text-2xl font-black text-[#003366] uppercase tracking-tighter">{activeView === 'registry' ? 'Plenary Matrix Access' : 'Digital Vault Index'}</h3>
+                <h3 className="text-2xl font-black text-[#003366] uppercase tracking-tighter">Plenary Matrix Access</h3>
                 <p className="text-zinc-500 italic max-w-md mx-auto text-sm leading-relaxed">The Secretariat information systems are currently synchronising session records. Access will be restored upon successful bureau verification.</p>
               </div>
               <Button variant="outline" onClick={() => setActiveView('command')}>Return to Control</Button>
            </div>
-        )}
+        ) : (
+           <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-10">
+              <h2 className="text-4xl font-black text-[#003366] uppercase tracking-tighter">Plenary Vault Index</h2>
+              <div className="grid gap-4">
+                 {resources.map(res => (
+                   <div key={res.id} className="bg-white border border-zinc-200 p-6 flex justify-between items-center group hover:border-[#009EDB] transition-all">
+                      <div className="flex items-center gap-6">
+                         <div className="p-3 bg-zinc-50 rounded-sm text-zinc-300 group-hover:bg-[#009EDB]/10 group-hover:text-[#009EDB] transition-colors">
+                            <FileText size={24} />
+                         </div>
+                         <div>
+                            <h4 className="text-base font-black text-[#003366] uppercase tracking-tight">{res.title}</h4>
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest italic">{res.description || "Official Plenary Document"}</p>
+                         </div>
+                      </div>
+                      <a href={res.url} target="_blank" rel="noreferrer" className="p-4 hover:bg-zinc-50 rounded-full text-zinc-300 hover:text-[#009EDB] transition-colors">
+                         <Download size={20} />
+                      </a>
+                   </div>
+                 ))}
+              </div>
+           </div>
+        ))}
 
       </main>
 
