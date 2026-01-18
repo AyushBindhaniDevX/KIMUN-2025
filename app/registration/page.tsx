@@ -76,7 +76,7 @@ const VALID_COUPONS: Record<string, number> = {
   "RAVENSHAWDELEGATION": 99,
   "SOADELEGATION": 99,
   "KIMUN2024RECVR1299": 1299,
-  "KIMUN2025WINWAR": 100,
+  "KIMUN2025WINWAR": 999,
 };
 
 // --- Educational Institutions ---
