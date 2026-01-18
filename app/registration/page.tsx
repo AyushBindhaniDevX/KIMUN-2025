@@ -359,7 +359,7 @@ export default function App() {
   if (loading) return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center font-sans">
       <Loader2 className="animate-spin text-[#009EDB] mb-4" size={48} strokeWidth={3} />
-      <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400">Consulting Member State Registry...</span>
+      <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400">Loading registration form...</span>
     </div>
   )
 
@@ -368,7 +368,7 @@ export default function App() {
       <div className="max-w-xl bg-white p-12 border-t-8 border-[#4D4D4D] shadow-2xl rounded-sm">
         <Lock className="w-20 h-20 text-gray-300 mx-auto mb-8" />
         <h1 className="text-2xl font-black text-[#333333] mb-4 uppercase tracking-tighter">Registration Closed</h1>
-        <p className="text-gray-500 mb-8 text-sm leading-relaxed">The accreditation gateway for the current session is offline. Please check back later for the next registration window.</p>
+        <p className="text-gray-500 mb-8 text-sm leading-relaxed">The registration gateway for the current session is offline. Please check back later for the next registration window.</p>
         <div className="space-y-3">
             {ACCREDITATION_PHASES.map((p, i) => (
                 <div key={i} className="flex justify-between items-center text-[10px] font-bold p-3 bg-gray-50 border border-gray-100 uppercase tracking-widest">
@@ -585,7 +585,7 @@ export default function App() {
                   <input
                     type="text"
                     placeholder="Search countries..."
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-sm focus:outline-none focus:border-[#009EDB]"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-sm focus:outline-none focus:border-[#009EDB] text-gray-900 placeholder-gray-400"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -667,7 +667,7 @@ export default function App() {
                      <div className="flex gap-2">
                        <input 
                          placeholder="Enter coupon code" 
-                         className="bg-white text-gray-900 text-sm px-4 py-2 rounded-sm flex-1 focus:outline-none"
+                         className="bg-white text-gray-900 text-sm px-4 py-3 rounded-sm flex-1 focus:outline-none border border-gray-300"
                          value={couponCode} 
                          onChange={(e) => setCouponCode(e.target.value)}
                          onKeyDown={(e) => e.key === 'Enter' && applyCoupon()}
@@ -755,7 +755,21 @@ export default function App() {
                    </div>
                 </div>
 
-                <div className="flex gap-4 md:gap-6 flex-col md:flex-row pt-6 border-t border-gray-50">
+                <div className="pt-6 border-t border-gray-100">
+                  <h4 className="text-sm font-black uppercase text-[#009EDB] tracking-widest mb-4">Delegate Information</h4>
+                  <div className="bg-gray-50 p-4 rounded-sm border border-gray-200">
+                    <p className="text-sm font-bold text-[#003366] mb-2">Primary Delegate: {delegateInfo.delegate1.name}</p>
+                    <p className="text-xs text-gray-600 mb-3">{delegateInfo.delegate1.institution} • {delegateInfo.delegate1.year}</p>
+                    {isDoubleDel && delegateInfo.delegate2 && (
+                      <>
+                        <p className="text-sm font-bold text-[#003366] mb-2">Secondary Delegate: {delegateInfo.delegate2.name}</p>
+                        <p className="text-xs text-gray-600">{delegateInfo.delegate2.institution} • {delegateInfo.delegate2.year}</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-4 md:gap-6 flex-col md:flex-row pt-6 border-t border-gray-100">
                    <Button variant="outline" onClick={() => setStep(4)} className="flex-1">Back</Button>
                    <Button 
                      onClick={initiateAccreditation} 
@@ -783,6 +797,12 @@ export default function App() {
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
         body { background-color: #F9FAFB; font-family: 'Inter', sans-serif; }
         * { -webkit-font-smoothing: antialiased; }
+        input, select, textarea {
+          color: #1f2937 !important; /* gray-900 - black text */
+        }
+        input::placeholder {
+          color: #9ca3af !important; /* gray-400 */
+        }
         select {
           appearance: none;
           background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
@@ -806,7 +826,7 @@ function DelegateForm({ title, data, onChange, delegate }: any) {
         <div className="space-y-1">
           <label className="text-xs font-bold text-gray-600 uppercase tracking-widest">Full Name *</label>
           <input 
-            className="w-full bg-gray-50 border border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors rounded-sm"
+            className="w-full bg-gray-50 border border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors rounded-sm text-gray-900"
             placeholder="Enter your full name"
             value={data.name}
             onChange={(e) => onChange('name', e.target.value)}
@@ -817,7 +837,7 @@ function DelegateForm({ title, data, onChange, delegate }: any) {
           <label className="text-xs font-bold text-gray-600 uppercase tracking-widest">Email *</label>
           <input 
             type="email"
-            className="w-full bg-gray-50 border border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors rounded-sm"
+            className="w-full bg-gray-50 border border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors rounded-sm text-gray-900"
             placeholder="example@email.com"
             value={data.email}
             onChange={(e) => onChange('email', e.target.value)}
@@ -828,7 +848,7 @@ function DelegateForm({ title, data, onChange, delegate }: any) {
           <label className="text-xs font-bold text-gray-600 uppercase tracking-widest">Phone Number *</label>
           <input 
             type="tel"
-            className="w-full bg-gray-50 border border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors rounded-sm"
+            className="w-full bg-gray-50 border border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors rounded-sm text-gray-900"
             placeholder="+91 00000 00000"
             value={data.phone}
             onChange={(e) => onChange('phone', e.target.value)}
@@ -838,7 +858,7 @@ function DelegateForm({ title, data, onChange, delegate }: any) {
         <div className="space-y-1">
           <label className="text-xs font-bold text-gray-600 uppercase tracking-widest">Institution *</label>
           <select
-            className="w-full bg-gray-50 border border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors rounded-sm"
+            className="w-full bg-gray-50 border border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors rounded-sm text-gray-900"
             value={data.institution}
             onChange={(e) => onChange('institution', e.target.value)}
           >
@@ -851,7 +871,7 @@ function DelegateForm({ title, data, onChange, delegate }: any) {
         <div className="space-y-1">
           <label className="text-xs font-bold text-gray-600 uppercase tracking-widest">Year of Study *</label>
           <select
-            className="w-full bg-gray-50 border border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors rounded-sm"
+            className="w-full bg-gray-50 border border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors rounded-sm text-gray-900"
             value={data.year}
             onChange={(e) => onChange('year', e.target.value)}
           >
@@ -864,7 +884,7 @@ function DelegateForm({ title, data, onChange, delegate }: any) {
         <div className="space-y-1">
           <label className="text-xs font-bold text-gray-600 uppercase tracking-widest">Course *</label>
           <select
-            className="w-full bg-gray-50 border border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors rounded-sm"
+            className="w-full bg-gray-50 border border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors rounded-sm text-gray-900"
             value={data.course}
             onChange={(e) => onChange('course', e.target.value)}
           >
@@ -877,7 +897,7 @@ function DelegateForm({ title, data, onChange, delegate }: any) {
         <div className="md:col-span-2 space-y-1">
           <label className="text-xs font-bold text-gray-600 uppercase tracking-widest">MUN Experience *</label>
           <select
-            className="w-full bg-gray-50 border border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors rounded-sm"
+            className="w-full bg-gray-50 border border-gray-200 py-3 px-4 text-sm focus:border-[#009EDB] focus:outline-none transition-colors rounded-sm text-gray-900"
             value={data.experience}
             onChange={(e) => onChange('experience', e.target.value)}
           >
