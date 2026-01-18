@@ -6,9 +6,9 @@ import {
   Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle, 
   ChevronRight, Calendar, Clock, Lock, Unlock, FileText, 
   ShieldCheck, Landmark, Search, ArrowLeft, ArrowRight,
-  UserCheck, ClipboardList, CreditCard, MessageSquare
+  UserCheck, ClipboardList, CreditCard, MessageSquare, Loader2,
+  Scale, Gavel, Globe2
 } from 'lucide-react'
-import Flags from 'country-flag-icons/react/3x2'
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, push, update } from 'firebase/database'
 
@@ -114,6 +114,20 @@ const ProgressStep = ({ current, step, label, icon: Icon }: any) => (
     )}
   </div>
 );
+
+// --- Fixed Flag Component using Standard HTML Img ---
+const DiplomaticFlag = ({ countryCode, className = "" }: { countryCode: string, className?: string }) => {
+  return (
+    <img 
+      src={`https://flagcdn.com/w80/${countryCode.toLowerCase()}.png`}
+      alt={`${countryCode} Representation`}
+      className={`object-contain ${className}`}
+      onError={(e) => {
+        (e.target as HTMLImageElement).src = 'https://flagcdn.com/w80/un.png';
+      }}
+    />
+  );
+};
 
 // --- Main Accreditation Page ---
 export default function App() {
@@ -229,7 +243,6 @@ export default function App() {
         msg += `%0APlease verify credentials and provide Plenary Session access.`;
         window.open(`https://wa.me/918249979557?text=${msg}`, '_blank')
     } else {
-        // Razorpay logic (Simplified for placeholder)
         setError("Secure Payment Gateway undergoing maintenance. Please use WhatsApp Protocol.")
     }
   }
@@ -357,13 +370,13 @@ export default function App() {
                    <DelegateForm 
                       title="Primary Representative" 
                       data={delegateInfo.delegate1} 
-                      onChange={(f, v) => handleInputChange('delegate1', f, v)} 
+                      onChange={(f: string, v: string) => handleInputChange('delegate1', f, v)} 
                    />
                    {isDoubleDel && (
                      <DelegateForm 
                         title="Secondary Representative" 
                         data={delegateInfo.delegate2 || {} as DelegateData} 
-                        onChange={(f, v) => handleInputChange('delegate2', f, v)} 
+                        onChange={(f: string, v: string) => handleInputChange('delegate2', f, v)} 
                      />
                    )}
                 </div>
@@ -384,7 +397,10 @@ export default function App() {
                    {committees.map((c, i) => (
                       <div 
                         key={c.id} 
-                        onClick={() => setSelectedCommittee(c)}
+                        onClick={() => {
+                          setSelectedCommittee(c);
+                          if(c.isOnline) setIsDoubleDel(false);
+                        }}
                         className={`p-6 border-2 flex items-center gap-6 cursor-pointer transition-all ${selectedCommittee?.id === c.id ? 'border-[#009EDB] bg-[#F0F8FF]' : 'border-gray-50 hover:border-gray-200'}`}
                       >
                          <div className="text-3xl grayscale group-hover:grayscale-0">{c.emoji}</div>
@@ -419,9 +435,9 @@ export default function App() {
                       <div 
                         key={p.id}
                         onClick={() => setSelectedPortfolio(p)}
-                        className={`p-5 border-2 flex flex-col items-center text-center gap-3 cursor-pointer transition-all ${selectedPortfolio?.id === p.id ? 'border-[#009EDB] bg-[#F0F8FF]' : 'border-gray-50 hover:border-gray-200'}`}
+                        className={`p-5 border-2 flex flex-col items-center text-center gap-3 cursor-pointer transition-all relative ${selectedPortfolio?.id === p.id ? 'border-[#009EDB] bg-[#F0F8FF]' : 'border-gray-50 hover:border-gray-200'}`}
                       >
-                         {Flags[p.countryCode] && React.createElement(Flags[p.countryCode], { className: 'w-10 h-10 shadow-sm border border-gray-100' })}
+                         <DiplomaticFlag countryCode={p.countryCode} className="w-12 h-8 shadow-sm border border-gray-100" />
                          <span className="text-[11px] font-bold text-[#003366] uppercase leading-tight">{p.country}</span>
                          {selectedPortfolio?.id === p.id && <CheckCircle className="text-[#009EDB] absolute top-2 right-2" size={16} />}
                       </div>
@@ -468,7 +484,10 @@ export default function App() {
                             <Globe size={24} className="text-gray-300" />
                             <div>
                                <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">sovereign representation</p>
-                               <p className="text-sm font-bold text-[#003366] uppercase">{selectedPortfolio?.country}</p>
+                               <div className="flex items-center gap-2">
+                                  {selectedPortfolio && <DiplomaticFlag countryCode={selectedPortfolio.countryCode} className="w-5 h-4" />}
+                                  <p className="text-sm font-bold text-[#003366] uppercase">{selectedPortfolio?.country}</p>
+                               </div>
                             </div>
                          </div>
                       </div>
@@ -532,7 +551,7 @@ function DelegateForm({ title, data, onChange }: any) {
             <input 
                className="w-full bg-gray-50 border-b-2 border-gray-200 py-3 px-10 text-sm focus:border-[#009EDB] focus:outline-none transition-colors"
                placeholder={input.label}
-               value={data[input.f] || ''}
+               value={data[input.f as keyof DelegateData] || ''}
                onChange={(e) => onChange(input.f, e.target.value)}
             />
             <input.i className="absolute left-2 top-3 text-gray-300" size={18} />
