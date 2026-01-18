@@ -309,6 +309,10 @@ function DelegateDashboardContent() {
     // Implementation should be provided in CertificateGenerator.ts
   }
 
+  const toggleCard = (cardId: string) => {
+    setExpandedCard(expandedCard === cardId ? null : cardId)
+  }
+
   if (!loggedIn) {
     return (
       <div className="min-h-screen bg-[#F4F4F4] flex items-center justify-center p-6 font-sans">
@@ -370,10 +374,10 @@ function DelegateDashboardContent() {
             <div className="space-y-3">
               <span className="inline-block bg-[#009EDB] text-[10px] font-black px-3 py-1 uppercase tracking-widest">Permanent Representation</span>
               <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter leading-none">
-                Distinguished Delegate, <br/> {delegate?.name.split(' ')[0]}
+                Distinguished Delegate, <br/> {delegate?.name?.split(' ')[0] || "Representative"}
               </h1>
               <p className="text-lg text-gray-300 italic opacity-80">
-                {committee?.name} • <span className="text-white font-bold">{portfolio?.country}</span>
+                {committee?.name || "Organ Information Pending"} • <span className="text-white font-bold">{portfolio?.country || "Allocation Pending"}</span>
               </p>
             </div>
             <div className="mt-8 md:mt-0 flex items-center gap-6">
@@ -382,10 +386,12 @@ function DelegateDashboardContent() {
                  <p className="text-xs font-mono">{delegate?.id}</p>
               </div>
               <div className="bg-white p-2 rounded-sm shadow-xl">
-                <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${delegate?.id}`} 
-                  alt="QR" className="h-20 w-20 grayscale" 
-                />
+                {delegate?.id && (
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${delegate?.id}`} 
+                    alt="QR" className="h-20 w-20 grayscale" 
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -405,16 +411,16 @@ function DelegateDashboardContent() {
             <div className="p-8 flex-1 space-y-6">
                <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Organ Identity</label>
-                  <p className="font-black text-[#003366] uppercase">{committee?.name}</p>
+                  <p className="font-black text-[#003366] uppercase">{committee?.name || "Information Unavailable"}</p>
                </div>
                <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Agenda Items</label>
                   <ul className="space-y-3 mt-3">
-                    {committee?.topics.filter(t => t && t !== 'TBA').map((topic, i) => (
+                    {committee?.topics?.filter(t => t && t !== 'TBA').map((topic, i) => (
                       <li key={i} className="flex gap-3 text-sm text-gray-600 leading-relaxed italic border-l-2 border-gray-100 pl-4">
                          {topic}
                       </li>
-                    ))}
+                    )) || <li className="text-xs text-gray-400 italic">No topics assigned for this organ.</li>}
                   </ul>
                </div>
             </div>
@@ -432,7 +438,7 @@ function DelegateDashboardContent() {
                   <DiplomaticFlag countryCode={portfolio?.countryCode || 'un'} className="w-16 h-10 shadow-sm border border-gray-100 object-cover" />
                   <div>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Representation</p>
-                    <p className="text-xl font-black text-[#003366] uppercase">{portfolio?.country}</p>
+                    <p className="text-xl font-black text-[#003366] uppercase">{portfolio?.country || "Sovereign Entity Pending"}</p>
                   </div>
                </div>
                <div className="pt-6 border-t border-gray-50 grid grid-cols-2 gap-6">
@@ -445,7 +451,9 @@ function DelegateDashboardContent() {
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Org Level</label>
-                    <p className="text-xs font-bold text-gray-700 mt-1 uppercase">{portfolio?.minExperience === 0 ? 'General' : 'Advanced'}</p>
+                    <p className="text-xs font-bold text-gray-700 mt-1 uppercase">
+                      {portfolio?.minExperience === 0 ? 'General' : portfolio?.minExperience ? 'Advanced' : 'Registry Only'}
+                    </p>
                   </div>
                </div>
                {delegate?.isCheckedIn && (
@@ -483,7 +491,7 @@ function DelegateDashboardContent() {
                ) : (
                   <div className="text-center py-10 opacity-40">
                      <Scale size={40} className="mx-auto mb-4" strokeWidth={1} />
-                     <p className="text-xs font-bold uppercase tracking-widest">Assessment Pending Plenary Session Conclusion</p>
+                     <p className="text-xs font-bold uppercase tracking-widest text-center">Assessment Pending Plenary Session Conclusion</p>
                   </div>
                )}
             </div>
