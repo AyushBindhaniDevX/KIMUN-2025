@@ -7,7 +7,8 @@ import {
   ChevronRight, Calendar, Clock, Lock, Unlock, FileText, 
   ShieldCheck, Landmark, Search, ArrowLeft, ArrowRight,
   UserCheck, ClipboardList, CreditCard, MessageSquare, Loader2,
-  Scale, Gavel, Globe2, Info, Award, ChevronDown, Mail, LogOut
+  Scale, Gavel, Globe2, Info, Award, ChevronDown, Mail, LogOut,
+  Fingerprint
 } from 'lucide-react'
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, push, update } from 'firebase/database'
@@ -393,9 +394,12 @@ export default function App() {
           if (isDoubleDel && d2) msg += `*Delegate 2:* ${d2.name}%0A`
           msg += `%0APlease finalize diplomatic clearance for Plenary Session 2026.`;
           window.open(`https://wa.me/918249979557?text=${msg}`, '_blank')
-      } else {
-          setError("Gateway Maintenance: Use WhatsApp Protocol for prioritized clearance.");
       }
+
+      // --- DIPLOMATIC REDIRECT ---
+      // Using window.location instead of next/navigation for maximum compatibility
+      window.location.href = '/delegate';
+
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -446,12 +450,12 @@ export default function App() {
 
       <main className="max-w-4xl mx-auto px-6 py-12">
         {!user && step === 1 && (
-            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 bg-blue-50 border-l-4 border-[#009EDB] p-6 rounded-r-sm">
+            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 bg-blue-50 border-l-4 border-[#009EDB] p-6 rounded-r-sm shadow-sm">
                 <div className="flex items-start gap-4">
                     <Fingerprint className="text-[#003366] mt-1" size={24} />
                     <div>
-                        <h3 className="text-sm font-black text-[#003366] uppercase tracking-wider">Identity Sync Required</h3>
-                        <p className="text-xs text-gray-600 mt-1 leading-relaxed">All accredited delegates must authenticate via the Unified Identity Service to enable secure access to Plenary Archives and the Delegate Vault.</p>
+                        <h3 className="text-sm font-black text-[#003366] uppercase tracking-wider">Identity Sync Protocol</h3>
+                        <p className="text-xs text-gray-600 mt-1 leading-relaxed">Access to Plenary Dossiers requires high-fidelity identity verification. Sync with your Google account to secure your Member State allocation and Delegate Vault.</p>
                         <Button variant="google" onClick={signInWithGoogle} disabled={authLoading} className="mt-4 h-10 px-6">
                             {authLoading ? <Loader2 className="animate-spin mr-2" size={14} /> : <Mail className="mr-2" size={14} />} 
                             Connect Google Identity
@@ -489,8 +493,8 @@ export default function App() {
             {step === 2 && (
               <div className="space-y-12">
                 <h2 className="text-3xl font-black text-[#003366] uppercase tracking-tighter border-b-2 border-gray-50 pb-6">Delegate Dossier</h2>
-                <DelegateForm title="Primary Representative" data={delegateInfo.delegate1} userEmail={user?.email} onChange={(f: string, v: string) => handleInputChange('delegate1', f, v)} />
-                {isDoubleDel && <DelegateForm title="Secondary Representative" data={delegateInfo.delegate2 || {} as DelegateData} onChange={(f: string, v: string) => handleInputChange('delegate2', f, v)} />}
+                <DelegateForm title="Primary Representative" data={delegateInfo.delegate1} userEmail={user?.email} onChange={(f: string, v: string) => handleInputChange('delegate1', f, v)} delegate="delegate1" />
+                {isDoubleDel && <DelegateForm title="Secondary Representative" data={delegateInfo.delegate2 || {} as DelegateData} onChange={(f: string, v: string) => handleInputChange('delegate2', f, v)} delegate="delegate2" />}
                 <div className="flex gap-6">
                    <Button variant="outline" onClick={() => setStep(1)} className="flex-1">Back</Button>
                    <Button onClick={() => validateStep() ? setStep(3) : null} className="flex-[2]">Confirm Credentials <ChevronRight className="ml-3" /></Button>
@@ -524,7 +528,10 @@ export default function App() {
             {step === 4 && (
               <div className="space-y-10">
                 <h2 className="text-3xl font-black text-[#003366] uppercase tracking-tighter">Member State Mission</h2>
-                <input type="text" placeholder="Search Member States..." className="w-full px-4 py-3 border-2 border-gray-100 focus:border-[#009EDB] focus:outline-none text-sm rounded-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                <div className="relative">
+                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                   <input type="text" placeholder="Search Member States..." className="w-full pl-12 pr-4 py-3 border-2 border-gray-100 focus:border-[#009EDB] focus:outline-none text-sm rounded-sm text-gray-900" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto pr-2">
                    {filteredPortfolios?.map(p => (
                       <div key={p.id} onClick={() => setSelectedPortfolio(p)} className={`p-5 border-2 flex flex-col items-center text-center gap-3 cursor-pointer transition-all relative ${selectedPortfolio?.id === p.id ? 'border-[#009EDB] bg-[#F0F8FF]' : 'border-gray-50 hover:border-gray-200'}`}>
@@ -543,25 +550,34 @@ export default function App() {
 
             {step === 5 && (
               <div className="space-y-10">
-                <div className="bg-[#003366] text-white p-10 flex flex-col md:flex-row justify-between items-center gap-8 rounded-sm">
-                   <div className="space-y-2">
+                <div className="bg-[#003366] text-white p-10 flex flex-col md:flex-row justify-between items-center gap-8 rounded-sm shadow-inner">
+                   <div className="space-y-2 text-center md:text-left">
                       <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Plenary Access Fee</p>
                       <h3 className="text-4xl font-black italic tracking-tighter uppercase">Total: ₹{calculatePrice()}</h3>
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-[#009EDB]">Verified Identity Locked: {user?.email}</p>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-[#009EDB]">Sync Authenticated: {user?.email}</p>
                    </div>
-                   <div className="flex items-center gap-4 bg-white/5 border border-white/10 p-4 rounded-sm">
-                      <input placeholder="PROTOCOL CODE" className="bg-transparent text-white text-[10px] font-black tracking-widest uppercase focus:outline-none w-32" value={couponCode} onChange={e => setCouponCode(e.target.value)} />
+                   <div className="flex items-center gap-4 bg-white/5 border border-white/10 p-4 rounded-sm w-full md:w-auto">
+                      <input placeholder="PROTOCOL CODE" className="bg-transparent text-white text-[10px] font-black tracking-widest uppercase focus:outline-none flex-1 md:w-32" value={couponCode} onChange={e => setCouponCode(e.target.value)} />
                       <Button size="sm" onClick={applyCoupon} variant="outline" className="border-[#009EDB] text-[#009EDB]">Apply</Button>
                    </div>
                 </div>
 
-                <div className="p-8 bg-gray-50 border border-gray-200 space-y-4">
-                    <div className="flex items-center gap-4">
-                        <CheckCircle2 className="text-emerald-500" size={24} />
+                <div className="p-8 bg-gray-50 border border-gray-200 rounded-sm">
+                    <div className="flex items-center gap-4 mb-6">
+                        <CheckCircle className="text-emerald-500" size={24} />
                         <div>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Sovereign Representation Assigned</p>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Sovereign Representation Assigned</p>
                             <p className="text-sm font-bold text-[#003366] uppercase">{selectedPortfolio?.country} in {selectedCommittee?.name}</p>
                         </div>
+                    </div>
+                    <div className="p-4 bg-white border border-gray-100 rounded-sm shadow-sm">
+                        <label className="flex items-center gap-4 cursor-pointer">
+                            <div className={`w-12 h-6 rounded-full relative transition-colors ${whatsappRegistration ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                               <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${whatsappRegistration ? 'translate-x-6' : ''}`} />
+                               <input type="checkbox" className="sr-only" checked={whatsappRegistration} onChange={() => setWhatsappRegistration(!whatsappRegistration)} />
+                            </div>
+                            <span className="text-[10px] font-black uppercase text-[#333] tracking-widest">Submit via WhatsApp Protocol</span>
+                         </label>
                     </div>
                 </div>
 
