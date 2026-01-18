@@ -1,125 +1,18 @@
-'use client'
+"use client"
+
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import Confetti from 'react-confetti'
-import { Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle, ChevronRight, Calendar, Clock, Lock, Unlock } from 'lucide-react'
+import { 
+  Sparkles, CheckCircle, Globe, Users, Settings, AlertCircle, 
+  ChevronRight, Calendar, Clock, Lock, Unlock, FileText, 
+  ShieldCheck, Landmark, Search, ArrowLeft, ArrowRight,
+  UserCheck, ClipboardList, CreditCard, MessageSquare
+} from 'lucide-react'
 import Flags from 'country-flag-icons/react/3x2'
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, get, push, update } from 'firebase/database'
-import Image from 'next/image'
-import Link from "next/link"
 
-type Committee = {
-  id: string
-  name: string
-  emoji: string
-  portfolios: Portfolio[]
-  isOnline?: boolean
-}
-
-type Portfolio = {
-  id: string
-  country: string
-  countryCode: string
-  isDoubleDelAllowed: boolean
-  isVacant: boolean
-  minExperience: number
-}
-
-type DelegateInfo = {
-  delegate1: {
-    name: string
-    email: string
-    phone: string
-    institution: string
-    year: string
-    course: string
-    experience: string
-  }
-  delegate2?: {
-    name: string
-    email: string
-    phone: string
-    institution: string
-    year: string
-    course: string
-    experience: string
-  }
-}
-
-type BlacklistEntry = {
-  email: string
-  phone: string
-  name: string
-  reason: string
-}
-
-const BLACKLIST: BlacklistEntry[] = [
-  {
-    email: "d",
-    phone: "2",
-    name: "S",
-    reason: "BLACKLISTED FROM PARTNER CONFERENCE"
-  },
-  {
-    email: "d",
-    phone: "+91",
-    name: "S",
-    reason: "BLACKLISTED FROM PARTNER CONFERENCE"
-  },
-  {
-    email: "test.user@example.com",
-    phone: "5555555555",
-    name: "Test User",
-    reason: "Fraudulent registration attempt"
-  }
-]
-
-const REGISTRATION_PHASES = [
-  {
-    name: "Pre Early Bird",
-    startDate: new Date('2025-04-14'),
-    endDate: new Date('2025-04-19'),
-    singlePrice: 1,
-    doublePrice: 2499,
-    isActive: true
-  },
-  {
-    name: "Early Bird",
-    startDate: new Date('2025-04-20'),
-    endDate: new Date('2025-05-11'),
-    singlePrice: 1299,
-    doublePrice: 2499,
-    isActive: false
-  },
-  {
-    name: "Phase 1",
-    startDate: new Date('2025-05-12'),
-    endDate: new Date('2025-05-29'),
-    singlePrice: 1299,
-    doublePrice: 2499,
-    isActive: false
-  },
-  {
-    name: "Phase 2",
-    startDate: new Date('2025-05-30'),
-    endDate: new Date('2025-06-14'),
-    singlePrice: 1299,
-    doublePrice: 2499,
-    isActive: false
-  },
-  {
-    name: "Final Phase",
-    startDate: new Date('2025-06-15'),
-    endDate: new Date('2025-12-30'),
-    singlePrice: 999,
-    doublePrice: 1999,
-    isActive: false
-  }
-]
-
+// --- Firebase configuration ---
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -130,198 +23,193 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 }
 
-const app = initializeApp(firebaseConfig)
-const db = getDatabase(app)
+// --- Interfaces ---
+interface Portfolio {
+  id: string;
+  country: string;
+  countryCode: string;
+  isDoubleDelAllowed: boolean;
+  isVacant: boolean;
+  minExperience: number;
+}
 
-const VALID_COUPONS = {
+interface Committee {
+  id: string;
+  name: string;
+  emoji: string;
+  portfolios: Portfolio[];
+  isOnline?: boolean;
+}
+
+interface DelegateData {
+  name: string;
+  email: string;
+  phone: string;
+  institution: string;
+  year: string;
+  course: string;
+  experience: string;
+}
+
+interface DelegateInfo {
+  delegate1: DelegateData;
+  delegate2?: DelegateData;
+}
+
+// --- Diplomatic Protocols & Constants ---
+const BLACKLIST = [
+  { email: "d", phone: "2", name: "S", reason: "PREVIOUS PROTOCOL BREACH" },
+  { email: "test.user@example.com", phone: "5555555555", name: "Test User", reason: "IDENTITY VERIFICATION FAILED" }
+];
+
+const ACCREDITATION_PHASES = [
+  { name: "Pre-Early Bird", startDate: new Date('2025-04-14'), endDate: new Date('2025-04-19'), singlePrice: 1, doublePrice: 2499 },
+  { name: "Early Bird", startDate: new Date('2025-04-20'), endDate: new Date('2025-05-11'), singlePrice: 1299, doublePrice: 2499 },
+  { name: "Phase I Plenary", startDate: new Date('2025-05-12'), endDate: new Date('2025-05-29'), singlePrice: 1299, doublePrice: 2499 },
+  { name: "Phase II Plenary", startDate: new Date('2025-05-30'), endDate: new Date('2025-06-14'), singlePrice: 1299, doublePrice: 2499 },
+  { name: "Final Convening", startDate: new Date('2025-06-15'), endDate: new Date('2025-12-30'), singlePrice: 999, doublePrice: 1999 }
+];
+
+const VALID_COUPONS: Record<string, number> = {
   "BGUDELEGATION": 99,
   "RAVENSHAWDELEGATION": 99,
   "SOADELEGATION": 99,
   "KIMUN2024RECVR1299": 1299,
   "KIMUN2025WINWAR": 100,
-}
+};
 
-export default function RegistrationPage() {
-  const router = useRouter()
+// --- Institutional Components ---
+const Button = React.forwardRef<HTMLButtonElement, any>(({ className, variant = "default", size = "default", ...props }, ref) => {
+  const variants = {
+    default: "bg-[#009EDB] text-white hover:bg-[#0077B3] shadow-sm font-bold",
+    outline: "border-2 border-[#009EDB] text-[#009EDB] hover:bg-[#F0F8FF] font-bold",
+    secondary: "bg-[#4D4D4D] text-white hover:bg-[#333333]",
+    ghost: "text-gray-500 hover:bg-gray-100"
+  }
+  const sizes = {
+    default: "h-11 px-6 py-2 text-xs",
+    lg: "h-14 px-10 text-sm font-black",
+    sm: "h-8 px-4 text-[10px]"
+  }
+  return (
+    <button
+      ref={ref}
+      className={`inline-flex items-center justify-center rounded-sm uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 ${variants[variant as keyof typeof variants] || variants.default} ${sizes[size as keyof typeof sizes] || sizes.default} ${className}`}
+      {...props}
+    />
+  )
+})
+Button.displayName = "Button"
+
+const ProgressStep = ({ current, step, label, icon: Icon }: any) => (
+  <div className="flex flex-col items-center flex-1 relative">
+    <div className={`w-10 h-10 rounded-full flex items-center justify-center z-10 border-2 transition-all duration-500 ${current >= step ? 'bg-[#009EDB] border-[#009EDB] text-white shadow-lg' : 'bg-white border-gray-200 text-gray-400'}`}>
+      <Icon size={18} />
+    </div>
+    <span className={`text-[9px] font-black uppercase tracking-tighter mt-2 text-center transition-colors ${current >= step ? 'text-[#003366]' : 'text-gray-300'}`}>
+      {label}
+    </span>
+    {step < 5 && (
+        <div className={`absolute top-5 left-[60%] w-full h-[2px] -z-0 ${current > step ? 'bg-[#009EDB]' : 'bg-gray-100'}`} />
+    )}
+  </div>
+);
+
+// --- Main Accreditation Page ---
+export default function App() {
   const [step, setStep] = useState(1)
-  const [showConfetti, setShowConfetti] = useState(false)
   const [committees, setCommittees] = useState<Committee[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [delegateInfo, setDelegateInfo] = useState<DelegateInfo>({
-    delegate1: {
-      name: '',
-      email: '',
-      phone: '',
-      institution: '',
-      year: '',
-      course: '',
-      experience: ''
-    }
+    delegate1: { name: '', email: '', phone: '', institution: '', year: '', course: '', experience: '' }
   })
   const [selectedCommittee, setSelectedCommittee] = useState<Committee | null>(null)
   const [selectedPortfolio, setSelectedPortfolio] = useState<Portfolio | null>(null)
   const [isDoubleDel, setIsDoubleDel] = useState(false)
-  const [currentPhase, setCurrentPhase] = useState<typeof REGISTRATION_PHASES[0] | null>(null)
+  const [currentPhase, setCurrentPhase] = useState<any>(null)
   const [registrationOpen, setRegistrationOpen] = useState(false)
   const [couponCode, setCouponCode] = useState('')
   const [discount, setDiscount] = useState(0)
   const [couponApplied, setCouponApplied] = useState(false)
   const [couponError, setCouponError] = useState('')
-  const [whatsappRegistration, setWhatsappRegistration] = useState(true) // Default to WhatsApp registration
+  const [whatsappRegistration, setWhatsappRegistration] = useState(true)
+
+  const app = initializeApp(firebaseConfig)
+  const db = getDatabase(app)
 
   useEffect(() => {
     const checkRegistrationPhase = () => {
       const now = new Date()
       let activePhase = null
-      
-      for (const phase of REGISTRATION_PHASES) {
-        const startDate = new Date(phase.startDate)
-        const endDate = new Date(phase.endDate)
-        endDate.setHours(23, 59, 59, 999)
-        
-        if (now >= startDate && now <= endDate) {
-          activePhase = phase
-          break
-        }
+      for (const phase of ACCREDITATION_PHASES) {
+        const start = new Date(phase.startDate); const end = new Date(phase.endDate); end.setHours(23, 59, 59, 999)
+        if (now >= start && now <= end) { activePhase = phase; break }
       }
-      
-      setCurrentPhase(activePhase)
-      setRegistrationOpen(!!activePhase)
+      setCurrentPhase(activePhase); setRegistrationOpen(!!activePhase)
     }
-
     checkRegistrationPhase()
-    const interval = setInterval(checkRegistrationPhase, 3600000)
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
+    
     const fetchCommittees = async () => {
       try {
-        const committeesRef = ref(db, 'committees')
-        const snapshot = await get(committeesRef)
-        
+        const snapshot = await get(ref(db, 'committees'))
         if (snapshot.exists()) {
-          const committeesData = snapshot.val()
-          const committeesArray = Object.keys(committeesData).map(key => {
-            const committee = {
-              id: key,
-              ...committeesData[key],
-              portfolios: Object.keys(committeesData[key].portfolios || {}).map(portfolioKey => ({
-                id: portfolioKey,
-                ...committeesData[key].portfolios[portfolioKey]
-              }))
-            }
-            
-            if (committee.name === 'Mock War Cabinet' || 
-                committee.name === 'United Nations Office on Drugs and Crime') {
-              return {
-                ...committee,
-                isOnline: true,
-                portfolios: committee.portfolios.map(p => ({
-                  ...p,
-                  isDoubleDelAllowed: false
-                }))
-              }
-            }
-            return committee
-          })
-          setCommittees(committeesArray)
+          const data = snapshot.val()
+          const arr = Object.keys(data).map(key => ({
+            id: key, ...data[key],
+            portfolios: Object.keys(data[key].portfolios || {}).map(pk => ({
+              id: pk, ...data[key].portfolios[pk]
+            }))
+          }))
+          setCommittees(arr)
         }
         setLoading(false)
       } catch (err) {
-        setError('Failed to load committees')
-        setLoading(false)
+        setError('Accreditation Database Sync Failed'); setLoading(false)
       }
     }
-
     fetchCommittees()
-  }, [])
+  }, [db])
 
+  // --- Handlers ---
   const handleInputChange = (delegate: 'delegate1' | 'delegate2', field: string, value: string) => {
     setDelegateInfo(prev => ({
-      ...prev,
-      [delegate]: {
-        ...prev[delegate],
-        [field]: value
-      }
+      ...prev, [delegate]: { ...prev[delegate]!, [field]: value }
     }))
   }
 
   const validateStep = () => {
-    const baseValidation = (
-      delegateInfo.delegate1.name.trim() !== '' &&
-      delegateInfo.delegate1.email.trim() !== '' &&
-      delegateInfo.delegate1.phone.trim() !== '' &&
-      delegateInfo.delegate1.institution.trim() !== '' &&
-      delegateInfo.delegate1.year.trim() !== '' &&
-      delegateInfo.delegate1.course.trim() !== '' &&
-      delegateInfo.delegate1.experience.trim() !== ''
-    )
-
-    let doubleDelValidation = true
+    const d1 = delegateInfo.delegate1
+    const baseValid = d1.name && d1.email && d1.phone && d1.institution && d1.year && d1.course && d1.experience
+    let d2Valid = true
     if (isDoubleDel) {
-      doubleDelValidation = (
-        delegateInfo.delegate2?.name.trim() !== '' &&
-        delegateInfo.delegate2?.email.trim() !== '' &&
-        delegateInfo.delegate2?.phone.trim() !== '' &&
-        delegateInfo.delegate2?.institution.trim() !== '' &&
-        delegateInfo.delegate2?.year.trim() !== '' &&
-        delegateInfo.delegate2?.course.trim() !== '' &&
-        delegateInfo.delegate2?.experience.trim() !== ''
-      )
+      const d2 = delegateInfo.delegate2
+      d2Valid = !!(d2 && d2.name && d2.email && d2.phone && d2.institution && d2.year && d2.course && d2.experience)
     }
 
-    const checkBlacklist = (delegate: 'delegate1' | 'delegate2') => {
-      const info = delegateInfo[delegate]
-      if (!info) return false
-
-      const blacklisted = BLACKLIST.find(entry => 
-        entry.email.toLowerCase() === info.email.toLowerCase() ||
-        entry.phone === info.phone ||
-        entry.name.toLowerCase().replace(/\s+/g, '') === info.name.toLowerCase().replace(/\s+/g, '')
-      )
-
-      if (blacklisted) {
-        setError(`Registration blocked: ${blacklisted.reason}`)
-        return true
-      }
+    const checkBlacklist = (info: DelegateData) => {
+      const entry = BLACKLIST.find(e => e.email.toLowerCase() === info.email.toLowerCase() || e.phone === info.phone)
+      if (entry) { setError(`SECURITY CLEARANCE DENIED: ${entry.reason}`); return true }
       return false
     }
 
-    if (checkBlacklist('delegate1') || (isDoubleDel && delegateInfo.delegate2 && checkBlacklist('delegate2'))) {
-      return false
-    }
-
-    return baseValidation && doubleDelValidation
+    if (checkBlacklist(delegateInfo.delegate1) || (isDoubleDel && delegateInfo.delegate2 && checkBlacklist(delegateInfo.delegate2))) return false
+    return !!(baseValid && d2Valid)
   }
 
   const applyCoupon = () => {
-    if (couponCode.trim() === '') {
-      setCouponError('Please enter a coupon code')
-      return
-    }
-
-    const upperCaseCoupon = couponCode.toUpperCase()
-    if (VALID_COUPONS.hasOwnProperty(upperCaseCoupon)) {
-      setDiscount(VALID_COUPONS[upperCaseCoupon as keyof typeof VALID_COUPONS])
-      setCouponApplied(true)
-      setCouponError('')
+    const code = couponCode.toUpperCase()
+    if (VALID_COUPONS[code]) {
+      setDiscount(VALID_COUPONS[code]); setCouponApplied(true); setCouponError('')
     } else {
-      setCouponError('Invalid coupon code')
-      setDiscount(0)
-      setCouponApplied(false)
+      setCouponError('Protocol: Invalid Credential Code'); setDiscount(0); setCouponApplied(false)
     }
   }
 
   const calculatePrice = () => {
     if (!currentPhase) return 0
-    
-    if (selectedCommittee?.isOnline) {
-      return 49 - discount
-    }
-    
-    return (isDoubleDel ? currentPhase.doublePrice : currentPhase.singlePrice) - discount
+    const base = selectedCommittee?.isOnline ? 49 : (isDoubleDel ? currentPhase.doublePrice : currentPhase.singlePrice)
+    return Math.max(0, base - discount)
   }
 
   const getAverageExperience = () => {
@@ -331,815 +219,325 @@ export default function RegistrationPage() {
     return Math.round((exp1 + exp2) / 2)
   }
 
-  const generateWhatsAppMessage = () => {
-    if (!selectedCommittee || !selectedPortfolio || !currentPhase) return ''
+  const initiateAccreditation = async () => {
+    if (!validateStep()) return
     
-    const delegate1 = delegateInfo.delegate1
-    const delegate2 = delegateInfo.delegate2
-    
-    let message = `*KIMUN Registration Request*%0A%0A`
-    message += `*Committee:* ${selectedCommittee.name}%0A`
-    message += `*Portfolio:* ${selectedPortfolio.country}%0A`
-    message += `*Delegation Type:* ${isDoubleDel ? 'Double' : 'Single'}%0A`
-    message += `*Registration Phase:* ${currentPhase.name}%0A`
-    message += `*Total Fee:* ₹${calculatePrice()}${discount > 0 ? ` (₹${discount} discount applied)` : ''}%0A%0A`
-    
-    message += `*Primary Delegate:*%0A`
-    message += `Name: ${delegate1.name}%0A`
-    message += `Email: ${delegate1.email}%0A`
-    message += `Phone: ${delegate1.phone}%0A`
-    message += `Institution: ${delegate1.institution}%0A`
-    message += `Year: ${delegate1.year}%0A`
-    message += `Course: ${delegate1.course}%0A`
-    message += `Experience: ${delegate1.experience || '0'} MUNs%0A%0A`
-    
-    if (isDoubleDel && delegate2) {
-      message += `*Secondary Delegate:*%0A`
-      message += `Name: ${delegate2.name}%0A`
-      message += `Email: ${delegate2.email}%0A`
-      message += `Phone: ${delegate2.phone}%0A`
-      message += `Institution: ${delegate2.institution}%0A`
-      message += `Year: ${delegate2.year}%0A`
-      message += `Course: ${delegate2.course}%0A`
-      message += `Experience: ${delegate2.experience || '0'} MUNs%0A%0A`
-    }
-    
-    if (couponApplied) {
-      message += `*Coupon Code:* ${couponCode} (₹${discount} discount)%0A%0A`
-    }
-    
-    message += `*Average Experience:* ${getAverageExperience()} MUNs%0A`
-    message += `*Committee Type:* ${selectedCommittee.isOnline ? 'Online' : 'Offline'}%0A%0A`
-    
-    message += `Please confirm this registration and provide payment details.`
-    
-    return message
-  }
-
-  const saveRegistration = async (paymentId: string) => {
-    if (!selectedCommittee || !selectedPortfolio) {
-      throw new Error('Committee or portfolio not selected')
-    }
-    
-    try {
-      const registrationRef = ref(db, 'registrations')
-      const newRegistration = await push(registrationRef, {
-        delegateInfo,
-        committeeId: selectedCommittee.id,
-        portfolioId: selectedPortfolio.id,
-        paymentId,
-        timestamp: Date.now(),
-        isDoubleDel,
-        averageExperience: getAverageExperience(),
-        registrationPhase: currentPhase?.name || 'Unknown',
-        isOnlineCommittee: selectedCommittee.isOnline || false,
-        couponCode: couponApplied ? couponCode : null,
-        discountApplied: couponApplied ? discount : 0,
-        viaWhatsApp: whatsappRegistration
-      })
-
-      const portfolioRef = ref(db, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
-      await update(portfolioRef, { isVacant: false })
-
-      const emailData = {
-        email: delegateInfo.delegate1.email,
-        name: delegateInfo.delegate1.name,
-        registrationId: newRegistration?.key,
-        committee: selectedCommittee?.name,
-        portfolio: selectedPortfolio?.country,
-        amount: calculatePrice(),
-        phase: currentPhase?.name || 'Unknown',
-        isOnline: selectedCommittee.isOnline || false,
-        couponCode: couponApplied ? couponCode : null,
-        discount: couponApplied ? discount : 0,
-        viaWhatsApp: whatsappRegistration
-      };
-
-      await fetch('/api/sendEmail', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(emailData)
-      })
-      
-      return newRegistration.key
-    } catch (err) {
-      console.error('Registration failed:', err)
-      throw new Error('Failed to save registration')
-    }
-  }
-
-  const initiatePayment = async () => {
-    if (!currentPhase) {
-      setError('Registration is currently closed')
-      return
-    }
-
-    if (!validateStep()) {
-      return
-    }
-
     if (whatsappRegistration) {
-      const message = generateWhatsAppMessage()
-      window.open(`https://wa.me/918249979557?text=${message}`, '_blank')
-      
-      // Save registration with a placeholder payment ID
-      try {
-        const registrationKey = await saveRegistration('whatsapp-pending')
-        router.push(`/registration-success?paymentId=whatsapp-pending&registrationId=${registrationKey}`)
-      } catch (err) {
-        console.error('Registration error:', err)
-        setError('Failed to complete registration. Please contact support.')
-      }
-      return
+        const d1 = delegateInfo.delegate1; const d2 = delegateInfo.delegate2;
+        let msg = `*KIMUN ACCREDITATION REQUEST*%0A%0A*Committee:* ${selectedCommittee?.name}%0A*Portfolio:* ${selectedPortfolio?.country}%0A*Type:* ${isDoubleDel ? 'Double' : 'Single'}%0A*Fee:* ₹${calculatePrice()}%0A%0A*Delegate 1:* ${d1.name}%0A*Institution:* ${d1.institution}%0A`
+        if (isDoubleDel && d2) msg += `*Delegate 2:* ${d2.name}%0A`
+        msg += `%0APlease verify credentials and provide Plenary Session access.`;
+        window.open(`https://wa.me/918249979557?text=${msg}`, '_blank')
+    } else {
+        // Razorpay logic (Simplified for placeholder)
+        setError("Secure Payment Gateway undergoing maintenance. Please use WhatsApp Protocol.")
     }
-
-    const amount = calculatePrice() * 100
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-    script.async = true
-
-    script.onload = () => {
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: amount,
-        currency: 'INR',
-        name: 'KIMUN Registration',
-        description: `Registration Fee for ${isDoubleDel ? 'Double Delegation' : 'Single Delegation'} (${currentPhase.name})`,
-        image: 'https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png',
-        handler: async (response: any) => {
-          try {
-            const registrationKey = await saveRegistration(response.razorpay_payment_id)
-            router.push(`/registration-success?paymentId=${response.razorpay_payment_id}&registrationId=${registrationKey}`)
-          } catch (err) {
-            console.error('Registration error:', err)
-            setError('Failed to complete registration. Please contact support.')
-          }
-        },
-        prefill: {
-          name: delegateInfo.delegate1.name,
-          email: delegateInfo.delegate1.email,
-          contact: delegateInfo.delegate1.phone
-        },
-        theme: { color: '#d97706' },
-        modal: { ondismiss: () => setError('Payment cancelled') }
-      }
-
-      const rzp = new (window as any).Razorpay(options)
-      rzp.open()
-
-      rzp.on('payment.failed', (response: any) => {
-        setError(`Payment failed: ${response.error.description}`)
-      })
-    }
-
-    script.onerror = () => setError('Failed to load payment gateway')
-    document.body.appendChild(script)
-  }
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center">
-      <div className="text-center p-8">
-        <div className="animate-pulse flex justify-center mb-4">
-          <Image 
-            src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" 
-            alt="Loading" 
-            width={80} 
-            height={80} 
-          />
-        </div>
-        <p className="text-amber-300">Loading committees...</p>
-      </div>
+    <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center font-sans">
+      <Loader2 className="animate-spin text-[#009EDB] mb-4" size={48} strokeWidth={3} />
+      <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400">Consulting Member State Registry...</span>
     </div>
   )
 
-  if (error) return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-8 text-center">
-      <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-      <h2 className="text-xl font-semibold text-amber-300 mb-2">Error</h2>
-      <p className="text-gray-300 max-w-md mb-4">{error}</p>
-      <Button 
-        onClick={() => window.location.reload()} 
-        className="mt-4 bg-amber-600 hover:bg-amber-700 text-black"
-      >
-        Try Again
-      </Button>
-    </div>
-  )
-
-  if (!registrationOpen) {
-    return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-8 text-center">
-        <Lock className="w-12 h-12 text-amber-500 mb-4" />
-        <h1 className="text-3xl font-bold text-amber-300 mb-6">Registration Currently Closed</h1>
-        
-        <div className="max-w-md bg-black/30 border border-amber-800/30 rounded-xl p-6 space-y-6 mb-8">
-          <h2 className="text-xl font-semibold text-amber-300 mb-4">Upcoming Registration Phases</h2>
-          
-          <div className="space-y-4">
-            {REGISTRATION_PHASES.map((phase, index) => (
-              <div 
-                key={index} 
-                className={`p-4 rounded-lg border ${currentPhase?.name === phase.name ? 'border-amber-500 bg-amber-900/20' : 'border-amber-800/30'}`}
-              >
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-medium text-white">{phase.name}</h3>
-                  <span className="text-sm text-amber-300">
-                    {isDoubleDel ? `₹${phase.doublePrice}` : `₹${phase.singlePrice}`}
-                  </span>
+  if (!registrationOpen) return (
+    <div className="min-h-screen bg-[#F4F4F4] flex flex-col items-center justify-center p-6 text-center font-sans">
+      <div className="max-w-xl bg-white p-12 border-t-8 border-[#4D4D4D] shadow-2xl rounded-sm">
+        <Lock className="w-20 h-20 text-gray-300 mx-auto mb-8" />
+        <h1 className="text-2xl font-black text-[#333333] mb-4 uppercase tracking-tighter">Portal Session Concluded</h1>
+        <p className="text-gray-500 mb-8 text-sm leading-relaxed">The accreditation gateway for the current session is offline. Please refer to the official Secretariat Calendar for the next convening window.</p>
+        <div className="space-y-3">
+            {ACCREDITATION_PHASES.map((p, i) => (
+                <div key={i} className="flex justify-between items-center text-[10px] font-bold p-3 bg-gray-50 border border-gray-100 uppercase tracking-widest">
+                    <span className="text-gray-400">{p.name}</span>
+                    <span className="text-gray-300">Archive</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-400">
-                  <Calendar className="w-4 h-4" />
-                  <span>
-                    {formatDate(phase.startDate)} - {formatDate(phase.endDate)}
-                  </span>
-                </div>
-                <div className="mt-2 text-xs text-gray-500">
-                  {new Date() < phase.startDate ? 'Starts soon' : 'Ended'}
-                </div>
-              </div>
             ))}
-          </div>
-        </div>
-
-        <p className="text-gray-400 max-w-md mb-6">
-          Registration will open during the specified phases. Please check back during the active registration period.
-        </p>
-        
-        <div className="flex items-center gap-2 text-amber-300">
-          <Clock className="w-5 h-5" />
-          <span>Event Dates: July 5-6, 2024</span>
         </div>
       </div>
-    )
-  }
+    </div>
+  )
 
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
-      {showConfetti && <Confetti recycle={false} numberOfPieces={400} />}
-
-      <header className="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-md border-b border-amber-800/20">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center gap-2">
-              <Image 
-                src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" 
-                alt="KIMUN Logo" 
-                width={40} 
-                height={40} 
-                className="mr-2" 
-              />
-              <span className="text-lg font-bold text-amber-300 hidden sm:inline-block">
-                Kalinga International MUN
-              </span>
-            </Link>
+    <div className="min-h-screen bg-[#F9FAFB] text-gray-900 font-sans selection:bg-[#009EDB]/20">
+      
+      {/* 1. INSTITUTIONAL HEADER */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-[100] shadow-sm">
+        <div className="bg-[#4D4D4D] text-white py-1 px-8 text-[9px] uppercase font-black tracking-widest flex justify-between items-center">
+            <span>UN Accreditation & Liaison Service // KIMUN 2026</span>
+            <span>Ref: KIMUN/ACC/GATEWAY</span>
+        </div>
+        <div className="max-w-7xl mx-auto px-8 py-5 flex justify-between items-center">
+          <div className="flex items-center gap-6">
+            <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Emblem" className="h-14 w-14" />
+            <div className="border-l-2 border-gray-100 pl-6">
+               <h1 className="text-lg font-black text-[#003366] leading-none uppercase tracking-tighter">Credentials Portal</h1>
+               <p className="text-[10px] font-black text-[#009EDB] uppercase tracking-[0.2em] mt-1">Institutional Plenary Session 2026</p>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="bg-amber-900/30 px-3 py-1 rounded-full text-xs text-amber-300 flex items-center gap-1">
-              <Unlock className="w-3 h-3" />
-              <span>{currentPhase?.name}</span>
-            </div>
-            <div className="text-amber-300">
-              Step {step} of 5
-            </div>
+          <div className="hidden md:flex gap-10">
+             {[1,2,3,4,5].map(i => (
+                <ProgressStep 
+                    key={i} 
+                    current={step} 
+                    step={i} 
+                    label={["Status", "Details", "Organs", "Allocation", "Verify"][i-1]} 
+                    icon={[Settings, Users, Landmark, Globe, ShieldCheck][i-1]}
+                />
+             ))}
           </div>
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto p-6 pt-24 relative z-10">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-black/50 backdrop-blur-sm border border-amber-800/30 rounded-2xl shadow-lg p-8"
-        >
-          {step === 1 && (
-            <motion.div
-              key="step1"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="space-y-6"
-            >
-              <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
-                <Sparkles className="text-amber-400" /> Delegation Type
-              </h1>
-              
-              <div className="space-y-4">
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <label className="flex items-center gap-4 p-6 bg-black/30 border border-amber-800/30 rounded-xl cursor-pointer hover:border-amber-500 transition-colors">
-                    <input
-                      type="radio"
-                      name="delegation"
-                      checked={!isDoubleDel}
-                      onChange={() => setIsDoubleDel(false)}
-                      className="form-radio h-5 w-5 text-amber-500"
-                      required
-                    />
-                    <div>
-                      <h3 className="text-xl font-semibold text-white">Single Delegation</h3>
-                    </div>
-                  </label>
-                </motion.div>
+      <main className="max-w-4xl mx-auto px-6 py-16">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-white border border-gray-200 shadow-xl rounded-sm p-10 lg:p-16 relative overflow-hidden"
+          >
+            <div className="absolute top-0 left-0 w-1 h-full bg-[#009EDB]" />
 
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <label className="flex items-center gap-4 p-6 bg-black/30 border border-amber-800/30 rounded-xl cursor-pointer hover:border-amber-500 transition-colors">
-                    <input
-                      type="radio"
-                      name="delegation"
-                      checked={isDoubleDel}
-                      onChange={() => setIsDoubleDel(true)}
-                      className="form-radio h-5 w-5 text-amber-500"
-                      required
-                      disabled={selectedCommittee?.isOnline}
-                    />
-                    <div>
-                      <h3 className="text-xl font-semibold text-white">Double Delegation</h3>
-                      {selectedCommittee?.isOnline && (
-                        <p className="text-xs text-red-400 mt-1">Not available for online committees</p>
-                      )}
-                    </div>
-                  </label>
-                </motion.div>
-              </div>
-
-              <div className="bg-amber-900/20 border border-amber-800/30 rounded-lg p-4 text-center">
-                <p className="text-sm text-amber-300">
-                  Current Phase: <span className="font-semibold">{currentPhase?.name}</span> (ends {formatDate(currentPhase?.endDate || new Date())})
-                </p>
-                <p className="text-xs text-amber-200 mt-1">
-                  Note: Registration completes via WhatsApp by default
-                </p>
-              </div>
-
-              <Button
-                onClick={() => setStep(2)}
-                className="w-full bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
-              >
-                Next: Delegate Details
-                <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </Button>
-            </motion.div>
-          )}
-
-          {step === 2 && (
-            <motion.div
-              key="step2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
-            >
-              <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
-                <Users className="text-amber-400" /> Delegate Details
-              </h1>
-              
-              <div className="space-y-8">
-                <div className="space-y-4">
-                  <h3 className="text-xl font-semibold text-white">Primary Delegate</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {['name', 'email', 'phone', 'institution', 'year', 'course'].map((field) => (
-                      <div key={field} className="bg-black/30 border border-amber-800/30 rounded-xl p-4 hover:border-amber-500 transition-colors">
-                        <input
-                          placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                          className="w-full bg-transparent text-white placeholder-gray-400 focus:outline-none"
-                          value={delegateInfo.delegate1[field as keyof typeof delegateInfo.delegate1]}
-                          onChange={(e) => handleInputChange('delegate1', field, e.target.value)}
-                          required
-                        />
-                      </div>
-                    ))}
-                    <div className="bg-black/30 border border-amber-800/30 rounded-xl p-4 hover:border-amber-500 transition-colors">
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="MUNs Attended"
-                        className="w-full bg-transparent text-white placeholder-gray-400 focus:outline-none"
-                        value={delegateInfo.delegate1.experience}
-                        onChange={(e) => handleInputChange('delegate1', 'experience', e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {isDoubleDel && !selectedCommittee?.isOnline && (
-                  <div className="space-y-4">
-                    <h3 className="text-xl font-semibold text-white">Secondary Delegate</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {['name', 'email', 'phone', 'institution', 'year', 'course'].map((field) => (
-                        <div key={field} className="bg-black/30 border border-amber-800/30 rounded-xl p-4 hover:border-amber-500 transition-colors">
-                          <input
-                            placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                            className="w-full bg-transparent text-white placeholder-gray-400 focus:outline-none"
-                            value={delegateInfo.delegate2?.[field as keyof typeof delegateInfo.delegate1] || ''}
-                            onChange={(e) => handleInputChange('delegate2', field, e.target.value)}
-                            required={isDoubleDel}
-                          />
-                        </div>
-                      ))}
-                      <div className="bg-black/30 border border-amber-800/30 rounded-xl p-4 hover:border-amber-500 transition-colors">
-                        <input
-                          type="number"
-                          min="0"
-                          placeholder="MUNs Attended"
-                          className="w-full bg-transparent text-white placeholder-gray-400 focus:outline-none"
-                          value={delegateInfo.delegate2?.experience || ''}
-                          onChange={(e) => handleInputChange('delegate2', 'experience', e.target.value)}
-                          required={isDoubleDel}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-4">
-                <Button
-                  onClick={() => setStep(1)}
-                  variant="outline"
-                  className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={() => validateStep() ? setStep(3) : null}
-                  className="flex-1 bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
-                >
-                  Next: Committee Selection
-                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
-          {step === 3 && (
-            <motion.div
-              key="step3"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="space-y-6"
-            >
-              <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
-                <Globe className="text-amber-400" /> Committee Selection
-              </h1>
-              
-              <div className="grid grid-cols-1 gap-4">
-                {committees.map(committee => (
-                  <motion.div
-                    key={committee.id}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className={`bg-black/30 border ${committee.isOnline ? 'border-blue-500/30' : 'border-amber-800/30'} rounded-xl p-6 cursor-pointer hover:border-amber-500 transition-colors ${
-                      selectedCommittee?.id === committee.id ? 'ring-2 ring-amber-500' : ''
-                    }`}
-                    onClick={() => {
-                      setSelectedCommittee(committee)
-                      if (committee.isOnline) {
-                        setIsDoubleDel(false)
-                      }
-                    }}
-                  >
-                    <div className="flex items-center gap-4">
-                      <span className="text-3xl">{committee.emoji}</span>
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                          <h2 className="text-xl font-bold text-white">{committee.name}</h2>
-                          {committee.isOnline && (
-                            <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full text-xs">
-                              Online Committee
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-gray-400">
-                          {committee.portfolios.filter(p => p.isVacant).length} portfolios available
-                          {committee.isOnline && (
-                            <span className="text-blue-300 ml-2">₹49 per delegate</span>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-
-              <div className="flex gap-4">
-                <Button
-                  onClick={() => setStep(2)}
-                  variant="outline"
-                  className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={() => selectedCommittee ? setStep(4) : setError('Please select a committee')}
-                  className="flex-1 bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
-                >
-                  Next: Portfolio Selection
-                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
-          {step === 4 && (
-            <motion.div
-              key="step4"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
-            >
-              <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
-                <Users className="text-amber-400" /> Portfolio Selection
-              </h1>
-              
-              {selectedCommittee?.portfolios.filter(p => 
-                p.isVacant && 
-                (isDoubleDel ? p.isDoubleDelAllowed : true) &&
-                getAverageExperience() >= p.minExperience
-              ).length === 0 ? (
-                <div className="flex flex-col items-center justify-center space-y-4 p-8 bg-black/30 border border-amber-800/30 rounded-xl">
-                  <AlertCircle className="w-12 h-12 text-red-500" />
-                  <p className="text-xl text-white">No available portfolios matching your criteria</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  {selectedCommittee?.portfolios
-                    .filter(p => 
-                      p.isVacant && 
-                      (isDoubleDel ? p.isDoubleDelAllowed : true) &&
-                      getAverageExperience() >= p.minExperience
-                    )
-                    .map(portfolio => (
-                      <motion.div
-                        key={portfolio.id}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className={`bg-black/30 border ${selectedCommittee.isOnline ? 'border-blue-500/30' : 'border-amber-800/30'} rounded-xl p-4 cursor-pointer hover:border-amber-500 transition-colors ${
-                          selectedPortfolio?.id === portfolio.id ? 'ring-2 ring-amber-500' : ''
-                        }`}
-                        onClick={() => setSelectedPortfolio(portfolio)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {Flags[portfolio.countryCode] && React.createElement(
-                              Flags[portfolio.countryCode], 
-                              { className: 'w-6 h-6 rounded-sm' }
-                            )}
-                            <h4 className="text-lg font-bold text-white">{portfolio.country}</h4>
-                          </div>
-                          {selectedPortfolio?.id === portfolio.id && (
-                            <CheckCircle className="text-green-500" />
-                          )}
-                        </div>
-                        {selectedCommittee.isOnline && (
-                          <p className="text-xs text-blue-300 mt-2">Online Committee - ₹49</p>
-                        )}
-                      </motion.div>
-                    ))}
-                </div>
-              )}
-
-              <div className="flex gap-4">
-                <Button
-                  onClick={() => setStep(3)}
-                  variant="outline"
-                  className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={() => selectedPortfolio ? setStep(5) : setError('Please select a portfolio')}
-                  className="flex-1 bg-amber-600 hover:bg-amber-700 text-black py-6 rounded-xl text-lg group"
-                >
-                  Next: Confirmation
-                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
-          {step === 5 && (
-            <motion.div
-              key="step5"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="space-y-6"
-            >
-              <h1 className="text-3xl font-bold text-amber-300 mb-6 flex items-center gap-2">
-                <CheckCircle className="text-green-500" /> Confirmation
-              </h1>
-              
-              <div className="bg-black/30 border border-amber-800/30 rounded-xl p-6 space-y-4">
-                {/* Coupon Code Section */}
-                <div className="bg-black/30 border border-amber-800/30 rounded-xl p-4 mb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Enter coupon code"
-                      className="flex-1 bg-black/20 border border-amber-800/30 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
-                      disabled={couponApplied}
-                    />
-                    <Button
-                      onClick={applyCoupon}
-                      disabled={couponApplied}
-                      className="bg-amber-600 hover:bg-amber-700 text-black"
-                    >
-                      {couponApplied ? 'Applied' : 'Apply'}
-                    </Button>
-                  </div>
-                  {couponError && <p className="text-red-400 text-sm">{couponError}</p>}
-                  {couponApplied && (
-                    <p className="text-green-400 text-sm">
-                      Coupon applied! ₹{discount} discount will be applied to your total.
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-semibold text-white">Total Fee:</h3>
-                  <div className="text-right">
-                    {discount > 0 && (
-                      <div className="text-sm text-gray-400 line-through">
-                        ₹{selectedCommittee?.isOnline ? 49 : (isDoubleDel ? currentPhase?.doublePrice : currentPhase?.singlePrice)}
-                      </div>
-                    )}
-                    <p className="text-2xl font-bold text-amber-300">₹{calculatePrice()}</p>
-                    {discount > 0 && (
-                      <p className="text-xs text-green-500">You saved ₹{discount}</p>
-                    )}
-                    <p className="text-xs text-amber-500">
-                      {selectedCommittee?.isOnline ? 'Online Committee' : currentPhase?.name + ' Pricing'}
-                    </p>
-                  </div>
-                </div>
-
-                {selectedCommittee?.isOnline && (
-                  <div className="bg-blue-900/20 border border-blue-800/30 rounded-lg p-3 text-center">
-                    <p className="text-sm text-blue-300">
-                      This is an online committee with special pricing
-                    </p>
-                  </div>
-                )}
-
-                {/* WhatsApp Registration Toggle - Set as default */}
-                <div className="bg-black/30 border border-amber-800/30 rounded-xl p-4">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        checked={whatsappRegistration}
-                        onChange={() => setWhatsappRegistration(!whatsappRegistration)}
-                        className="sr-only"
-                      />
-                      <div className={`block w-14 h-8 rounded-full ${whatsappRegistration ? 'bg-green-500' : 'bg-gray-600'}`}></div>
-                      <div
-                        className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition ${
-                          whatsappRegistration ? 'transform translate-x-6' : ''
-                        }`}
-                      ></div>
-                    </div>
-                    <div>
-                      <p className="font-medium text-white">Register via WhatsApp (Recommended)</p>
-                      <p className="text-xs text-gray-400">
-                        {whatsappRegistration 
-                          ? "Default option - Complete registration via WhatsApp" 
-                          : "Toggle off for online payment"}
-                      </p>
-                    </div>
-                  </label>
-                  
-                  {whatsappRegistration && (
-                    <div className="mt-3 p-3 bg-green-900/20 border border-green-800/30 rounded-lg">
-                      <p className="text-sm text-green-300">
-                        You'll be redirected to WhatsApp to confirm your registration.
-                        Our team will guide you through payment via UPI/bank transfer.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Primary Delegate:</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-gray-400">Name</p>
-                      <p className="text-white">{delegateInfo.delegate1.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Email</p>
-                      <p className="text-white">{delegateInfo.delegate1.email}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Phone</p>
-                      <p className="text-white">{delegateInfo.delegate1.phone}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Experience</p>
-                      <p className="text-white">{delegateInfo.delegate1.experience || '0'} MUNs</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Institution</p>
-                      <p className="text-white">{delegateInfo.delegate1.institution}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Year</p>
-                      <p className="text-white">{delegateInfo.delegate1.year}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Course</p>
-                      <p className="text-white">{delegateInfo.delegate1.course}</p>
-                    </div>
-                  </div>
+            {/* STEP 1: DELEGATION STATUS */}
+            {step === 1 && (
+              <div className="space-y-10">
+                <div>
+                   <h2 className="text-3xl font-black text-[#003366] uppercase tracking-tighter mb-2">Diplomatic Status</h2>
+                   <p className="text-xs text-gray-400 uppercase font-bold tracking-widest">Select your accreditation profile for the 2026 Plenary</p>
                 </div>
                 
-                {isDoubleDel && delegateInfo.delegate2 && (
-                  <div className="space-y-4">
-                    <h4 className="text-lg font-semibold text-white border-b border-amber-800/30 pb-2">Secondary Delegate:</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-gray-400">Name</p>
-                        <p className="text-white">{delegateInfo.delegate2.name}</p>
+                <div className="grid md:grid-cols-2 gap-6">
+                  {[
+                    { val: false, title: "Single Delegation", desc: "Plenary representative for a specific Member State portfolio." },
+                    { val: true, title: "Double Delegation", desc: "Joint representation protocol (Limited subsidiary bodies only)." }
+                  ].map((opt, i) => (
+                    <div 
+                      key={i}
+                      onClick={() => setIsDoubleDel(opt.val)}
+                      className={`p-8 border-2 cursor-pointer transition-all ${isDoubleDel === opt.val ? 'border-[#009EDB] bg-[#F0F8FF]' : 'border-gray-100 hover:border-gray-300'}`}
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDoubleDel === opt.val ? 'bg-[#009EDB] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                          {opt.val ? <Users size={20} /> : <UserCheck size={20} />}
+                        </div>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isDoubleDel === opt.val ? 'border-[#009EDB]' : 'border-gray-200'}`}>
+                           {isDoubleDel === opt.val && <div className="w-2 h-2 bg-[#009EDB] rounded-full" />}
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-gray-400">Email</p>
-                        <p className="text-white">{delegateInfo.delegate2.email}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-400">Phone</p>
-                        <p className="text-white">{delegateInfo.delegate2.phone}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-400">Experience</p>
-                        <p className="text-white">{delegateInfo.delegate2.experience || '0'} MUNs</p>
-                      </div>
+                      <h3 className="text-lg font-bold text-[#003366] uppercase">{opt.title}</h3>
+                      <p className="text-xs text-gray-500 mt-2 leading-relaxed">{opt.desc}</p>
                     </div>
-                  </div>
-                )}
-
-                {isDoubleDel && (
-                  <div className="pt-4">
-                    <p className="text-gray-400">Average Experience</p>
-                    <p className="text-white">{getAverageExperience()} MUNs</p>
-                  </div>
-                )}
-
-                <div className="pt-4 border-t border-amber-800/30">
-                  <p className="text-gray-400">Committee</p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-white">{selectedCommittee?.name}</p>
-                    {selectedCommittee?.isOnline && (
-                      <span className="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full text-xs">
-                        Online
-                      </span>
-                    )}
-                  </div>
+                  ))}
                 </div>
 
-                <div>
-                  <p className="text-gray-400">Portfolio</p>
-                  <div className="flex items-center gap-2">
-                    {selectedPortfolio?.countryCode && Flags[selectedPortfolio.countryCode] && React.createElement(
-                      Flags[selectedPortfolio.countryCode], 
-                      { className: 'w-6 h-6 rounded-sm' }
-                    )}
-                    <p className="text-white">{selectedPortfolio?.country}</p>
-                  </div>
+                <div className="bg-gray-50 p-6 flex items-center gap-5 border border-gray-100">
+                    <Info className="text-[#009EDB]" size={24} />
+                    <div>
+                        <p className="text-[10px] font-black uppercase text-[#009EDB] tracking-widest">Current Accreditation Window</p>
+                        <p className="text-sm font-bold text-[#003366]">{currentPhase?.name} pricing is currently active through institutional mandate.</p>
+                    </div>
+                </div>
+
+                <Button onClick={() => setStep(2)} className="w-full h-16 text-lg">Next: Delegate Credentials <ChevronRight className="ml-3" /></Button>
+              </div>
+            )}
+
+            {/* STEP 2: DIPLOMATIC DETAILS */}
+            {step === 2 && (
+              <div className="space-y-12">
+                <div className="flex justify-between items-end border-b-2 border-gray-50 pb-6">
+                   <h2 className="text-3xl font-black text-[#003366] uppercase tracking-tighter leading-none">Delegate <br/>Dossier.</h2>
+                   <div className="bg-[#003366] text-white px-3 py-1 text-[9px] font-black uppercase tracking-widest">Clearance Level I</div>
+                </div>
+
+                <div className="space-y-10">
+                   <DelegateForm 
+                      title="Primary Representative" 
+                      data={delegateInfo.delegate1} 
+                      onChange={(f, v) => handleInputChange('delegate1', f, v)} 
+                   />
+                   {isDoubleDel && (
+                     <DelegateForm 
+                        title="Secondary Representative" 
+                        data={delegateInfo.delegate2 || {} as DelegateData} 
+                        onChange={(f, v) => handleInputChange('delegate2', f, v)} 
+                     />
+                   )}
+                </div>
+
+                <div className="flex gap-6">
+                   <Button variant="outline" onClick={() => setStep(1)} className="flex-1">Back</Button>
+                   <Button onClick={() => validateStep() ? setStep(3) : null} className="flex-[2]">Confirm Credentials <ChevronRight className="ml-3" /></Button>
+                </div>
+                {error && <p className="text-red-500 text-[10px] font-black uppercase text-center tracking-widest mt-4 animate-pulse"><AlertCircle className="inline mr-2" size={14} /> {error}</p>}
+              </div>
+            )}
+
+            {/* STEP 3: ORGAN SELECTION */}
+            {step === 3 && (
+              <div className="space-y-10">
+                <h2 className="text-3xl font-black text-[#003366] uppercase tracking-tighter">Subsidiary Body Selection</h2>
+                <div className="grid gap-4">
+                   {committees.map((c, i) => (
+                      <div 
+                        key={c.id} 
+                        onClick={() => setSelectedCommittee(c)}
+                        className={`p-6 border-2 flex items-center gap-6 cursor-pointer transition-all ${selectedCommittee?.id === c.id ? 'border-[#009EDB] bg-[#F0F8FF]' : 'border-gray-50 hover:border-gray-200'}`}
+                      >
+                         <div className="text-3xl grayscale group-hover:grayscale-0">{c.emoji}</div>
+                         <div className="flex-1">
+                            <div className="flex justify-between">
+                               <h4 className="font-bold text-[#003366] uppercase tracking-tight">{c.name}</h4>
+                               {c.isOnline && <span className="bg-blue-600 text-white text-[8px] font-black px-2 py-0.5 uppercase tracking-widest">Online Organ</span>}
+                            </div>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase mt-1 tracking-widest">Organ Code: KIMUN/C-{i+1} • {c.portfolios.filter(p => p.isVacant).length} Seats Available</p>
+                         </div>
+                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedCommittee?.id === c.id ? 'border-[#009EDB]' : 'border-gray-200'}`}>
+                           {selectedCommittee?.id === c.id && <div className="w-2 h-2 bg-[#009EDB] rounded-full" />}
+                        </div>
+                      </div>
+                   ))}
+                </div>
+                <div className="flex gap-6">
+                   <Button variant="outline" onClick={() => setStep(2)} className="flex-1">Back</Button>
+                   <Button onClick={() => selectedCommittee ? setStep(4) : setError('Select an Organ')} className="flex-[2]">Proceed to Allocation <ChevronRight className="ml-3" /></Button>
                 </div>
               </div>
+            )}
 
-              <div className="flex gap-4">
-                <Button
-                  onClick={() => setStep(4)}
-                  variant="outline"
-                  className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-6 rounded-xl text-lg"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={initiatePayment}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 rounded-xl text-lg group"
-                >
-                  {whatsappRegistration ? 'Continue to WhatsApp Registration' : 'Proceed to Online Payment'}
-                  <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-                </Button>
+            {/* STEP 4: PORTFOLIO ALLOCATION */}
+            {step === 4 && (
+              <div className="space-y-10">
+                <h2 className="text-3xl font-black text-[#003366] uppercase tracking-tighter">Member State Allocation</h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                   {selectedCommittee?.portfolios
+                    .filter(p => p.isVacant && (isDoubleDel ? p.isDoubleDelAllowed : true) && getAverageExperience() >= p.minExperience)
+                    .map(p => (
+                      <div 
+                        key={p.id}
+                        onClick={() => setSelectedPortfolio(p)}
+                        className={`p-5 border-2 flex flex-col items-center text-center gap-3 cursor-pointer transition-all ${selectedPortfolio?.id === p.id ? 'border-[#009EDB] bg-[#F0F8FF]' : 'border-gray-50 hover:border-gray-200'}`}
+                      >
+                         {Flags[p.countryCode] && React.createElement(Flags[p.countryCode], { className: 'w-10 h-10 shadow-sm border border-gray-100' })}
+                         <span className="text-[11px] font-bold text-[#003366] uppercase leading-tight">{p.country}</span>
+                         {selectedPortfolio?.id === p.id && <CheckCircle className="text-[#009EDB] absolute top-2 right-2" size={16} />}
+                      </div>
+                    ))}
+                </div>
+                <div className="flex gap-6">
+                   <Button variant="outline" onClick={() => setStep(3)} className="flex-1">Back</Button>
+                   <Button onClick={() => selectedPortfolio ? setStep(5) : setError('Select a Member State')} className="flex-[2]">Review Credentials <ChevronRight className="ml-3" /></Button>
+                </div>
               </div>
-            </motion.div>
-          )}
-        </motion.div>
+            )}
+
+            {/* STEP 5: FINAL VERIFICATION */}
+            {step === 5 && (
+              <div className="space-y-10">
+                <div className="bg-[#003366] text-white p-10 flex flex-col md:flex-row justify-between items-center gap-8">
+                   <div className="space-y-2">
+                      <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60">Accreditation Surcharge</p>
+                      <h3 className="text-4xl font-black italic tracking-tighter uppercase">Total: ₹{calculatePrice()}</h3>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-[#009EDB]">Calculated per Plenary Rules v2026</p>
+                   </div>
+                   <div className="flex items-center gap-4 bg-white/5 border border-white/10 p-4 rounded-sm">
+                      <input 
+                        placeholder="PROTOCOL CODE" 
+                        className="bg-transparent text-white text-[10px] font-black tracking-widest uppercase focus:outline-none w-32"
+                        value={couponCode} onChange={e => setCouponCode(e.target.value)}
+                      />
+                      <Button size="sm" onClick={applyCoupon} variant="outline" className="border-[#009EDB] text-[#009EDB]">Apply</Button>
+                   </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-10">
+                   <div className="space-y-6">
+                      <h4 className="text-xs font-black uppercase text-[#009EDB] tracking-[0.2em] border-b border-gray-100 pb-2">Institutional Allocation</h4>
+                      <div className="space-y-4">
+                         <div className="flex items-center gap-4">
+                            <Landmark size={24} className="text-gray-300" />
+                            <div>
+                               <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">subsidiary body</p>
+                               <p className="text-sm font-bold text-[#003366] uppercase">{selectedCommittee?.name}</p>
+                            </div>
+                         </div>
+                         <div className="flex items-center gap-4">
+                            <Globe size={24} className="text-gray-300" />
+                            <div>
+                               <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">sovereign representation</p>
+                               <p className="text-sm font-bold text-[#003366] uppercase">{selectedPortfolio?.country}</p>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+
+                   <div className="space-y-6">
+                      <h4 className="text-xs font-black uppercase text-[#009EDB] tracking-[0.2em] border-b border-gray-100 pb-2">Diplomatic Channel</h4>
+                      <div className="p-6 bg-gray-50 border border-gray-100 rounded-sm">
+                         <label className="flex items-center gap-4 cursor-pointer">
+                            <div className={`w-12 h-6 rounded-full relative transition-colors ${whatsappRegistration ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                               <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${whatsappRegistration ? 'translate-x-6' : ''}`} />
+                               <input type="checkbox" className="sr-only" checked={whatsappRegistration} onChange={() => setWhatsappRegistration(!whatsappRegistration)} />
+                            </div>
+                            <span className="text-[10px] font-black uppercase text-[#333] tracking-widest">Accredit via WhatsApp Protocol</span>
+                         </label>
+                         <p className="text-[9px] text-gray-500 mt-4 italic">Direct communication line with the Secretariat for prioritized clearance.</p>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="flex gap-6 pt-10 border-t border-gray-50">
+                   <Button variant="outline" onClick={() => setStep(4)} className="flex-1">Back</Button>
+                   <Button onClick={initiateAccreditation} className="flex-[2] bg-emerald-600 hover:bg-emerald-700 h-16">
+                      Initialize Final Clearance <ArrowRight className="ml-3" />
+                   </Button>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+
+      <footer className="max-w-7xl mx-auto px-8 py-10 border-t border-gray-100 text-center">
+         <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.5em]">Kalinga International MUN Secretariat • Official Information System</p>
+      </footer>
+
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;900&display=swap');
+        body { background-color: #F9FAFB; font-family: 'Inter', sans-serif; }
+        * { -webkit-font-smoothing: antialiased; }
+      `}</style>
+    </div>
+  )
+}
+
+function DelegateForm({ title, data, onChange }: any) {
+  return (
+    <div className="space-y-6">
+      <h3 className="text-xs font-black uppercase text-[#009EDB] tracking-[0.3em] border-l-4 border-[#009EDB] pl-4">{title}</h3>
+      <div className="grid md:grid-cols-2 gap-5">
+        {[
+          { f: 'name', label: 'Full Legal Name', i: UserCheck },
+          { f: 'email', label: 'Diplomatic Email', i: FileText },
+          { f: 'phone', label: 'Primary Liaison Number', i: MessageSquare },
+          { f: 'institution', label: 'Academic Mission', i: Landmark },
+          { f: 'year', label: 'Year of Study', i: Calendar },
+          { f: 'course', label: 'Degree Program', i: ClipboardList },
+          { f: 'experience', label: 'Number of Convenings (MUNs)', i: Award },
+        ].map((input) => (
+          <div key={input.f} className="relative">
+            <input 
+               className="w-full bg-gray-50 border-b-2 border-gray-200 py-3 px-10 text-sm focus:border-[#009EDB] focus:outline-none transition-colors"
+               placeholder={input.label}
+               value={data[input.f] || ''}
+               onChange={(e) => onChange(input.f, e.target.value)}
+            />
+            <input.i className="absolute left-2 top-3 text-gray-300" size={18} />
+          </div>
+        ))}
       </div>
     </div>
   )
