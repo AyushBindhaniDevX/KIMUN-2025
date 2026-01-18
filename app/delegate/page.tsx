@@ -39,11 +39,15 @@ import {
   Send,
   Shield,
   Search,
-  CheckCircle
+  CheckCircle,
+  ArrowRight,
+  UserCheck,
+  CreditCard,
+  Briefcase
 } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 
-// Firebase configuration
+// --- Firebase Configuration ---
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -54,21 +58,13 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 }
 
-// Initialize Firebase
+// Initialize Services
 const app = initializeApp(firebaseConfig)
 const db = getDatabase(app)
 const auth = getAuth(app)
 const googleProvider = new GoogleAuthProvider()
 
-// --- Types ---
-type Announcement = {
-  id: string
-  title: string
-  content: string
-  timestamp: number
-  priority: 'low' | 'medium' | 'high'
-}
-
+// --- Data Schemas ---
 type Mark = {
   total: number
   gsl: number
@@ -94,6 +90,7 @@ type DelegateData = {
   experience?: string
   institution?: string
   positionPaperUrl?: string
+  phone?: string
 }
 
 type CommitteeData = {
@@ -113,149 +110,99 @@ type CommitteeData = {
   }
 }
 
-type Resource = {
-  id: string
-  title: string
-  description: string
-  type: 'guide' | 'rules' | 'template' | 'training'
-  url: string
-  committee?: string
-}
-
-// --- Institutional UI Components ---
-const Button = React.forwardRef<HTMLButtonElement, any>(({ className, variant = "default", size = "default", ...props }, ref) => {
-  const variants = {
-    default: "bg-[#003366] text-white hover:bg-[#002244] shadow-sm font-bold uppercase tracking-widest",
-    primary: "bg-[#009EDB] text-white hover:bg-[#0077B3] shadow-md font-bold uppercase tracking-widest",
-    outline: "border-2 border-[#009EDB] text-[#009EDB] hover:bg-[#F0F8FF] font-bold uppercase tracking-widest",
-    secondary: "bg-[#4D4D4D] text-white hover:bg-[#333333] uppercase tracking-widest",
-    ghost: "text-gray-500 hover:bg-gray-100 uppercase tracking-widest",
-    google: "bg-white text-gray-900 border border-gray-300 hover:bg-gray-50 shadow-sm font-bold"
-  }
-  const sizes = {
-    default: "h-11 px-6 py-2 text-xs",
-    lg: "h-14 px-10 text-sm font-black",
-    sm: "h-8 px-4 text-[10px]"
-  }
-  return (
-    <button
-      ref={ref}
-      className={`inline-flex items-center justify-center rounded-sm transition-all active:scale-95 disabled:opacity-50 ${variants[variant as keyof typeof variants] || variants.default} ${sizes[size as keyof typeof sizes] || sizes.default} ${className}`}
-      {...props}
-    />
-  )
-})
-Button.displayName = "Button"
-
+// --- Internal Components ---
 const DiplomaticFlag = ({ countryCode, className = "" }: { countryCode: string, className?: string }) => {
   return (
     <img 
       src={`https://flagcdn.com/w80/${countryCode?.toLowerCase() || 'un'}.png`}
-      alt={`${countryCode} Representation`}
+      alt="Member State Flag"
       className={`object-contain ${className}`}
-      onError={(e) => {
-        (e.target as HTMLImageElement).src = 'https://flagcdn.com/w80/un.png';
-      }}
+      onError={(e) => { (e.target as HTMLImageElement).src = 'https://flagcdn.com/w80/un.png' }}
     />
-  );
-};
+  )
+}
 
 function DelegateDashboardContent() {
   const [user, setUser] = useState<User | null>(null)
-  const [loggedIn, setLoggedIn] = useState(false)
+  const [activeView, setActiveView] = useState<'command' | 'registry' | 'vault'>('command')
   const [delegate, setDelegate] = useState<DelegateData | null>(null)
   const [committee, setCommittee] = useState<CommitteeData | null>(null)
   const [portfolio, setPortfolio] = useState<any>(null)
-  const [resources, setResources] = useState<Resource[]>([])
-  const [announcements, setAnnouncements] = useState<Announcement[]>([])
+  const [marks, setMarks] = useState<Mark | null>(null)
+  const [resources, setResources] = useState<any[]>([])
   const [posPaperInput, setPosPaperInput] = useState('')
-  const [loading, setLoading] = useState({
-    login: false,
-    data: false,
-    announcements: false
-  })
-  const [expandedCard, setExpandedCard] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // 1. Authentication & Identity Sync
+  // 1. Auth Sync
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUser(user)
-        setLoggedIn(true)
-        await fetchDelegateData(user.email!)
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        setUser(u)
+        await fetchFullDossier(u.email!)
       } else {
         setUser(null)
-        setLoggedIn(false)
-        setDelegate(null)
-        setCommittee(null)
-        setPortfolio(null)
+        setLoading(false)
       }
     })
     return () => unsubscribe()
   }, [])
 
-  // 2. Fetch Core Delegate Registry
-  const fetchDelegateData = async (email: string) => {
+  // 2. Fetch Full Plenary Dossier
+  const fetchFullDossier = async (email: string) => {
     try {
-      setLoading(prev => ({ ...prev, data: true }))
       const snapshot = await get(ref(db, 'registrations'))
       if (!snapshot.exists()) throw new Error('Dossier Not Found')
 
       const registrations = snapshot.val()
-      let foundDelegate = null
-      let regKey = ''
+      let foundReg = null
+      let regId = ''
 
       for (const key in registrations) {
         const reg = registrations[key]
-        if (reg.delegateInfo?.delegate1?.email === email || reg.delegateInfo?.delegate2?.email === email || reg.email === email) {
-          foundDelegate = {
-            id: key,
-            ...(reg.delegateInfo?.delegate1 || reg),
-            committeeId: reg.committeeId,
-            portfolioId: reg.portfolioId,
-            isCheckedIn: reg.isCheckedIn || false,
-            positionPaperUrl: reg.positionPaperUrl || ''
-          }
-          regKey = key
+        if (reg.delegateInfo?.delegate1?.email === email || reg.email === email) {
+          foundReg = reg
+          regId = key
           break
         }
       }
 
-      if (!foundDelegate) throw new Error('Identity Mismatch')
+      if (!foundReg) throw new Error('Registry ID Mismatch')
 
-      setDelegate(foundDelegate)
-      setPosPaperInput(foundDelegate.positionPaperUrl || '')
-      fetchCommitteeData(foundDelegate.committeeId, foundDelegate.portfolioId)
-      fetchMarksData(foundDelegate.committeeId, foundDelegate.portfolioId)
-      fetchResources()
-      listenForAnnouncements(foundDelegate.committeeId)
-    } catch (error) {
-      toast.error('Identity Verification Failed')
-      handleLogout()
-    } finally {
-      setLoading(prev => ({ ...prev, data: false }))
+      const delegateObj: DelegateData = {
+        id: regId,
+        ...(foundReg.delegateInfo?.delegate1 || foundReg),
+        committeeId: foundReg.committeeId,
+        portfolioId: foundReg.portfolioId,
+        isCheckedIn: foundReg.isCheckedIn || false,
+        positionPaperUrl: foundReg.positionPaperUrl || ''
+      }
+
+      setDelegate(delegateObj)
+      setPosPaperInput(delegateObj.positionPaperUrl || '')
+
+      // Parallel Data Fetching
+      fetchCommitteeInfo(delegateObj.committeeId, delegateObj.portfolioId)
+      fetchRegistryDocs()
+      listenToMarks(delegateObj.committeeId, delegateObj.portfolioId)
+      
+      setLoading(false)
+    } catch (err: any) {
+      toast.error(err.message)
+      setLoading(false)
     }
   }
 
-  const fetchCommitteeData = async (committeeId: string, portfolioId: string) => {
-    const snapshot = await get(ref(db, `committees/${committeeId}`))
+  const fetchCommitteeInfo = async (cid: string, pid: string) => {
+    const snapshot = await get(ref(db, `committees/${cid}`))
     if (snapshot.exists()) {
       const data = snapshot.val()
       setCommittee(data)
-      if (data.portfolios && portfolioId) setPortfolio(data.portfolios[portfolioId])
+      if (data.portfolios && pid) setPortfolio(data.portfolios[pid])
     }
   }
 
-  const fetchMarksData = async (committeeId: string, portfolioId: string) => {
-    const snapshot = await get(ref(db, `marksheets/${committeeId}/marks`))
-    if (snapshot.exists()) {
-      const marksData = snapshot.val()
-      const dMarks = Object.values(marksData).find((m: any) => m.portfolioId === portfolioId) as Mark | undefined
-      if (dMarks) setDelegate(prev => ({ ...prev!, marks: dMarks }))
-    }
-  }
-
-  const fetchResources = async () => {
+  const fetchRegistryDocs = async () => {
     const snapshot = await get(ref(db, 'resources'))
     if (snapshot.exists()) {
       const data = snapshot.val()
@@ -263,312 +210,375 @@ function DelegateDashboardContent() {
     }
   }
 
-  const listenForAnnouncements = (committeeId: string) => {
-    const annRef = ref(db, `announcements/${committeeId}`)
-    onValue(annRef, (snapshot) => {
+  const listenToMarks = (cid: string, pid: string) => {
+    const marksRef = ref(db, `marksheets/${cid}/marks`)
+    onValue(marksRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val()
-        setAnnouncements(Object.keys(data).map(k => ({ id: k, ...data[k] })).sort((a, b) => b.timestamp - a.timestamp))
+        const myMarks = Object.values(data).find((m: any) => m.portfolioId === pid) as Mark
+        if (myMarks) setMarks(myMarks)
       }
     })
   }
 
-  const submitPositionPaper = async () => {
-    if (!delegate?.id || !posPaperInput) return
+  // 3. Functional Actions
+  const handlePositionPaperSubmit = async () => {
+    if (!delegate || !posPaperInput) return
+    setIsSubmitting(true)
     try {
-      const regRef = ref(db, `registrations/${delegate.id}`)
-      await update(regRef, { positionPaperUrl: posPaperInput })
+      await update(ref(db, `registrations/${delegate.id}`), {
+        positionPaperUrl: posPaperInput
+      })
       setDelegate(prev => ({ ...prev!, positionPaperUrl: posPaperInput }))
-      toast.success('Position Paper Registry Updated')
+      toast.success('Position Paper URL Registered')
     } catch (err) {
-      toast.error('Failed to update Registry')
+      toast.error('Registry Update Failed')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  const signInWithGoogle = async () => {
+  const handleLogin = async () => {
     try {
-      setLoading(prev => ({ ...prev, login: true }))
       await signInWithPopup(auth, googleProvider)
-      toast.success('Identity Verified')
-    } catch (error: any) {
-      toast.error('Auth Protocol Failed')
-    } finally {
-      setLoading(prev => ({ ...prev, login: false }))
+      toast.success('Identity Synced')
+    } catch (err) {
+      toast.error('Sync Failed')
     }
   }
 
   const handleLogout = async () => {
     await signOut(auth)
-    setLoggedIn(false)
+    window.location.href = '/'
   }
 
-  const toggleCard = (cardId: string) => {
-    setExpandedCard(expandedCard === cardId ? null : cardId)
-  }
-
-  if (!loggedIn) {
+  // --- UI Loading State ---
+  if (loading) {
     return (
-      <div className="min-h-screen bg-[#F4F4F4] flex items-center justify-center p-6 font-sans">
-        <Toaster position="top-center" richColors />
-        <div className="max-w-md w-full bg-white border border-gray-200 shadow-2xl rounded-sm p-12 text-center relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-2 bg-[#009EDB]" />
-          <Landmark size={48} className="text-[#003366] mx-auto mb-8" />
-          <h1 className="text-2xl font-black text-[#003366] uppercase tracking-tighter mb-4">Delegate Portal Access</h1>
-          <p className="text-gray-500 text-sm mb-10 leading-relaxed font-light">Authenticate identity via the **Unified Identity Service** to access your plenary dossier.</p>
-          <Button variant="google" onClick={signInWithGoogle} disabled={loading.login} className="w-full h-14">
-            {loading.login ? <Loader2 className="animate-spin mr-2" size={16} /> : <UserIcon className="mr-2" size={16} />}
-            Google Identity Sync
-          </Button>
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center font-sans">
+        <Loader2 className="animate-spin text-[#009EDB] mb-6" size={48} strokeWidth={3} />
+        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-700">Syncing Registry Dossier...</span>
+      </div>
+    )
+  }
+
+  // --- Unauthenticated State ---
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full bg-white border border-zinc-200 shadow-2xl p-12 text-center rounded-sm border-t-4 border-t-[#003366]">
+          <Landmark size={64} className="text-[#003366] mx-auto mb-8" strokeWidth={1.5} />
+          <h1 className="text-2xl font-black text-[#003366] uppercase tracking-tighter mb-4">Delegate Entrance</h1>
+          <p className="text-zinc-500 text-sm mb-10 leading-relaxed italic">Synchronize your Google Identity to access the plenary mission controls.</p>
+          <button onClick={handleLogin} className="w-full h-14 bg-white hover:bg-zinc-50 border border-zinc-200 shadow-sm flex items-center justify-center gap-4 transition-all active:scale-95 group">
+             <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+             <span className="text-[11px] font-black uppercase tracking-widest text-zinc-700">Identity Sync via Google</span>
+          </button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] text-[#1A1A1A] font-sans selection:bg-[#009EDB]/20">
+    <div className="min-h-screen bg-[#F9FAFB] text-zinc-900 font-sans selection:bg-[#009EDB]/20">
       <Toaster position="top-right" richColors />
       
-      {/* 1. SECRETARIAT UTILITY BAR */}
-      <nav className="fixed top-0 left-0 right-0 z-[100] bg-white border-b border-gray-200 shadow-sm">
-        <div className="bg-[#333333] text-white py-1.5 px-8 text-[9px] uppercase font-black tracking-[0.3em] flex justify-between items-center">
+      {/* --- INSTITUTIONAL NAVIGATION --- */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-zinc-200 shadow-sm">
+        <div className="bg-[#4D4D4D] text-white py-1.5 px-8 text-[9px] uppercase font-black tracking-widest flex justify-between items-center">
             <div className="flex items-center gap-4">
-                <span className="flex items-center gap-2 text-[#009EDB]"><ShieldCheck size={10} /> Identity Verified: {user?.email}</span>
+                <span className="flex items-center gap-2 text-[#009EDB]"><ShieldCheck size={10} /> Plenary Access Verified: {user.email}</span>
                 <span className="opacity-20">|</span>
-                <span className="text-gray-400">ID Ref: {delegate?.id?.substring(0, 8)}</span>
+                <span className="text-zinc-400">ID: {delegate?.id?.substring(0, 10)}</span>
             </div>
-            <button onClick={handleLogout} className="hover:text-red-400 flex items-center gap-1 transition-colors uppercase">
-                <LogOut size={10} /> Terminate Session
+            <button onClick={handleLogout} className="hover:text-red-400 flex items-center gap-1 transition-colors uppercase font-black">
+                <LogOut size={10} /> Terminate
             </button>
         </div>
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-             <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="KIMUN" className="h-10 w-10" />
-             <div className="border-l border-gray-200 pl-4 hidden sm:block">
-                <h2 className="text-sm font-black text-[#003366] uppercase tracking-widest leading-none">Delegate Command</h2>
-                <p className="text-[9px] font-bold text-[#009EDB] uppercase mt-0.5">Accreditation & Liaison Service</p>
+          <div className="flex items-center gap-6">
+             <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Logo" className="h-10 w-10" />
+             <div className="border-l border-zinc-200 pl-4 hidden md:block">
+                <h2 className="text-sm font-black text-[#003366] uppercase tracking-tighter leading-none">Delegate Command</h2>
+                <p className="text-[10px] font-bold text-[#009EDB] uppercase mt-0.5 tracking-widest">KIMUN 2026</p>
              </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden lg:flex items-center gap-8 text-[10px] font-black uppercase text-gray-500 tracking-widest mr-8">
-              <a href="#" className="hover:text-[#009EDB]">Registry</a>
-              <a href="#" className="hover:text-[#009EDB]">Documents</a>
-              <a href="#" className="hover:text-[#009EDB]">Protocol</a>
-            </div>
-            <Button size="sm" variant="primary">Access Vault</Button>
+          <div className="flex items-center gap-2 md:gap-8">
+            <nav className="hidden lg:flex items-center gap-8 text-[10px] font-black uppercase text-zinc-500 tracking-widest">
+               {['command', 'registry', 'vault'].map(tab => (
+                 <button 
+                   key={tab} 
+                   onClick={() => setActiveView(tab as any)}
+                   className={`hover:text-[#009EDB] transition-colors ${activeView === tab ? 'text-[#009EDB] border-b-2 border-[#009EDB] pb-1' : ''}`}
+                 >
+                   {tab}
+                 </button>
+               ))}
+            </nav>
+            <button onClick={() => window.location.href = '/'} className="p-2 hover:bg-zinc-100 rounded-full text-zinc-400 hover:text-[#003366] transition-all">
+                <Globe size={18} />
+            </button>
           </div>
         </div>
       </nav>
 
-      <main className="container mx-auto px-6 pt-28 pb-20">
+      {/* --- MAIN CONTENT --- */}
+      <main className="container mx-auto px-6 pt-32 pb-24">
         
-        {/* WELCOME BANNER & DIPLOMATIC ID */}
-        <div className="grid lg:grid-cols-3 gap-8 mb-10">
-          <div className="lg:col-span-2 bg-[#003366] text-white p-10 relative overflow-hidden border-b-4 border-[#009EDB] flex flex-col justify-center">
-            <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none"><Globe size={240} /></div>
-            <div className="relative z-10 space-y-4">
-              <span className="inline-block bg-[#009EDB] text-[9px] font-black px-3 py-1 uppercase tracking-widest">Plenary Session 2026.01</span>
-              <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none">
-                Excellency, <br/> {delegate?.name || "Representative"}
-              </h1>
-              <div className="flex items-center gap-4 pt-4">
-                 <DiplomaticFlag countryCode={portfolio?.countryCode} className="w-12 h-8 border border-white/20" />
-                 <p className="text-xl text-gray-300 italic">Representative of <span className="text-white font-bold uppercase">{portfolio?.country}</span></p>
-              </div>
-            </div>
-          </div>
-
-          {/* DIPLOMATIC ID CARD */}
-          <div className="bg-white border border-gray-200 p-8 shadow-xl flex flex-col items-center text-center relative">
-             <div className="absolute top-4 right-4"><QrCode size={16} className="text-gray-200" /></div>
-             <div className="w-24 h-24 bg-gray-100 rounded-full mb-6 flex items-center justify-center border-4 border-[#003366]">
-                <UserIcon size={40} className="text-[#003366]" />
-             </div>
-             <h3 className="text-sm font-black text-[#003366] uppercase tracking-widest mb-1">{delegate?.name}</h3>
-             <p className="text-[10px] font-bold text-[#009EDB] uppercase tracking-widest mb-4">{committee?.name}</p>
-             <div className="bg-gray-50 w-full py-4 rounded-sm border border-gray-100 space-y-2 mb-6">
-                <div className="flex justify-between px-6">
-                   <span className="text-[9px] font-bold text-gray-400 uppercase">Registry Status</span>
-                   <span className={`text-[9px] font-black uppercase ${delegate?.isCheckedIn ? 'text-emerald-500' : 'text-amber-500'}`}>
-                      {delegate?.isCheckedIn ? 'VERIFIED' : 'PENDING'}
-                   </span>
-                </div>
-                <div className="flex justify-between px-6">
-                   <span className="text-[9px] font-bold text-gray-400 uppercase">Clearance</span>
-                   <span className="text-[9px] font-black text-[#003366] uppercase">LEVEL I</span>
-                </div>
-             </div>
-             <Button variant="outline" size="sm" className="w-full" onClick={() => toast.info("ID Card generation protocol initialized.")}>
-                <Download size={12} className="mr-2" /> Digital Credential
-             </Button>
-          </div>
-        </div>
-
-        {/* NOTIFICATIONS & ANNOUNCEMENTS */}
-        <section className="mb-10 bg-[#F0F8FF] border border-[#009EDB]/20 p-6 rounded-sm">
-           <div className="flex items-center gap-3 mb-6">
-              <Bell className="text-[#009EDB]" size={20} />
-              <h2 className="text-xs font-black text-[#003366] uppercase tracking-[0.3em]">Diplomatic Bulletin Board</h2>
-           </div>
-           <div className="space-y-4">
-              {announcements.length > 0 ? announcements.map(ann => (
-                <div key={ann.id} className="bg-white p-4 border-l-4 border-[#009EDB] shadow-sm flex justify-between items-start">
-                   <div>
-                      <h4 className="text-sm font-black text-[#003366] uppercase tracking-tight">{ann.title}</h4>
-                      <p className="text-xs text-gray-600 mt-1">{ann.content}</p>
-                   </div>
-                   <span className="text-[9px] font-bold text-gray-400 uppercase">{new Date(ann.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-              )) : (
-                <p className="text-xs text-gray-400 italic text-center py-4 uppercase font-bold tracking-widest">No active alerts from the Secretariat.</p>
-              )}
-           </div>
-        </section>
-
-        {/* MAIN DASHBOARD GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
-          
-          {/* Performance Evaluation */}
-          <div className="bg-white border border-gray-200 shadow-sm">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-               <h2 className="text-xs font-black text-[#003366] uppercase tracking-widest flex items-center gap-3">
-                  <Award size={18} className="text-[#009EDB]" /> Plenary Assessment
-               </h2>
-            </div>
-            <div className="p-8">
-               {delegate?.marks ? (
-                  <div className="space-y-6 text-center">
-                     <div className="py-6 bg-[#003366] text-white rounded-sm shadow-inner">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-60 mb-2">Aggregate Evaluation</p>
-                        <p className="text-5xl font-black italic">{delegate.marks.total}<span className="text-lg opacity-30">/50</span></p>
-                     </div>
-                     <div className="grid grid-cols-2 gap-4">
-                        {['GSL', 'Mod', 'Lobby', 'Chits'].map((key, i) => (
-                           <div key={key} className="p-3 border border-gray-100 rounded-sm">
-                              <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">{key}</p>
-                              <p className="text-sm font-black text-[#003366]">{Object.values(delegate.marks!)[i+1]}</p>
-                           </div>
-                        ))}
-                     </div>
-                  </div>
-               ) : (
-                  <div className="text-center py-12 opacity-30">
-                     <Scale size={48} className="mx-auto mb-4" strokeWidth={1} />
-                     <p className="text-[10px] font-black uppercase tracking-widest">EVALUATION IN PROGRESS</p>
-                  </div>
-               )}
-            </div>
-          </div>
-
-          {/* Plenary Documentation */}
-          <div className="bg-white border border-gray-200 shadow-sm">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-               <h2 className="text-xs font-black text-[#003366] uppercase tracking-widest flex items-center gap-3">
-                  <FileText size={18} className="text-[#009EDB]" /> Registry Vault
-               </h2>
-            </div>
-            <div className="p-6 space-y-3">
-               {resources.map(res => (
-                 <div key={res.id} className="p-4 hover:bg-gray-50 border-b border-gray-50 last:border-0 flex justify-between items-center group transition-colors">
-                    <div>
-                       <p className="text-xs font-black text-[#003366] uppercase tracking-tight leading-none mb-1">{res.title}</p>
-                       <p className="text-[9px] text-gray-400 uppercase font-bold tracking-widest">REF: KIMUN/PLN/{res.type.toUpperCase()}</p>
+        {activeView === 'command' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
+            
+            {/* HERO & DIGITAL ID CARD */}
+            <div className="grid lg:grid-cols-3 gap-10">
+               {/* BANNER */}
+               <div className="lg:col-span-2 bg-[#003366] text-white p-10 md:p-16 rounded-sm relative overflow-hidden flex flex-col justify-center border-b-8 border-b-[#009EDB]">
+                  <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none"><Globe size={300} /></div>
+                  <div className="relative z-10 space-y-6">
+                    <div className="flex items-center gap-3">
+                       <span className="bg-[#009EDB] text-[9px] font-black px-4 py-1.5 uppercase tracking-[0.2em]">Authorized Representative</span>
                     </div>
-                    <a href={res.url} target="_blank" rel="noreferrer" className="text-gray-300 hover:text-[#009EDB] transition-colors"><Download size={16} /></a>
-                 </div>
-               ))}
-            </div>
-          </div>
-
-          {/* Member State Representation */}
-          <div className="bg-white border border-gray-200 shadow-sm flex flex-col">
-            <div className="p-6 border-b border-gray-100 bg-gray-50">
-               <h2 className="text-xs font-black text-[#003366] uppercase tracking-widest flex items-center gap-3">
-                  <FilePlus size={18} className="text-[#009EDB]" /> Position Submission
-               </h2>
-            </div>
-            <div className="p-8 space-y-6 flex-1">
-               <div className="bg-blue-50 p-4 border border-blue-100 rounded-sm">
-                  <p className="text-[10px] text-blue-700 leading-relaxed font-bold uppercase tracking-tight italic">
-                     Delegates must submit a digital copy of their Position Paper to the Secretariat for evaluation.
-                  </p>
+                    <h1 className="text-4xl md:text-7xl font-black uppercase tracking-tighter leading-[0.85]">
+                       Distinguished, <br/> {delegate?.name?.split(' ')[0] || "Delegate"}
+                    </h1>
+                    <div className="flex items-center gap-4 pt-6 border-t border-white/10">
+                       <DiplomaticFlag countryCode={portfolio?.countryCode} className="w-14 h-10 border border-white/20 shadow-xl" />
+                       <p className="text-xl text-zinc-300 italic font-light">Representing the sovereignty of <span className="text-white font-black uppercase tracking-tight">{portfolio?.country || "Registry Error"}</span></p>
+                    </div>
+                  </div>
                </div>
-               <div className="space-y-4">
-                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Document URL (Google Drive/Dropbox)</label>
-                  <input 
-                    type="url" 
-                    placeholder="https://drive.google.com/..." 
-                    className="w-full px-4 py-3 border border-gray-200 text-xs focus:border-[#009EDB] focus:outline-none"
-                    value={posPaperInput}
-                    onChange={(e) => setPosPaperInput(e.target.value)}
-                  />
-                  <Button variant="primary" className="w-full" onClick={submitPositionPaper}>
-                     Update Registry <Send size={12} className="ml-2" />
-                  </Button>
-               </div>
-               {delegate?.positionPaperUrl && (
-                 <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-600 uppercase pt-2">
-                    <CheckCircle size={14} /> Submission Confirmed
-                 </div>
-               )}
-            </div>
-          </div>
-        </div>
 
-        {/* SESSION ITINERARY */}
-        <div className="bg-white border border-gray-200 p-10 shadow-sm">
-           <h3 className="text-xs font-black text-[#003366] uppercase tracking-[0.4em] mb-10 flex items-center gap-4">
-              <Calendar size={20} className="text-[#009EDB]" /> Plenary Itinerary 2026
-           </h3>
-           <div className="grid md:grid-cols-2 gap-12 relative">
-              <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-100 hidden md:block" />
-              {[
-                { day: "Session I", date: "July 05", events: [
-                  { time: "09:00", title: "Opening Plenary", active: true },
-                  { time: "11:00", title: "Organ Session I", active: false },
-                  { time: "14:00", title: "Organ Session II", active: false }
-                ]},
-                { day: "Session II", date: "July 06", events: [
-                  { time: "10:00", title: "Organ Session IV", active: false },
-                  { time: "14:30", title: "Resolution Drafting", active: false },
-                  { time: "17:00", title: "Final Plenary", active: false }
-                ]}
-              ].map(day => (
-                <div key={day.day}>
-                   <div className="flex items-center gap-4 mb-6">
-                      <p className="text-xl font-black text-[#003366] italic">{day.day}</p>
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{day.date}</span>
-                   </div>
-                   <div className="space-y-6">
-                      {day.events.map(ev => (
-                        <div key={ev.title} className="flex items-center gap-6">
-                           <span className="text-[10px] font-black text-[#009EDB] w-12">{ev.time}</span>
-                           <div className="flex-1 flex items-center justify-between border-b border-gray-50 pb-2">
-                              <p className={`text-sm font-bold uppercase tracking-tight ${ev.active ? 'text-[#003366]' : 'text-gray-400'}`}>{ev.title}</p>
-                              {ev.active && <span className="bg-[#009EDB] h-1.5 w-1.5 rounded-full animate-ping" />}
-                           </div>
+               {/* DIGITAL ID CARD */}
+               <div className="bg-white border border-zinc-200 shadow-2xl p-10 flex flex-col items-center text-center relative overflow-hidden rounded-sm group">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-[#009EDB]" />
+                  <div className="w-32 h-32 bg-zinc-50 rounded-full mb-8 flex items-center justify-center border-4 border-zinc-100 relative group-hover:border-[#003366] transition-colors">
+                     <UserIcon size={56} className="text-zinc-200 group-hover:text-[#003366] transition-colors" />
+                     {delegate?.isCheckedIn && (
+                       <div className="absolute bottom-1 right-1 bg-emerald-500 text-white p-1.5 rounded-full border-4 border-white shadow-lg">
+                          <ShieldCheck size={14} />
+                       </div>
+                     )}
+                  </div>
+                  <h3 className="text-lg font-black text-[#003366] uppercase tracking-tighter mb-1 leading-none">{delegate?.name}</h3>
+                  <p className="text-[10px] font-bold text-[#009EDB] uppercase tracking-[0.2em] mb-8 italic">{committee?.name || "Allocation Pending"}</p>
+                  
+                  <div className="w-full bg-zinc-50 p-6 rounded-sm border border-zinc-100 space-y-4 mb-8">
+                     <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                        <span>Registry Ref</span>
+                        <span className="text-[#003366] font-mono">{delegate?.id?.substring(0, 8)}</span>
+                     </div>
+                     <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                        <span>Security Clear</span>
+                        <span className="text-emerald-600">LEVEL I (DIPLOMATIC)</span>
+                     </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3 w-full">
+                      <div className="bg-white p-2 border border-zinc-100 rounded-sm inline-block mx-auto mb-2">
+                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${delegate?.id}`} alt="Registry QR" className="w-20 h-20 grayscale hover:grayscale-0 transition-all cursor-zoom-in" />
+                      </div>
+                      <p className="text-[8px] font-bold text-zinc-300 uppercase tracking-widest">Secretariat Verification Code</p>
+                  </div>
+               </div>
+            </div>
+
+            {/* QUICK ACTIONS & FEED */}
+            <div className="grid lg:grid-cols-3 gap-8">
+               
+               {/* POSITION PAPER SUBMISSION */}
+               <div className="bg-white border border-zinc-200 p-8 shadow-sm flex flex-col">
+                  <div className="flex items-center gap-3 mb-8 border-b border-zinc-50 pb-4">
+                     <FilePlus className="text-[#009EDB]" size={20} />
+                     <h3 className="text-xs font-black text-[#003366] uppercase tracking-widest">Position Submission</h3>
+                  </div>
+                  <p className="text-[10px] text-zinc-500 mb-6 leading-relaxed italic font-medium">Please provide the public URL to your research document for evaluative review by the Moderator board.</p>
+                  <div className="space-y-4 flex-1">
+                     <input 
+                       type="url" 
+                       placeholder="https://drive.google.com/..." 
+                       className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 text-xs focus:bg-white focus:border-[#009EDB] focus:outline-none transition-all"
+                       value={posPaperInput}
+                       onChange={(e) => setPosPaperInput(e.target.value)}
+                     />
+                     <button 
+                       onClick={handlePositionPaperSubmit}
+                       disabled={isSubmitting}
+                       className="w-full h-12 bg-[#003366] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#002244] flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                     >
+                        {isSubmitting ? <Loader2 className="animate-spin" size={14} /> : <Send size={12} />}
+                        Update Registry
+                     </button>
+                     {delegate?.positionPaperUrl && (
+                        <div className="flex items-center gap-2 text-[9px] font-bold text-emerald-600 uppercase pt-2 animate-in fade-in">
+                           <CheckCircle2 size={12} /> Logged in Secretariat Database
                         </div>
-                      ))}
+                     )}
+                  </div>
+               </div>
+
+               {/* ASSESSMENT SCORECARD */}
+               <div className="bg-white border border-zinc-200 p-8 shadow-sm">
+                  <div className="flex items-center gap-3 mb-8 border-b border-zinc-50 pb-4">
+                     <Award className="text-[#009EDB]" size={20} />
+                     <h3 className="text-xs font-black text-[#003366] uppercase tracking-widest">Plenary Assessment</h3>
+                  </div>
+                  {marks ? (
+                    <div className="space-y-6">
+                       <div className="bg-[#003366] text-white p-6 text-center rounded-sm shadow-inner relative overflow-hidden">
+                          <p className="text-[9px] font-black uppercase tracking-[0.4em] opacity-40 mb-2">Aggregate Evaluation</p>
+                          <p className="text-5xl font-black italic">{marks.total}<span className="text-lg opacity-20 ml-1">/50</span></p>
+                       </div>
+                       <div className="grid grid-cols-2 gap-3">
+                          {[
+                            { l: 'GSL', v: marks.gsl },
+                            { l: 'Mod', v: marks.mod1 },
+                            { l: 'Lobby', v: marks.lobby },
+                            { l: 'Rules', v: marks.fp }
+                          ].map(m => (
+                            <div key={m.l} className="p-3 border border-zinc-50 text-center bg-zinc-50/50">
+                               <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mb-1">{m.l}</p>
+                               <p className="text-sm font-black text-[#003366]">{m.v}</p>
+                            </div>
+                          ))}
+                       </div>
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center py-10 opacity-30 text-center">
+                       <Scale size={48} className="mb-4" strokeWidth={1} />
+                       <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed">Evaluation Phase <br/> Not Initialized</p>
+                    </div>
+                  )}
+               </div>
+
+               {/* SESSION PULSE ITINERARY */}
+               <div className="bg-white border border-zinc-200 p-8 shadow-sm">
+                  <div className="flex items-center gap-3 mb-8 border-b border-zinc-50 pb-4">
+                     <Clock className="text-[#009EDB]" size={20} />
+                     <h3 className="text-xs font-black text-[#003366] uppercase tracking-widest">Plenary Pulse</h3>
+                  </div>
+                  <div className="space-y-6">
+                     {[
+                       { t: '09:00', l: 'Opening Convening', active: true },
+                       { t: '11:00', l: 'Subsidiary Session I', active: false },
+                       { t: '14:00', l: 'Subsidiary Session II', active: false },
+                       { t: '17:00', l: 'Bureau Review', active: false }
+                     ].map(ev => (
+                       <div key={ev.l} className="flex items-center gap-6">
+                          <span className={`text-[10px] font-black w-10 ${ev.active ? 'text-[#009EDB]' : 'text-zinc-300'}`}>{ev.t}</span>
+                          <div className={`flex-1 border-b border-zinc-50 pb-2 flex justify-between items-center`}>
+                             <span className={`text-[11px] font-bold uppercase tracking-tight ${ev.active ? 'text-[#003366]' : 'text-zinc-400'}`}>{ev.l}</span>
+                             {ev.active && <span className="h-1.5 w-1.5 bg-[#009EDB] rounded-full animate-ping" />}
+                          </div>
+                       </div>
+                     ))}
+                  </div>
+               </div>
+            </div>
+
+            {/* DOCUMENTATION GRID */}
+            <div className="bg-white border border-zinc-200 p-10 shadow-sm">
+               <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
+                  <div>
+                    <h3 className="text-2xl font-black text-[#003366] uppercase tracking-tighter">Registry Vault</h3>
+                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1 italic">Official KIMUN documentation & background intel</p>
+                  </div>
+                  <button onClick={() => setActiveView('vault')} className="text-[#009EDB] text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:underline">
+                    View Complete Index <ArrowRight size={14} />
+                  </button>
+               </div>
+               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {resources.slice(0, 3).map(res => (
+                    <div key={res.id} className="p-6 border border-zinc-100 hover:border-[#009EDB]/30 hover:bg-[#F0F8FF]/30 transition-all group rounded-sm">
+                        <div className="w-10 h-10 bg-zinc-50 rounded-sm mb-4 flex items-center justify-center text-zinc-400 group-hover:bg-[#009EDB] group-hover:text-white transition-colors">
+                           <FileText size={20} />
+                        </div>
+                        <h4 className="text-sm font-black text-[#003366] uppercase tracking-tight mb-1">{res.title}</h4>
+                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-4">Ref: KIMUN/PLN/{res.type?.toUpperCase()}</p>
+                        <a href={res.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-[#009EDB] text-[10px] font-black uppercase tracking-widest hover:text-[#003366]">
+                           Download <Download size={12} />
+                        </a>
+                    </div>
+                  ))}
+               </div>
+            </div>
+
+          </motion.div>
+        )}
+
+        {activeView === 'registry' && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+             <div className="bg-white border border-zinc-200 p-12 text-center space-y-4">
+                <Search size={48} className="mx-auto text-zinc-200" />
+                <h2 className="text-2xl font-black text-[#003366] uppercase tracking-tighter">Plenary Registry Access</h2>
+                <p className="text-sm text-zinc-500 max-w-md mx-auto italic font-light leading-relaxed">
+                   The public Member State matrix and committee allocations index is undergoing plenary synchronization. Access will be restored via the main gateway shortly.
+                </p>
+                <button onClick={() => setActiveView('command')} className="text-[#009EDB] text-[10px] font-black uppercase tracking-widest hover:underline pt-4">Return to Mission Control</button>
+             </div>
+          </div>
+        )}
+
+        {activeView === 'vault' && (
+           <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 space-y-10">
+              <h2 className="text-4xl font-black text-[#003366] uppercase tracking-tighter">Plenary Vault Index</h2>
+              <div className="grid gap-4">
+                 {resources.map(res => (
+                   <div key={res.id} className="bg-white border border-zinc-200 p-6 flex justify-between items-center group hover:border-[#009EDB] transition-all">
+                      <div className="flex items-center gap-6">
+                         <div className="p-3 bg-zinc-50 rounded-sm text-zinc-300 group-hover:bg-[#009EDB]/10 group-hover:text-[#009EDB] transition-colors">
+                            <FileText size={24} />
+                         </div>
+                         <div>
+                            <h4 className="text-base font-black text-[#003366] uppercase tracking-tight">{res.title}</h4>
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest italic">{res.description || "Official Plenary Document"}</p>
+                         </div>
+                      </div>
+                      <a href={res.url} target="_blank" rel="noreferrer" className="p-4 hover:bg-zinc-50 rounded-full text-zinc-300 hover:text-[#009EDB] transition-colors">
+                         <Download size={20} />
+                      </a>
                    </div>
-                </div>
-              ))}
+                 ))}
+              </div>
            </div>
-        </div>
+        )}
+
       </main>
 
-      <footer className="container mx-auto px-8 py-10 border-t border-gray-100 text-center">
-         <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.5em]">Secretariat Information System • KIMUN Mission Control 2026</p>
+      {/* --- FOOTER --- */}
+      <footer className="bg-white border-t border-zinc-200 py-16">
+        <div className="container mx-auto px-8">
+           <div className="flex flex-col md:flex-row justify-between items-center gap-10">
+              <div className="flex items-center gap-4">
+                 <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Logo" className="h-12 w-12 grayscale opacity-40" />
+                 <div>
+                    <h4 className="text-sm font-black text-zinc-400 uppercase tracking-widest leading-none">Secretariat Info System</h4>
+                    <p className="text-[9px] font-bold text-zinc-300 uppercase mt-1 tracking-[0.2em]">Protocol Secured // 2026.01</p>
+                 </div>
+              </div>
+              <div className="flex gap-10 text-[10px] font-black uppercase text-zinc-400 tracking-widest">
+                 <a href="/" className="hover:text-[#003366]">Gateway</a>
+                 <a href="/matrix" className="hover:text-[#003366]">Registry</a>
+                 <a href="#" className="hover:text-[#003366]">Charter</a>
+                 <a href="#" className="hover:text-[#003366]">Support</a>
+              </div>
+           </div>
+        </div>
       </footer>
 
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
         body { background-color: #F9FAFB; font-family: 'Inter', sans-serif; color: #1A1A1A; }
         * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        
+        /* Diplomatic Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #F9FAFB; }
+        ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #009EDB; }
       `}</style>
     </div>
   )
 }
 
-// --- Icons Fallback ---
 function Scale(props: any) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -579,7 +589,11 @@ function Scale(props: any) {
 
 export default function App() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#009EDB]" size={32} /></div>}>
+    <Suspense fallback={
+        <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+            <Loader2 className="animate-spin text-[#009EDB]" size={32} />
+        </div>
+    }>
       <DelegateDashboardContent />
     </Suspense>
   )
