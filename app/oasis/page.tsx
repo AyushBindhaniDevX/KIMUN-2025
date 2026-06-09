@@ -1,0 +1,3985 @@
+'use client'
+
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion'
+import {
+  BarChart3,
+  PieChart as LucidePieChart,
+  DollarSign,
+  TrendingUp,
+  Plus,
+  Trash2,
+  Download,
+  RefreshCw,
+  Sliders,
+  CheckCircle2,
+  AlertCircle,
+  ChevronRight,
+  Info,
+  Layers,
+  Building,
+  Users,
+  BookOpen,
+  Truck,
+  Megaphone,
+  ShieldCheck,
+  FileSpreadsheet,
+  Edit2,
+  LayoutDashboard,
+  ClipboardList,
+  UserCheck,
+  Package,
+  FileText,
+  LogOut,
+  Mail,
+  Search,
+  Filter,
+  Eye,
+  Trash,
+  PlusCircle,
+  Award,
+  CreditCard,
+  Ticket,
+  ChevronLeft,
+  ChevronRight as ChevronRightIcon,
+  Ban,
+  User,
+  UsersRound,
+  Wallet,
+  Activity,
+  Globe,
+  Settings,
+  Calendar,
+  Sparkles,
+  Shield,
+  XCircle,
+  FileCheck,
+  Bell,
+  Edit,
+  Check,
+  Loader2,
+  Menu,
+  X,
+  Star,
+  Target,
+  Clock,
+  Zap,
+  Crown
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { ref, onValue, update, push, remove, get } from 'firebase/database'
+import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth'
+import { firebaseAuth, firebaseDb, googleProvider } from '@/lib/firebase-client'
+import * as XLSX from 'xlsx'
+import { jsPDF } from 'jspdf'
+import 'jspdf-autotable'
+
+// Indian-context master committee configuration list (presets)
+const INITIAL_COMMITTEES = [
+  { id: 'COM-01', name: 'United Nations Security Council (UNSC)', target: 35, fee: 3500, category: 'Premium Single', color: '#4F46E5' },
+  { id: 'COM-02', name: 'Disarmament & International Security Committee (DISEC)', target: 85, fee: 2200, category: 'Double/Single', color: '#0EA5E9' },
+  { id: 'COM-03', name: 'All India Political Parties Meet (AIPPM)', target: 80, fee: 2000, category: 'Regional National', color: '#10B981' },
+  { id: 'COM-04', name: 'United Nations Human Rights Council (UNHRC)', target: 65, fee: 2200, category: 'Double/Single', color: '#F59E0B' },
+  { id: 'COM-05', name: 'International Press (IP)', target: 35, fee: 1800, category: 'Specialized Journalism', color: '#EF4444' },
+]
+
+// Indian-context master expense list for KIMUN 2026 in INR (₹)
+const INITIAL_EXPENSES = [
+  { id: 'SEC-01', dept: 'Secretariat', item: 'Accommodation for Chief Guest (5-Star)', qty: 3, unitCost: 12000, actualCost: 36000, status: 'Paid', isPerDelegate: false },
+  { id: 'SEC-02', dept: 'Secretariat', item: 'Secretariat Custom Merch (Blazers & Lapel Pins)', qty: 25, unitCost: 3200, actualCost: 80000, status: 'Paid', isPerDelegate: false },
+  { id: 'SEC-03', dept: 'Secretariat', item: 'Mementos & VIP Guest Gifts', qty: 15, unitCost: 1500, actualCost: 22000, status: 'Pending', isPerDelegate: false },
+  { id: 'DEL-01', dept: 'Delegate Relations', item: 'Delegate Kits (Premium Bags, Notebooks, Pens)', qty: 300, unitCost: 450, actualCost: 135000, status: 'Paid', isPerDelegate: true },
+  { id: 'DEL-02', dept: 'Delegate Relations', item: 'ID Cards, Lanyards & Badges Printing', qty: 300, unitCost: 120, actualCost: 36000, status: 'Paid', isPerDelegate: true },
+  { id: 'DEL-03', dept: 'Delegate Relations', item: 'High-Gloss Country Placards Printing', qty: 150, unitCost: 150, actualCost: 22500, status: 'Paid', isPerDelegate: false },
+  { id: 'ACA-01', dept: 'Academics', item: 'Background Study Guides Design & Print', qty: 12, unitCost: 1200, actualCost: 14400, status: 'Paid', isPerDelegate: false },
+  { id: 'ACA-02', dept: 'Academics', item: 'Executive Board Travel & Flight Allowance', qty: 18, unitCost: 8000, actualCost: 144000, status: 'Pending', isPerDelegate: false },
+  { id: 'ACA-03', dept: 'Academics', item: 'Executive Board Professional Honorarium', qty: 18, unitCost: 12000, actualCost: 216000, status: 'Pending', isPerDelegate: false },
+  { id: 'ACA-04', dept: 'Academics', item: 'Trophies, Best Delegate Awards & Shields', qty: 30, unitCost: 1800, actualCost: 54000, status: 'Ordered', isPerDelegate: false },
+  { id: 'LOG-01', dept: 'Logistics', item: 'Main Convention Center Venue Hire (3 Days)', qty: 3, unitCost: 150000, actualCost: 450000, status: 'Paid', isPerDelegate: false },
+  { id: 'LOG-02', dept: 'Logistics', item: 'High-End Audio-Visual, Stage & Light Setup', qty: 3, unitCost: 65000, actualCost: 195000, status: 'Paid', isPerDelegate: false },
+  { id: 'LOG-03', dept: 'Logistics', item: 'Catering - Delegate Buffet Lunch (Day 1)', qty: 300, unitCost: 650, actualCost: 195000, status: 'Paid', isPerDelegate: true },
+  { id: 'LOG-04', dept: 'Logistics', item: 'Catering - Delegate Buffet Lunch (Day 2)', qty: 300, unitCost: 650, actualCost: 195000, status: 'Paid', isPerDelegate: true },
+  { id: 'LOG-05', dept: 'Logistics', item: 'Catering - Delegate Buffet Lunch (Day 3)', qty: 300, unitCost: 650, actualCost: 195000, status: 'Paid', isPerDelegate: true },
+  { id: 'LOG-06', dept: 'Logistics', item: 'Premium High Tea & Snacks for EB Room', qty: 50, unitCost: 250, actualCost: 12500, status: 'Paid', isPerDelegate: false },
+  { id: 'PRM-01', dept: 'Marketing', item: 'KIMUN 2026 Website Domain & Web Hosting', qty: 1, unitCost: 8500, actualCost: 8500, status: 'Paid', isPerDelegate: false },
+  { id: 'PRM-02', dept: 'Marketing', item: 'Digital Ads & Social Media PR Campaigns', qty: 1, unitCost: 15000, actualCost: 18000, status: 'Paid', isPerDelegate: false },
+  { id: 'PRM-03', dept: 'Marketing', item: 'Prestige Flex Backdrops & Banners Printing', qty: 10, unitCost: 3500, actualCost: 35000, status: 'Paid', isPerDelegate: false },
+  { id: 'PRM-04', dept: 'Marketing', item: 'Professional Aftermovie & Photography Crew', qty: 1, unitCost: 45000, actualCost: 45000, status: 'Pending', isPerDelegate: false },
+  { id: 'ADM-01', dept: 'Administration', item: 'Office Print Station & Stationery Supplies', qty: 1, unitCost: 12000, actualCost: 10500, status: 'Paid', isPerDelegate: false },
+  { id: 'ADM-02', dept: 'Administration', item: 'Emergency Medical Booth Setup', qty: 1, unitCost: 8000, actualCost: 8000, status: 'Paid', isPerDelegate: false },
+  { id: 'ADM-03', dept: 'Administration', item: 'Administrative Contingency Fund', qty: 1, unitCost: 80000, actualCost: 40000, status: 'Partially Paid', isPerDelegate: false },
+]
+
+// Structural non-delegate inflows (sponsorships, grants, etc.)
+const INITIAL_REVENUES = [
+  { id: 'REV-01', category: 'Sponsorships', source: 'Title Corporate Sponsor (Lead Brand)', target: 500000, actual: 500000, status: 'Completed' },
+  { id: 'REV-02', category: 'Sponsorships', source: 'Associate Ed-Tech Platform Sponsor', target: 250000, actual: 200000, status: 'Partially Received' },
+  { id: 'REV-03', category: 'Sponsorships', source: 'Beverage & Snacks Co-Sponsor', target: 150000, actual: 150000, status: 'Completed' },
+  { id: 'REV-04', category: 'Grants', source: 'Institutional & University Funding Board', target: 300000, actual: 300000, status: 'Completed' },
+]
+
+const DEPARTMENTS = [
+  { name: 'All Departments', icon: Layers, color: 'bg-slate-400' },
+  { name: 'Secretariat', icon: ShieldCheck, color: 'bg-indigo-600' },
+  { name: 'Delegate Relations', icon: Users, color: 'bg-sky-500' },
+  { name: 'Academics', icon: BookOpen, color: 'bg-emerald-600' },
+  { name: 'Logistics', icon: Truck, color: 'bg-amber-500' },
+  { name: 'Marketing', icon: Megaphone, color: 'bg-rose-500' },
+  { name: 'Administration', icon: Building, color: 'bg-violet-600' },
+]
+
+const ADMIN_ALLOWED_EMAILS = [
+  'ayushbindhani001@gmail.com',
+  'admin@kimun.com',
+  'organizer@kimun.com'
+]
+
+const formatINR = (value: number) => {
+  return `₹${Math.round(value).toLocaleString('en-IN')}`
+}
+
+// Animated card wrapper
+const AnimatedCard = ({ children, className = "", delay = 0 }: { children: React.ReactNode, className?: string, delay?: number }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.4, delay }}
+    className={className}
+  >
+    {children}
+  </motion.div>
+)
+
+// KPI Metric Card Component
+const KPICard = ({ title, value, subtitle, icon: Icon, color, trend, trendValue }: any) => (
+  <motion.div
+    whileHover={{ y: -4, transition: { duration: 0.2 } }}
+    className="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
+  >
+    <div className="p-5">
+      <div className="flex justify-between items-start">
+        <div>
+          <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">{title}</span>
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-2xl font-black text-slate-900">{value}</span>
+            {trend && (
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${trend === 'up' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                {trendValue}
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-slate-400 font-medium mt-1">{subtitle}</p>
+        </div>
+        <div className={`${color} p-2.5 rounded-xl shadow-sm`}>
+          <Icon className="w-5 h-5 text-white" />
+        </div>
+      </div>
+    </div>
+  </motion.div>
+)
+
+export default function OasisWorkplace() {
+  // Authentication & Access Controls
+  const [user, setUser] = useState<FirebaseUser | null>(null)
+  const [role, setRole] = useState<'admin' | 'oc_member' | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [accessGranted, setAccessGranted] = useState(false)
+  const [loginError, setLoginError] = useState('')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Workspace Navigation
+  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'dept_boards'>('dashboard')
+  const [selectedDeptFilter, setSelectedDeptFilter] = useState('All Departments')
+
+  // Live Database Datasets
+  const [dbCommittees, setDbCommittees] = useState<any[]>([])
+  const [dbDelegates, setDbDelegates] = useState<any[]>([])
+  const [dbResources, setDbResources] = useState<any[]>([])
+  const [dbMarksheets, setDbMarksheets] = useState<any[]>([])
+  const [dbApplications, setDbApplications] = useState<any[]>([])
+  const [dbTasks, setDbTasks] = useState<any[]>([])
+  const [dbAssets, setDbAssets] = useState<any[]>([])
+  const [dbAnnouncements, setDbAnnouncements] = useState<any[]>([])
+  const [dbPayouts, setDbPayouts] = useState<any[]>([])
+  const [dbCoupons, setDbCoupons] = useState<any[]>([])
+  const [loadingData, setLoadingData] = useState(true)
+
+  // Financial Workstation Local State
+  const [workstationTab, setWorkstationTab] = useState('dashboard')
+  const [workstationCommittees, setWorkstationCommittees] = useState<any[]>(INITIAL_COMMITTEES)
+  const [workstationExpenses, setWorkstationExpenses] = useState<any[]>(INITIAL_EXPENSES)
+  const [workstationRevenues, setWorkstationRevenues] = useState<any[]>(INITIAL_REVENUES)
+
+  // What-if simulator factors
+  const [attendanceRealizationRate, setAttendanceRealizationRate] = useState(100)
+  const [sponsorRealizationRate, setSponsorRealizationRate] = useState(100)
+  const [contingencyRate, setContingencyRate] = useState(10)
+
+  // Modal States
+  const [showCommitteeModal, setShowCommitteeModal] = useState(false)
+  const [editingCommittee, setEditingCommittee] = useState<any | null>(null)
+  const [committeeForm, setCommitteeForm] = useState({ name: '', target: 40, fee: 1800, category: 'Specialized' })
+
+  const [showExpenseModal, setShowExpenseModal] = useState(false)
+  const [editingExpense, setEditingExpense] = useState<any | null>(null)
+  const [expenseForm, setExpenseForm] = useState({ dept: 'Secretariat', item: '', qty: 1, unitCost: 0, actualCost: 0, status: 'Pending', isPerDelegate: false })
+
+  const [showRevenueModal, setShowRevenueModal] = useState(false)
+  const [editingRevenue, setEditingRevenue] = useState<any | null>(null)
+  const [revenueForm, setRevenueForm] = useState({ category: 'Sponsorships', source: '', target: 0, actual: 0, status: 'In Progress' })
+
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'committees' | 'expenses' | 'revenue' | 'tasks' | 'assets' | 'announcements', id: string, name: string } | null>(null)
+
+  // Notifications
+  const [notification, setNotification] = useState<{ show: boolean, message: string, type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'success' })
+
+  // General Search / Filters
+  const [searchQuery, setSearchQuery] = useState('')
+  const [liveAllocationFilter, setLiveAllocationFilter] = useState<'all' | 'vacant' | 'allocated'>('all')
+
+  // Live CRUD Modals & forms states
+  const [showTaskForm, setShowTaskForm] = useState(false)
+  const [editingTask, setEditingTask] = useState<any | null>(null)
+  const [taskForm, setTaskForm] = useState({ title: '', description: '', department: 'Secretariat', priority: 'medium', dueDate: '', assignee: '' })
+
+  const [showAssetForm, setShowAssetForm] = useState(false)
+  const [editingAsset, setEditingAsset] = useState<any | null>(null)
+  const [assetForm, setAssetForm] = useState({ name: '', quantity: 1, cost: 0, status: 'pending', department: 'Secretariat' })
+
+  const [showAnnouncementForm, setShowAnnouncementForm] = useState(false)
+  const [editingAnnouncement, setEditingAnnouncement] = useState<any | null>(null)
+  const [announcementForm, setAnnouncementForm] = useState({ title: '', content: '', department: 'Secretariat', priority: 'medium', isPinned: false })
+  const [selectedDeptWorkspace, setSelectedDeptWorkspace] = useState<string | null>(null)
+  const [deptSubTab, setDeptSubTab] = useState<'tasks' | 'assets' | 'bulletins'>('tasks')
+  const [showPayoutModal, setShowPayoutModal] = useState(false)
+  const [showCouponModal, setShowCouponModal] = useState(false)
+
+  // Award payouts states
+  const [payoutDelegateId, setPayoutDelegateId] = useState('')
+  const [payoutAward, setPayoutAward] = useState('Best Delegate')
+  const [payoutAmount, setPayoutAmount] = useState(0)
+  const [payoutBank, setPayoutBank] = useState({ accountNumber: '', ifscCode: '', name: '', bankName: '', phone: '' })
+  const [payoutStatus, setPayoutStatus] = useState<'idle' | 'verifying' | 'processing' | 'success'>('idle')
+
+  // Coupon states
+  const [newCoupon, setNewCoupon] = useState({ code: '', title: '', description: '', discount: '', expiry: '', partner: '', terms: '' })
+
+  const triggerNotification = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setNotification({ show: true, message, type })
+    setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 4000)
+  }
+
+  // Auth Status Checks
+  const isAdminEmail = (emailAddress?: string | null) => {
+    if (!emailAddress) return false
+    return ADMIN_ALLOWED_EMAILS.includes(emailAddress.toLowerCase())
+  }
+
+  const checkAccessAndSetup = async (currentUser: FirebaseUser) => {
+    setAuthLoading(true)
+    if (isAdminEmail(currentUser.email)) {
+      setUser(currentUser)
+      setRole('admin')
+      setAccessGranted(true)
+      setLoginError('')
+      setAuthLoading(false)
+      return
+    }
+
+    try {
+      const appRef = ref(firebaseDb, `oc_applications/${currentUser.uid}`)
+      const snapshot = await get(appRef)
+      if (snapshot.exists()) {
+        const appVal = snapshot.val()
+        if (appVal.status === 'welcomed') {
+          setUser(currentUser)
+          setRole('oc_member')
+          setAccessGranted(true)
+          setLoginError('')
+          setAuthLoading(false)
+          return
+        }
+      }
+      setLoginError('Access Denied: You do not have permissions for the Oasis Workplace.')
+      setUser(null)
+      setRole(null)
+      setAccessGranted(false)
+      await signOut(firebaseAuth)
+    } catch (err: any) {
+      setLoginError('Authentication verification failed: ' + err.message)
+      setUser(null)
+      setRole(null)
+      setAccessGranted(false)
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(firebaseAuth, (currentUser) => {
+      if (!currentUser) {
+        setUser(null)
+        setRole(null)
+        setAccessGranted(false)
+        setAuthLoading(false)
+        return
+      }
+      checkAccessAndSetup(currentUser)
+    })
+    return () => unsubscribe()
+  }, [])
+
+  // Firebase Real-time listeners
+  useEffect(() => {
+    if (!accessGranted || !user) return
+
+    setLoadingData(true)
+
+    const wsRef = ref(firebaseDb, 'workstation_config')
+    get(wsRef).then((snap) => {
+      if (snap.exists()) {
+        const val = snap.val()
+        if (val.committees) setWorkstationCommittees(val.committees)
+        if (val.expenses) setWorkstationExpenses(val.expenses)
+        if (val.revenues) setWorkstationRevenues(val.revenues)
+      }
+    })
+
+    const commsRef = ref(firebaseDb, 'committees')
+    const unsubComms = onValue(commsRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        const parsed = Object.keys(data).map(key => ({
+          id: key,
+          ...data[key],
+          portfolios: data[key].portfolios ? Object.keys(data[key].portfolios).map(pkey => ({ id: pkey, ...data[key].portfolios[pkey] })) : []
+        }))
+        setDbCommittees(parsed)
+      } else {
+        setDbCommittees([])
+      }
+    })
+
+    const regsRef = ref(firebaseDb, 'registrations')
+    const unsubRegs = onValue(regsRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        const flatList: any[] = []
+        Object.entries(data).forEach(([regId, reg]: [string, any]) => {
+          if (reg.delegateInfo) {
+            Object.entries(reg.delegateInfo).forEach(([delId, del]: [string, any]) => {
+              flatList.push({
+                id: `${regId}_${delId}`,
+                regId,
+                delId,
+                name: del.name || '',
+                email: del.email || '',
+                phone: del.phone || '',
+                institution: del.institution || '',
+                course: del.course || '',
+                year: del.year || '',
+                committeeId: reg.committeeId || '',
+                portfolioId: reg.portfolioId || '',
+                isCheckedIn: del.isCheckedIn || false,
+                checkInTime: del.checkInTime || '',
+                paymentId: reg.paymentId || '',
+                paymentStatus: reg.paymentStatus || 'pending',
+                paymentAmount: reg.paymentAmount || 0,
+              })
+            })
+          }
+        })
+        setDbDelegates(flatList)
+      } else {
+        setDbDelegates([])
+      }
+    })
+
+    const resourcesRef = ref(firebaseDb, 'resources')
+    const unsubResources = onValue(resourcesRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        setDbResources(Object.keys(data).map(k => ({ id: k, ...data[k] })))
+      } else {
+        setDbResources([])
+      }
+    })
+
+    const marksRef = ref(firebaseDb, 'marksheets')
+    const unsubMarks = onValue(marksRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        const parsedMarks: any[] = []
+        Object.keys(data).forEach(commId => {
+          if (data[commId].marks) {
+            Object.keys(data[commId].marks).forEach(mkey => {
+              parsedMarks.push({ id: mkey, committeeId: commId, ...data[commId].marks[mkey] })
+            })
+          }
+        })
+        setDbMarksheets(parsedMarks)
+      } else {
+        setDbMarksheets([])
+      }
+    })
+
+    const appsRef = ref(firebaseDb, 'oc_applications')
+    const unsubApps = onValue(appsRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        setDbApplications(Object.keys(data).map(k => ({ uid: k, ...data[k] })))
+      } else {
+        setDbApplications([])
+      }
+    })
+
+    const tasksRef = ref(firebaseDb, 'oc_tasks')
+    const unsubTasks = onValue(tasksRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        setDbTasks(Object.keys(data).map(k => ({ id: k, ...data[k] })))
+      } else {
+        setDbTasks([])
+      }
+    })
+
+    const assetsRef = ref(firebaseDb, 'oc_assets')
+    const unsubAssets = onValue(assetsRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        setDbAssets(Object.keys(data).map(k => ({ id: k, ...data[k] })))
+      } else {
+        setDbAssets([])
+      }
+    })
+
+    const annRef = ref(firebaseDb, 'oc_announcements')
+    const unsubAnn = onValue(annRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        setDbAnnouncements(Object.keys(data).map(k => ({ id: k, ...data[k] })))
+      } else {
+        setDbAnnouncements([])
+      }
+    })
+
+    const payoutsRef = ref(firebaseDb, 'payouts')
+    const unsubPayouts = onValue(payoutsRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        setDbPayouts(Object.keys(data).map(k => ({ id: k, ...data[k] })))
+      } else {
+        setDbPayouts([])
+      }
+    })
+
+    const couponsRef = ref(firebaseDb, 'coupons')
+    const unsubCoupons = onValue(couponsRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        setDbCoupons(Object.keys(data).map(k => ({ id: k, ...data[k] })))
+      } else {
+        setDbCoupons([])
+      }
+      setLoadingData(false)
+    })
+
+    return () => {
+      unsubComms()
+      unsubRegs()
+      unsubResources()
+      unsubMarks()
+      unsubApps()
+      unsubTasks()
+      unsubAssets()
+      unsubAnn()
+      unsubPayouts()
+      unsubCoupons()
+    }
+  }, [accessGranted, user])
+
+  // Google Sign-In trigger
+  const handleGoogleSignIn = async () => {
+    setAuthLoading(true)
+    setLoginError('')
+    try {
+      const result = await signInWithPopup(firebaseAuth, googleProvider)
+      await checkAccessAndSetup(result.user)
+    } catch (err: any) {
+      setLoginError(err.message || 'Google Sign-In failed. Please try again.')
+      setAuthLoading(false)
+    }
+  }
+
+  // Sign out trigger
+  const handleSignOut = async () => {
+    setAuthLoading(true)
+    try {
+      await signOut(firebaseAuth)
+      setUser(null)
+      setAccessGranted(false)
+      setRole(null)
+    } catch (err: any) {
+      triggerNotification('Sign out failed!', 'error')
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  // Workstation Live Sync to Cloud DB
+  const saveWorkstationBaselineToCloud = async (comms: any[], exps: any[], revs: any[]) => {
+    if (role !== 'admin' && role !== 'oc_member') {
+      triggerNotification('Only authorized staff can sync configurations to database.', 'error')
+      return
+    }
+    try {
+      const configRef = ref(firebaseDb, 'workstation_config')
+      await update(configRef, {
+        committees: comms,
+        expenses: exps,
+        revenues: revs
+      })
+      triggerNotification('Financial configuration workspace metrics synchronized to Firebase.')
+    } catch (err: any) {
+      triggerNotification('Failed to synchronize config: ' + err.message, 'error')
+    }
+  }
+
+  // Computations for Simulated Workspace Matrix Metrics
+  const totals = useMemo(() => {
+    const targetSeats = workstationCommittees.reduce((sum, c) => sum + c.target, 0)
+    const actualTurnout = Math.round(targetSeats * (attendanceRealizationRate / 100))
+
+    const targetRegRevenue = workstationCommittees.reduce((sum, c) => sum + (c.target * c.fee), 0)
+    const actualRegRevenue = Math.round(targetRegRevenue * (attendanceRealizationRate / 100))
+
+    let targetNonRegRevenue = 0
+    let actualNonRegRevenue = 0
+    workstationRevenues.forEach(r => {
+      if (r.category === 'Sponsorships') {
+        targetNonRegRevenue += r.target * (sponsorRealizationRate / 100)
+        actualNonRegRevenue += r.actual * (sponsorRealizationRate / 100)
+      } else {
+        targetNonRegRevenue += r.target
+        actualNonRegRevenue += r.actual
+      }
+    })
+
+    const totalTargetRevenue = targetRegRevenue + targetNonRegRevenue
+    const totalActualRevenue = actualRegRevenue + actualNonRegRevenue
+
+    let baseTargetExpenses = 0
+    let baseActualExpenses = 0
+    let totalVariableUnitCost = 0
+    let totalFixedCosts = 0
+
+    workstationExpenses.forEach(item => {
+      if (item.isPerDelegate) {
+        totalVariableUnitCost += item.unitCost
+        baseTargetExpenses += targetSeats * item.unitCost
+        baseActualExpenses += actualTurnout * (item.actualCost / item.qty)
+      } else {
+        totalFixedCosts += item.qty * item.unitCost
+        baseTargetExpenses += item.qty * item.unitCost
+        baseActualExpenses += item.actualCost
+      }
+    })
+
+    const contingencyAllocated = baseTargetExpenses * (contingencyRate / 100)
+    const finalTargetExpenses = baseTargetExpenses + contingencyAllocated
+    const finalActualExpenses = baseActualExpenses + (baseActualExpenses * (contingencyRate / 100))
+
+    const netProjectedProfit = totalTargetRevenue - finalTargetExpenses
+    const netActualProfit = totalActualRevenue - finalActualExpenses
+
+    const avgSeatFee = targetSeats > 0 ? (targetRegRevenue / targetSeats) : 0
+    const breakEvenSeats = (avgSeatFee - totalVariableUnitCost) > 0
+      ? Math.ceil(totalFixedCosts / (avgSeatFee - totalVariableUnitCost))
+      : 'N/A'
+
+    const deptBudgets: any = {}
+    const deptActuals: any = {}
+    DEPARTMENTS.slice(1).forEach(d => {
+      deptBudgets[d.name] = 0
+      deptActuals[d.name] = 0
+    })
+
+    workstationExpenses.forEach(item => {
+      if (item.isPerDelegate) {
+        deptBudgets[item.dept] = (deptBudgets[item.dept] || 0) + (targetSeats * item.unitCost)
+        deptActuals[item.dept] = (deptActuals[item.dept] || 0) + (actualTurnout * (item.actualCost / item.qty))
+      } else {
+        deptBudgets[item.dept] = (deptBudgets[item.dept] || 0) + (item.qty * item.unitCost)
+        deptActuals[item.dept] = (deptActuals[item.dept] || 0) + item.actualCost
+      }
+    })
+
+    return {
+      targetSeats,
+      actualTurnout,
+      targetRegRevenue,
+      actualRegRevenue,
+      totalTargetRevenue,
+      totalActualRevenue,
+      budgetedExpenses: Math.round(finalTargetExpenses),
+      actualExpenses: Math.round(finalActualExpenses),
+      projectedProfit: Math.round(netProjectedProfit),
+      actualProfit: Math.round(netActualProfit),
+      contingencyAllocated: Math.round(contingencyAllocated),
+      totalFixedCosts,
+      totalVariableUnitCost,
+      avgSeatFee: Math.round(avgSeatFee),
+      breakEvenSeats,
+      deptBudgets,
+      deptActuals,
+    }
+  }, [workstationCommittees, workstationExpenses, workstationRevenues, attendanceRealizationRate, sponsorRealizationRate, contingencyRate])
+
+  // Modal Handlers
+  const openAddCommitteeModal = () => {
+    setEditingCommittee(null)
+    setCommitteeForm({ name: '', target: 40, fee: 1800, category: 'Specialized' })
+    setShowCommitteeModal(true)
+  }
+
+  const openEditCommitteeModal = (c: any) => {
+    setEditingCommittee(c)
+    setCommitteeForm({ name: c.name, target: c.target, fee: c.fee, category: c.category })
+    setShowCommitteeModal(true)
+  }
+
+  const handleSaveCommittee = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!committeeForm.name.trim()) return
+    let list: any[]
+    if (editingCommittee) {
+      list = workstationCommittees.map(c => c.id === editingCommittee.id ? { ...c, ...committeeForm } : c)
+      triggerNotification('Committee record updated successfully.')
+    } else {
+      const newId = `COM-${Date.now().toString().slice(-5)}`
+      list = [...workstationCommittees, { ...committeeForm, id: newId }]
+      triggerNotification('New committee track appended to registry.')
+    }
+    setWorkstationCommittees(list)
+    setShowCommitteeModal(false)
+    setEditingCommittee(null)
+    if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(list, workstationExpenses, workstationRevenues)
+  }
+
+  const openAddExpenseModal = () => {
+    setEditingExpense(null)
+    setExpenseForm({ dept: 'Secretariat', item: '', qty: 1, unitCost: 0, actualCost: 0, status: 'Pending', isPerDelegate: false })
+    setShowExpenseModal(true)
+  }
+
+  const openEditExpenseModal = (exp: any) => {
+    setEditingExpense(exp)
+    setExpenseForm({ dept: exp.dept, item: exp.item, qty: exp.qty, unitCost: exp.unitCost, actualCost: exp.actualCost, status: exp.status, isPerDelegate: exp.isPerDelegate })
+    setShowExpenseModal(true)
+  }
+
+  const handleSaveExpense = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!expenseForm.item.trim()) return
+    let list: any[]
+    if (editingExpense) {
+      list = workstationExpenses.map(exp => exp.id === editingExpense.id ? { ...exp, ...expenseForm } : exp)
+      triggerNotification('Ledger line item updated.')
+    } else {
+      const newId = `EXP-${Date.now().toString().slice(-5)}`
+      list = [...workstationExpenses, { ...expenseForm, id: newId }]
+      triggerNotification('New expenditure line appended to ledger.')
+    }
+    setWorkstationExpenses(list)
+    setShowExpenseModal(false)
+    setEditingExpense(null)
+    if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(workstationCommittees, list, workstationRevenues)
+  }
+
+  const openAddRevenueModal = () => {
+    setEditingRevenue(null)
+    setRevenueForm({ category: 'Sponsorships', source: '', target: 0, actual: 0, status: 'In Progress' })
+    setShowRevenueModal(true)
+  }
+
+  const openEditRevenueModal = (rev: any) => {
+    setEditingRevenue(rev)
+    setRevenueForm({ category: rev.category, source: rev.source, target: rev.target, actual: rev.actual, status: rev.status })
+    setShowRevenueModal(true)
+  }
+
+  const handleSaveRevenue = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!revenueForm.source.trim()) return
+    let list: any[]
+    if (editingRevenue) {
+      list = workstationRevenues.map(r => r.id === editingRevenue.id ? { ...r, ...revenueForm } : r)
+      triggerNotification('Partnership record updated.')
+    } else {
+      const newId = `REV-${Date.now().toString().slice(-5)}`
+      list = [...workstationRevenues, { ...revenueForm, id: newId }]
+      triggerNotification('New partnership inflow contract registered.')
+    }
+    setWorkstationRevenues(list)
+    setShowRevenueModal(false)
+    setEditingRevenue(null)
+    if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(workstationCommittees, workstationExpenses, list)
+  }
+
+  const handleConfirmDelete = () => {
+    if (!deleteConfirm) return
+    const { type, id } = deleteConfirm
+    if (type === 'committees') {
+      const nextCommittees = workstationCommittees.filter(c => c.id !== id)
+      setWorkstationCommittees(nextCommittees)
+      triggerNotification('Record permanently removed from workstation.', 'error')
+      if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(nextCommittees, workstationExpenses, workstationRevenues)
+    } else if (type === 'expenses') {
+      const nextExpenses = workstationExpenses.filter(e => e.id !== id)
+      setWorkstationExpenses(nextExpenses)
+      triggerNotification('Record permanently removed from workstation.', 'error')
+      if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(workstationCommittees, nextExpenses, workstationRevenues)
+    } else if (type === 'revenue') {
+      const nextRevenues = workstationRevenues.filter(r => r.id !== id)
+      setWorkstationRevenues(nextRevenues)
+      triggerNotification('Record permanently removed from workstation.', 'error')
+      if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(workstationCommittees, workstationExpenses, nextRevenues)
+    } else if (type === 'tasks') {
+      remove(ref(firebaseDb, `oc_tasks/${id}`))
+        .then(() => triggerNotification('Task removed from Board.', 'error'))
+        .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
+    } else if (type === 'assets') {
+      remove(ref(firebaseDb, `oc_assets/${id}`))
+        .then(() => triggerNotification('Asset removed.', 'error'))
+        .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
+    } else if (type === 'announcements') {
+      remove(ref(firebaseDb, `oc_announcements/${id}`))
+        .then(() => triggerNotification('Broadcast removed.', 'error'))
+        .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
+    }
+    setDeleteConfirm(null)
+  }
+  const resetWorkstationToDefault = () => {
+    if (confirm("Reset current metrics and config variables to KIMUN default baseline values?")) {
+      setWorkstationCommittees(INITIAL_COMMITTEES)
+      setWorkstationExpenses(INITIAL_EXPENSES)
+      setWorkstationRevenues(INITIAL_REVENUES)
+      setAttendanceRealizationRate(100)
+      setSponsorRealizationRate(100)
+      setContingencyRate(10)
+      triggerNotification('Reverted workstation configuration back to baseline defaults.')
+      if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(INITIAL_COMMITTEES, INITIAL_EXPENSES, INITIAL_REVENUES)
+    }
+  }
+
+  const handleExportCSV = () => {
+    let csv = "KIMUN 2026 - MODEL UNITED NATIONS FINANCIAL SYSTEM EXPORT\r\n"
+    csv += `Compiled Date: ${new Date().toLocaleDateString()} - Multi-Tenant Oasis Workplace\r\n\r\n`
+    csv += "--- CONSOLIDATED OVERVIEW METRICS ---\r\n"
+    csv += `Seats Target,Turnout Rate (%),Calculated Turnout,Total Target Revenue (INR),Operating Expenditures (INR),Projected Operational Profit (INR)\r\n`
+    csv += `${totals.targetSeats},${attendanceRealizationRate}%,${totals.actualTurnout},${totals.totalTargetRevenue},${totals.budgetedExpenses},${totals.projectedProfit}\r\n\r\n`
+
+    csv += "--- REGISTERED TRACKS ---\r\n"
+    csv += "ID,Committee Name,Classification,Target Seat Limit,Fee Per Delegate (INR),Calculated Capacity Revenue (INR)\r\n"
+    workstationCommittees.forEach(c => {
+      csv += `${c.id},"${c.name}","${c.category}",${c.target},${c.fee},${c.target * c.fee}\r\n`
+    })
+
+    csv += "\r\n--- OUTLAYS & OPERATING EXPENSES ---\r\n"
+    csv += "ID,Department,Description,Standard Quantity,Unit Price,Target Allocated Budget (INR),Actual Outflow Spend (INR),Cost Calculation\r\n"
+    workstationExpenses.forEach(e => {
+      const targetSpend = e.isPerDelegate ? (totals.targetSeats * e.unitCost) : (e.qty * e.unitCost)
+      csv += `${e.id},"${e.dept}","${e.item}",${e.isPerDelegate ? totals.targetSeats : e.qty},${e.unitCost},${targetSpend},${e.actualCost},"${e.isPerDelegate ? 'Scaled Per Delegate' : 'Fixed Cost'}"\r\n`
+    })
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement("a")
+    link.href = URL.createObjectURL(blob)
+    link.setAttribute("download", `Oasis_KIMUN_Matrix_Export.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    triggerNotification('Spreadsheet CSV download initiated!')
+  }
+
+  // Real-time CRUD Triggers
+  const claimLiveTask = async (taskId: string) => {
+    if (!user) return
+    try {
+      await update(ref(firebaseDb, `oc_tasks/${taskId}`), { assignee: user.displayName })
+      triggerNotification('Claimed task successfully.')
+    } catch (err: any) {
+      triggerNotification('Claim failed: ' + err.message, 'error')
+    }
+  }
+
+  const completeLiveTask = async (taskId: string) => {
+    try {
+      await update(ref(firebaseDb, `oc_tasks/${taskId}`), {
+        status: 'completed',
+        completedAt: new Date().toISOString()
+      })
+      triggerNotification('Task marked as completed.')
+    } catch (err: any) {
+      triggerNotification('Failed to complete task: ' + err.message, 'error')
+    }
+  }
+
+  const openAddTaskModal = (defaultDept?: string) => {
+    setEditingTask(null)
+    setTaskForm({
+      title: '',
+      description: '',
+      department: defaultDept || 'Secretariat',
+      priority: 'medium',
+      dueDate: '',
+      assignee: ''
+    })
+    setShowTaskForm(true)
+  }
+
+  const openEditTaskModal = (task: any) => {
+    setEditingTask(task)
+    setTaskForm({
+      title: task.title || '',
+      description: task.description || '',
+      department: task.department || 'Secretariat',
+      priority: task.priority || 'medium',
+      dueDate: task.dueDate || '',
+      assignee: task.assignee || ''
+    })
+    setShowTaskForm(true)
+  }
+
+  const handleSaveTask = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!taskForm.title.trim()) return
+    try {
+      if (editingTask) {
+        await update(ref(firebaseDb, `oc_tasks/${editingTask.id}`), {
+          ...taskForm,
+          updatedAt: new Date().toISOString()
+        })
+        triggerNotification('Task updated successfully.')
+      } else {
+        const tasksRef = ref(firebaseDb, 'oc_tasks')
+        await push(tasksRef, {
+          ...taskForm,
+          status: 'todo',
+          createdAt: new Date().toISOString(),
+          createdBy: user?.email
+        })
+        triggerNotification('Task added to Kanban Board.')
+      }
+      setShowTaskForm(false)
+      setEditingTask(null)
+    } catch (err: any) {
+      triggerNotification('Failed to save task: ' + err.message, 'error')
+    }
+  }
+
+  const handleDeleteLiveTask = (taskId: string, name: string) => {
+    setDeleteConfirm({ type: 'tasks', id: taskId, name })
+  }
+  const toggleDelegateCheckinStatus = async (flatDel: any) => {
+    const isCheckingIn = !flatDel.isCheckedIn
+    const path = `registrations/${flatDel.regId}/delegateInfo/${flatDel.delId}`
+    try {
+      await update(ref(firebaseDb, path), {
+        isCheckedIn: isCheckingIn,
+        checkInTime: isCheckingIn ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+      })
+      triggerNotification(`${flatDel.name} check-in status updated.`)
+    } catch (err: any) {
+      triggerNotification('Failed to toggle checkin: ' + err.message, 'error')
+    }
+  }
+
+  const [barcodeInput, setBarcodeInput] = useState('')
+  const handleCheckinViaBarcodeInput = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!barcodeInput.trim()) return
+    const match = dbDelegates.find(d =>
+      d.id.includes(barcodeInput) ||
+      d.phone === barcodeInput ||
+      d.email === barcodeInput
+    )
+
+    if (!match) {
+      triggerNotification('No delegate entry matches search details.', 'error')
+      return
+    }
+
+    if (match.isCheckedIn) {
+      triggerNotification(`${match.name} is already checked in.`, 'info')
+      setBarcodeInput('')
+      return
+    }
+
+    const path = `registrations/${match.regId}/delegateInfo/${match.delId}`
+    try {
+      await update(ref(firebaseDb, path), {
+        isCheckedIn: true,
+        checkInTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })
+      triggerNotification(`Verified & checked in ${match.name}!`)
+      setBarcodeInput('')
+    } catch (err: any) {
+      triggerNotification('Check-in trigger failed: ' + err.message, 'error')
+    }
+  }
+
+  const toggleResourceApprovalStatus = async (resId: string, current: boolean) => {
+    if (role !== 'admin') return
+    try {
+      await update(ref(firebaseDb, `resources/${resId}`), { isApproved: !current })
+      triggerNotification('Resource approval log updated.')
+    } catch (err: any) {
+      triggerNotification('Update failed: ' + err.message, 'error')
+    }
+  }
+
+  const handleBulkApproveMarksheets = async (committeeId: string) => {
+    if (role !== 'admin') return
+    try {
+      const list = dbMarksheets.filter(m => m.committeeId === committeeId)
+      if (list.length === 0) {
+        triggerNotification('No marksheet records available to approve.', 'info')
+        return
+      }
+      const updatesObj: any = {}
+      list.forEach(item => {
+        updatesObj[`marksheets/${committeeId}/marks/${item.id}/isApproved`] = true
+      })
+      await update(ref(firebaseDb), updatesObj)
+      triggerNotification(`Approved all marksheets for this committee.`)
+    } catch (err: any) {
+      triggerNotification('Bulk approval failed: ' + err.message, 'error')
+    }
+  }
+
+  const handleUpdateApplicationStatus = async (uid: string, nextStatus: string, email: string, name: string) => {
+    if (role !== 'admin') return
+    try {
+      await update(ref(firebaseDb, `oc_applications/${uid}`), { status: nextStatus })
+      triggerNotification(`Applicant status updated to ${nextStatus}.`)
+    } catch (err: any) {
+      triggerNotification('Failed to update: ' + err.message, 'error')
+    }
+  }
+
+  const openAddAssetModal = (defaultDept?: string) => {
+    setEditingAsset(null)
+    setAssetForm({
+      name: '',
+      quantity: 1,
+      cost: 0,
+      status: 'pending',
+      department: defaultDept || 'Secretariat'
+    })
+    setShowAssetForm(true)
+  }
+
+  const openEditAssetModal = (asset: any) => {
+    setEditingAsset(asset)
+    setAssetForm({
+      name: asset.name || '',
+      quantity: asset.quantity || 1,
+      cost: asset.cost || 0,
+      status: asset.status || 'pending',
+      department: asset.department || 'Secretariat'
+    })
+    setShowAssetForm(true)
+  }
+
+  const handleSaveAsset = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!assetForm.name.trim()) return
+    try {
+      if (editingAsset) {
+        await update(ref(firebaseDb, `oc_assets/${editingAsset.id}`), {
+          ...assetForm,
+          quantity: Number(assetForm.quantity),
+          cost: Number(assetForm.cost),
+          updatedAt: new Date().toISOString()
+        })
+        triggerNotification('Asset record updated.')
+      } else {
+        const assetsRef = ref(firebaseDb, 'oc_assets')
+        await push(assetsRef, {
+          ...assetForm,
+          quantity: Number(assetForm.quantity),
+          cost: Number(assetForm.cost),
+          updatedAt: new Date().toISOString()
+        })
+        triggerNotification('Infrastructure asset added.')
+      }
+      setShowAssetForm(false)
+      setEditingAsset(null)
+    } catch (err: any) {
+      triggerNotification('Failed to save asset: ' + err.message, 'error')
+    }
+  }
+
+  const handleDeleteAsset = (assetId: string, name: string) => {
+    setDeleteConfirm({ type: 'assets', id: assetId, name })
+  }
+
+  const openAddAnnouncementModal = (defaultDept?: string) => {
+    setEditingAnnouncement(null)
+    setAnnouncementForm({
+      title: '',
+      content: '',
+      department: defaultDept || 'Secretariat',
+      priority: 'medium',
+      isPinned: false
+    })
+    setShowAnnouncementForm(true)
+  }
+
+  const openEditAnnouncementModal = (ann: any) => {
+    setEditingAnnouncement(ann)
+    setAnnouncementForm({
+      title: ann.title || '',
+      content: ann.content || '',
+      department: ann.department || 'Secretariat',
+      priority: ann.priority || 'medium',
+      isPinned: ann.isPinned || false
+    })
+    setShowAnnouncementForm(true)
+  }
+
+  const handleSaveAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!announcementForm.title.trim()) return
+    try {
+      if (editingAnnouncement) {
+        await update(ref(firebaseDb, `oc_announcements/${editingAnnouncement.id}`), {
+          ...announcementForm,
+          updatedAt: new Date().toISOString()
+        })
+        triggerNotification('Announcement updated.')
+      } else {
+        const annRef = ref(firebaseDb, 'oc_announcements')
+        await push(annRef, {
+          ...announcementForm,
+          createdAt: new Date().toISOString(),
+          createdBy: user?.email
+        })
+        triggerNotification('Announcement bulletin broadcasted.')
+      }
+      setShowAnnouncementForm(false)
+      setEditingAnnouncement(null)
+    } catch (err: any) {
+      triggerNotification('Failed to save announcement: ' + err.message, 'error')
+    }
+  }
+
+  const handleDeleteAnnouncement = (annId: string, name: string) => {
+    setDeleteConfirm({ type: 'announcements', id: annId, name })
+  }
+
+  const handleInitiatePayoutSim = async () => {
+    if (!payoutDelegateId || payoutAmount <= 0) return
+    setPayoutStatus('verifying')
+
+    setTimeout(() => {
+      setPayoutStatus('processing')
+
+      setTimeout(async () => {
+        try {
+          const payoutRef = ref(firebaseDb, 'payouts')
+          await push(payoutRef, {
+            delegateId: payoutDelegateId,
+            award: payoutAward,
+            amount: payoutAmount,
+            status: 'SUCCESS',
+            timestamp: Date.now(),
+            accountNumber: payoutBank.accountNumber,
+            ifscCode: payoutBank.ifscCode,
+            name: payoutBank.name,
+            bankName: payoutBank.bankName,
+            phone: payoutBank.phone
+          })
+          triggerNotification(`Transferred ${formatINR(payoutAmount)} payout to recipient bank account.`)
+          setPayoutStatus('idle')
+          setShowPayoutModal(false)
+          setPayoutDelegateId('')
+          setPayoutAmount(0)
+          setPayoutBank({ accountNumber: '', ifscCode: '', name: '', bankName: '', phone: '' })
+        } catch (err: any) {
+          triggerNotification('Payout simulation database update failed: ' + err.message, 'error')
+          setPayoutStatus('idle')
+        }
+      }, 1500)
+
+    }, 1200)
+  }
+
+  const handleCreateCoupon = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newCoupon.code.trim()) return
+    try {
+      const cRef = ref(firebaseDb, 'coupons')
+      await push(cRef, {
+        ...newCoupon,
+        isUsed: false,
+        usedBy: null,
+        assignedAt: null
+      })
+      setNewCoupon({ code: '', title: '', description: '', discount: '', expiry: '', partner: '', terms: '' })
+      setShowCouponModal(false)
+      triggerNotification('Created new partner promotional coupon.')
+    } catch (err: any) {
+      triggerNotification('Coupon save failed: ' + err.message, 'error')
+    }
+  }
+
+  const handleBlacklistDelegate = async (del: any) => {
+    const reason = prompt(`Provide administrative reason to blacklist delegate: ${del.name}`)
+    if (!reason) return
+    try {
+      const blRef = ref(firebaseDb, `blacklisted/${del.id}`)
+      await update(blRef, {
+        name: del.name,
+        email: del.email,
+        reason,
+        timestamp: Date.now()
+      })
+      triggerNotification(`${del.name} added to security blacklist ledger.`, 'error')
+    } catch (err: any) {
+      triggerNotification('Blacklist failed: ' + err.message, 'error')
+    }
+  }
+
+  // Filter lists
+  const filteredLiveDelegates = useMemo(() => {
+    return dbDelegates.filter(d => {
+      const matchesSearch = d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        d.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        d.institution.toLowerCase().includes(searchQuery.toLowerCase())
+
+      const matchesFilter = liveAllocationFilter === 'all' ||
+        (liveAllocationFilter === 'vacant' && !d.isCheckedIn) ||
+        (liveAllocationFilter === 'allocated' && d.isCheckedIn)
+
+      return matchesSearch && matchesFilter
+    })
+  }, [dbDelegates, searchQuery, liveAllocationFilter])
+
+  const filteredTasks = useMemo(() => {
+    return dbTasks.filter(t => {
+      const matchesDept = selectedDeptFilter === 'All Departments' || t.department === selectedDeptFilter
+      const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.description.toLowerCase().includes(searchQuery.toLowerCase())
+      return matchesDept && matchesSearch
+    })
+  }, [dbTasks, selectedDeptFilter, searchQuery])
+
+  const filteredAssets = useMemo(() => {
+    return dbAssets.filter(a => {
+      const matchesDept = selectedDeptFilter === 'All Departments' || a.department === selectedDeptFilter
+      const matchesSearch = a.name.toLowerCase().includes(searchQuery.toLowerCase())
+      return matchesDept && matchesSearch
+    })
+  }, [dbAssets, selectedDeptFilter, searchQuery])
+
+  // --- Rendering UI Layout ---
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col items-center justify-center">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        >
+          <Loader2 className="w-12 h-12 text-indigo-600" />
+        </motion.div>
+        <motion.span
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          className="text-xs uppercase font-extrabold tracking-widest text-slate-400 mt-4"
+        >
+          Loading Oasis Framework...
+        </motion.span>
+      </div>
+    )
+  }
+
+  if (!accessGranted || !user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-slate-50 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-md w-full bg-white/80 backdrop-blur-sm border border-slate-200/80 rounded-2xl p-8 shadow-xl text-center space-y-6"
+        >
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", delay: 0.1 }}
+            className="mx-auto w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg"
+          >
+            <ShieldCheck className="w-8 h-8 text-white" />
+          </motion.div>
+
+          <div className="space-y-2">
+            <span className="bg-indigo-50 text-indigo-700 text-[9px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider border border-indigo-100/60 inline-block">
+              OASIS PORTAL
+            </span>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Executive Control Centre</h1>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+              Sign in with your authorized credentials to enter the autonomous operations cockpit.
+            </p>
+          </div>
+
+          {loginError && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3.5 bg-rose-50 border border-rose-100 rounded-xl text-rose-800 text-[11px] font-semibold text-left flex items-start gap-2"
+            >
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <span>{loginError}</span>
+            </motion.div>
+          )}
+
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleGoogleSignIn}
+            className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-200"
+          >
+            <Mail className="w-4 h-4 text-indigo-200" />
+            Enter Oasis via Google
+          </motion.button>
+
+          <footer className="text-[10px] text-slate-400 font-medium pt-2 border-t border-slate-100">
+            © 2026 Kalinga International MUN Secretariat. All rights reserved.
+          </footer>
+        </motion.div>
+      </div>
+    )
+  }
+  const menuItems = [
+    { id: 'dashboard', label: 'Overview Hub', icon: LayoutDashboard, color: 'text-indigo-600' },
+    { id: 'finance_station', label: 'Financial Station', icon: FileSpreadsheet, color: 'text-emerald-600' },
+    { id: 'live_allocations', label: 'Live Inventory', icon: Globe, color: 'text-sky-600' },
+    { id: 'academic_vault', label: 'Academic Vault', icon: BookOpen, color: 'text-amber-600' },
+    ...(role === 'admin' ? [{ id: 'recruitment', label: 'Onboarding Hub', icon: Users, color: 'text-violet-600' }] : []),
+    { id: 'dept_boards', label: 'Department Boards', icon: Layers, color: 'text-purple-600' },
+    { id: 'task_board', label: 'Task Board', icon: ClipboardList, color: 'text-rose-600' },
+    { id: 'assets_ledger', label: 'Assets Ledger', icon: Package, color: 'text-teal-600' },
+    { id: 'bulletin_board', label: 'Bulletin Board', icon: Megaphone, color: 'text-orange-600' },
+    ...(role === 'admin' ? [
+      { id: 'payouts', label: 'Prizes & Payouts', icon: Award, color: 'text-purple-600' },
+      { id: 'coupons', label: 'Coupon Engine', icon: Ticket, color: 'text-pink-600' }
+    ] : [])
+  ]
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-800 flex flex-col font-sans antialiased">
+
+      {/* Notifications */}
+      <AnimatePresence>
+        {notification.show && (
+          <motion.div
+            initial={{ opacity: 0, x: 50, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 50, scale: 0.9 }}
+            className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4.5 py-3.5 rounded-xl shadow-lg border backdrop-blur-sm ${notification.type === 'error' ? 'bg-rose-50/90 text-rose-800 border-rose-100' :
+                notification.type === 'info' ? 'bg-sky-50/90 text-sky-800 border-sky-100' :
+                  'bg-emerald-50/90 text-emerald-800 border-emerald-100'
+              }`}
+          >
+            {notification.type === 'error' ? <AlertCircle className="w-4 h-4" /> :
+              notification.type === 'info' ? <Info className="w-4 h-4" /> :
+                <CheckCircle2 className="w-4 h-4" />}
+            <span className="text-xs font-semibold tracking-wide">{notification.message}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-40">
+        <div className="mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="lg:hidden p-2 rounded-xl hover:bg-slate-100 transition-colors"
+            >
+              <Menu className="w-5 h-5 text-slate-600" />
+            </button>
+            <motion.div
+              initial={{ rotate: -5 }}
+              animate={{ rotate: 0 }}
+              className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-2 rounded-xl shadow-md"
+            >
+              <Building className="w-5 h-5 text-white" />
+            </motion.div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="bg-indigo-50 text-indigo-700 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide border border-indigo-100/60">
+                  OASIS.KIMUN
+                </span>
+                <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide ${role === 'admin' ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                  }`}>
+                  {role === 'admin' ? 'Admin Tenant' : 'OC Workspace'}
+                </span>
+              </div>
+              <h1 className="text-md font-extrabold text-slate-900 tracking-tight mt-0.5 flex items-center gap-1.5">
+                Operations & Business <span className="text-indigo-600 font-medium">Dashboard</span>
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 text-right">
+              <div>
+                <span className="text-xs font-bold text-slate-700 block">{user.displayName}</span>
+                <span className="text-[9px] text-slate-400 block font-semibold">{user.email}</span>
+              </div>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleSignOut}
+              className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-700 rounded-xl transition-all"
+            >
+              <LogOut className="w-4 h-4" />
+            </motion.button>
+          </div>
+
+        </div>
+      </header>
+
+      <div className="flex grow overflow-hidden relative">
+
+        {/* Sidebar */}
+        <AnimatePresence>
+          {(sidebarOpen || window.innerWidth >= 1024) && (
+            <motion.aside
+              initial={{ x: -280 }}
+              animate={{ x: 0 }}
+              exit={{ x: -280 }}
+              transition={{ type: "spring", damping: 25 }}
+              className="fixed lg:relative lg:translate-x-0 z-30 w-72 bg-white/95 backdrop-blur-sm border-r border-slate-200 shrink-0 h-[calc(100vh-64px)] overflow-y-auto shadow-xl lg:shadow-none"
+            >
+              <div className="p-5 space-y-1">
+
+                <div className="flex items-center justify-between lg:hidden mb-4 px-2">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Menu</span>
+                  <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-lg hover:bg-slate-100">
+                    <X className="w-4 h-4 text-slate-500" />
+                  </button>
+                </div>
+
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-3 mb-3">Central Controls</span>
+
+                <LayoutGroup>
+                  {menuItems.map((item) => {
+                    const Icon = item.icon
+                    const isSelected = activeMenuTab === item.id
+                    return (
+                      <motion.button
+                        key={item.id}
+                        layout
+                        onClick={() => { setActiveMenuTab(item.id as any); setSearchQuery(''); setSidebarOpen(false) }}
+                        className={`w-full px-3.5 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer relative overflow-hidden ${isSelected
+                            ? 'text-indigo-700'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/80'
+                          }`}
+                      >
+                        {isSelected && (
+                          <motion.div
+                            layoutId="activeBg"
+                            className="absolute inset-0 bg-indigo-50/80 rounded-xl border border-indigo-100/60"
+                            transition={{ type: "spring", duration: 0.4 }}
+                          />
+                        )}
+                        <div className={`relative z-10 flex items-center gap-3 w-full ${isSelected ? 'text-indigo-700' : item.color}`}>
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span>{item.label}</span>
+                          {isSelected && (
+                            <motion.div
+                              layoutId="activeIndicator"
+                              className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-600"
+                            />
+                          )}
+                        </div>
+                      </motion.button>
+                    )
+                  })}
+                </LayoutGroup>
+
+                <div className="pt-6 mt-4 border-t border-slate-100">
+                  <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                      <span className="text-[9px] font-black text-indigo-700 uppercase tracking-wider">KIMUN 2026</span>
+                    </div>
+                    <p className="text-[10px] text-indigo-800/70 leading-relaxed">
+                      Centralized command center for MUN operations, finance, and delegate management.
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
+
+        {/* Overlay for mobile */}
+        {sidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 bg-black/20 z-20 lg:hidden"
+          />
+        )}
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <AnimatePresence mode="wait">
+
+            {/* 1. OVERVIEW HUB */}
+            {activeMenuTab === 'dashboard' && (
+              <motion.div
+                key="dashboard"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                {/* Hero Banner */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-900 p-6 text-white shadow-xl"
+                >
+                  <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=2000&q=80')] bg-cover bg-center opacity-10"></div>
+                  <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                      <span className="bg-white/10 backdrop-blur-sm border border-white/20 text-indigo-200 text-[9px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider inline-block">
+                        Live Session
+                      </span>
+                      <h2 className="text-2xl sm:text-3xl font-black tracking-tight mt-2">
+                        Welcome back, <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">{user.displayName?.split(' ')[0]}</span>!
+                      </h2>
+                      <p className="text-slate-300 text-xs mt-1 max-w-md">
+                        KIMUN 2026 centralized business dashboard. Real-time metrics, financial insights, and operations at your fingertips.
+                      </p>
+                    </div>
+                    <motion.div
+                      whileHover={{ rotate: 5, scale: 1.05 }}
+                      className="hidden lg:block bg-white/5 backdrop-blur-sm border border-white/10 p-3 rounded-2xl"
+                    >
+                      <Crown className="w-8 h-8 text-indigo-400" />
+                    </motion.div>
+                  </div>
+                </motion.div>
+
+                {/* KPI Cards Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <KPICard
+                    title="Delegates Checked-In"
+                    value={`${dbDelegates.filter(d => d.isCheckedIn).length} / ${dbDelegates.length}`}
+                    subtitle="Total registrations"
+                    icon={UserCheck}
+                    color="bg-gradient-to-br from-emerald-500 to-emerald-600"
+                    trend="up"
+                    trendValue={`${dbDelegates.length > 0 ? Math.round((dbDelegates.filter(d => d.isCheckedIn).length / dbDelegates.length) * 100) : 0}%`}
+                  />
+                  <KPICard
+                    title="Paid Registrations"
+                    value={`${dbDelegates.length}`}
+                    subtitle="Confirmed delegates"
+                    icon={UsersRound}
+                    color="bg-gradient-to-br from-indigo-500 to-indigo-600"
+                  />
+                  <KPICard
+                    title="Task Completion"
+                    value={`${dbTasks.filter(t => t.status === 'completed').length} / ${dbTasks.length}`}
+                    subtitle="Tasks completed"
+                    icon={ClipboardList}
+                    color="bg-gradient-to-br from-amber-500 to-amber-600"
+                    trend={dbTasks.length > 0 && (dbTasks.filter(t => t.status === 'completed').length / dbTasks.length) > 0.7 ? "up" : "down"}
+                    trendValue={`${dbTasks.length > 0 ? Math.round((dbTasks.filter(t => t.status === 'completed').length / dbTasks.length) * 100) : 0}%`}
+                  />
+                  <KPICard
+                    title="Assets Valuation"
+                    value={formatINR(dbAssets.reduce((sum, a) => sum + (a.quantity * a.cost), 0))}
+                    subtitle="Total inventory value"
+                    icon={Package}
+                    color="bg-gradient-to-br from-rose-500 to-rose-600"
+                  />
+                </div>
+
+                {/* Secondary Widgets */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                  {/* Department Performance */}
+                  <AnimatedCard className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                    <div className="p-5 border-b border-slate-100">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-indigo-500" />
+                        Cross-Department Performance
+                      </h3>
+                    </div>
+                    <div className="p-5 space-y-4">
+                      {DEPARTMENTS.slice(1).map((d, idx) => {
+                        const deptTasks = dbTasks.filter(t => t.department === d.name)
+                        const completedDeptTasks = deptTasks.filter(t => t.status === 'completed').length
+                        const taskRate = deptTasks.length > 0 ? Math.round((completedDeptTasks / deptTasks.length) * 100) : 0
+                        const deptAssetCost = dbAssets.filter(a => a.department === d.name).reduce((sum, a) => sum + (a.quantity * a.cost), 0)
+
+                        return (
+                          <motion.div
+                            key={d.name}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: idx * 0.05 }}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4 last:border-0 last:pb-0"
+                          >
+                            <div className="min-w-36">
+                              <div className="flex items-center gap-2">
+                                <div className={`${d.color} w-2 h-2 rounded-full`} />
+                                <span className="font-bold text-slate-700 text-sm">{d.name}</span>
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-medium">Assets: {formatINR(deptAssetCost)}</span>
+                            </div>
+                            <div className="flex-1 max-w-md">
+                              <div className="flex items-center gap-3">
+                                <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
+                                  <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${taskRate}%` }}
+                                    transition={{ duration: 0.5, delay: idx * 0.05 }}
+                                    className={`${d.color} h-full rounded-full`}
+                                  />
+                                </div>
+                                <span className="text-[11px] font-bold text-slate-600 min-w-10">{taskRate}%</span>
+                              </div>
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-semibold">
+                              {completedDeptTasks}/{deptTasks.length} Tasks
+                            </div>
+                          </motion.div>
+                        )
+                      })}
+                    </div>
+                  </AnimatedCard>
+
+                  {/* Recent Announcements */}
+                  <AnimatedCard className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden" delay={0.1}>
+                    <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                        <Megaphone className="w-4 h-4 text-indigo-500" />
+                        Recent Bulletins
+                      </h3>
+                      <button
+                        onClick={() => setActiveMenuTab('bulletin_board')}
+                        className="text-[10px] font-bold text-indigo-600 hover:underline"
+                      >
+                        View All
+                      </button>
+                    </div>
+                    <div className="p-5 space-y-3 max-h-[320px] overflow-y-auto">
+                      {dbAnnouncements.length === 0 ? (
+                        <div className="text-center py-8">
+                          <Bell className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                          <p className="text-xs text-slate-400">No broadcasts yet</p>
+                        </div>
+                      ) : (
+                        dbAnnouncements.slice(0, 3).map((ann, idx) => (
+                          <motion.div
+                            key={ann.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.1 }}
+                            className="p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-indigo-100 transition-all"
+                          >
+                            <div className="flex items-start justify-between">
+                              <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                {ann.isPinned && <Star className="w-3 h-3 text-amber-500 fill-amber-500" />}
+                                {ann.title}
+                              </h4>
+                              <span className="text-[9px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold">
+                                {ann.department}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-1.5 line-clamp-2">{ann.content}</p>
+                            <div className="flex items-center justify-between mt-2">
+                              <span className="text-[9px] text-slate-400">{new Date(ann.createdAt).toLocaleDateString()}</span>
+                              <span className="text-[9px] font-medium text-indigo-500">by {ann.createdBy?.split('@')[0]}</span>
+                            </div>
+                          </motion.div>
+                        ))
+                      )}
+                    </div>
+                  </AnimatedCard>
+                </div>
+
+                {/* Quick Actions */}
+                <AnimatedCard delay={0.2}>
+                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-indigo-500" />
+                      Quick Actions
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { label: 'Check-in Delegate', icon: UserCheck, action: () => setActiveMenuTab('live_allocations'), color: 'bg-emerald-50 text-emerald-600' },
+                        { label: 'Add Task', icon: PlusCircle, action: () => setShowTaskForm(true), color: 'bg-indigo-50 text-indigo-600' },
+                        { label: 'Export Report', icon: Download, action: handleExportCSV, color: 'bg-amber-50 text-amber-600' },
+                        { label: 'Sync Database', icon: RefreshCw, action: () => saveWorkstationBaselineToCloud(workstationCommittees, workstationExpenses, workstationRevenues), color: 'bg-slate-100 text-slate-600' },
+                      ].map((action, idx) => (
+                        <motion.button
+                          key={action.label}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={action.action}
+                          className="flex flex-col items-center gap-2 p-3 rounded-xl border border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all"
+                        >
+                          <div className={`p-2 rounded-lg ${action.color}`}>
+                            <action.icon className="w-4 h-4" />
+                          </div>
+                          <span className="text-[10px] font-semibold text-slate-600">{action.label}</span>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+                </AnimatedCard>
+
+              </motion.div>
+            )}
+
+            {/* 2. FINANCIAL WORKSTATION */}
+            {activeMenuTab === 'finance_station' && (
+              <motion.div
+                key="finance"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">Financial Operations Workstation</h2>
+                    <p className="text-xs text-slate-500 mt-1">Simulate turnout models, review outlays, calculate break-evens, and commit baseline configurations.</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    <button
+                      onClick={resetWorkstationToDefault}
+                      className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs transition-all"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+                      Reset
+                    </button>
+                    {role === 'admin' && (
+                      <button
+                        onClick={() => saveWorkstationBaselineToCloud(workstationCommittees, workstationExpenses, workstationRevenues)}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md shadow-indigo-100 transition-all"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        Sync to Cloud
+                      </button>
+                    )}
+                    <button
+                      onClick={handleExportCSV}
+                      className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs transition-all"
+                    >
+                      <Download className="w-3.5 h-3.5 text-slate-300" />
+                      Export CSV
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="bg-white border border-slate-200/80 p-1.5 rounded-xl flex flex-wrap gap-1">
+                  {[
+                    { id: 'dashboard', label: 'Executive Dashboard', icon: BarChart3 },
+                    { id: 'committees', label: 'Committee Registry', icon: ShieldCheck },
+                    { id: 'expenses', label: 'Operations Ledgers', icon: Layers },
+                    { id: 'revenue', label: 'Partnerships & Inflows', icon: DollarSign },
+                    { id: 'scenario', label: 'What-If & Break-Even', icon: Sliders },
+                  ].map(tab => {
+                    const Icon = tab.icon
+                    const isSelected = workstationTab === tab.id
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setWorkstationTab(tab.id)}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${isSelected
+                            ? 'bg-slate-100 text-slate-900 border border-slate-200/60 shadow-xs'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                          }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        {tab.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Tab Content - Executive Dashboard */}
+                {workstationTab === 'dashboard' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <AnimatedCard className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">Total Revenue</span>
+                            <span className="text-xl font-extrabold text-slate-900 mt-2 block">{formatINR(totals.totalTargetRevenue)}</span>
+                          </div>
+                          <div className="bg-emerald-50 p-2.5 rounded-xl">
+                            <TrendingUp className="w-5 h-5 text-emerald-600" />
+                          </div>
+                        </div>
+                        <div className="mt-4 flex items-center justify-between text-[10px] text-slate-500">
+                          <span>Actual Inflow:</span>
+                          <span className="font-bold text-slate-800">{formatINR(totals.totalActualRevenue)}</span>
+                        </div>
+                        <div className="mt-2 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${(totals.totalActualRevenue / totals.totalTargetRevenue) * 100}%` }}></div>
+                        </div>
+                      </AnimatedCard>
+
+                      <AnimatedCard className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm" delay={0.05}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">Budgeted Expenditure</span>
+                            <span className="text-xl font-extrabold text-slate-900 mt-2 block">{formatINR(totals.budgetedExpenses)}</span>
+                          </div>
+                          <div className="bg-indigo-50 p-2.5 rounded-xl">
+                            <Layers className="w-5 h-5 text-indigo-600" />
+                          </div>
+                        </div>
+                        <div className="mt-4 flex items-center justify-between text-[10px] text-slate-500">
+                          <span>Actual Outflow:</span>
+                          <span className="font-bold text-slate-800">{formatINR(totals.actualExpenses)}</span>
+                        </div>
+                        <div className="mt-2 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${(totals.actualExpenses / totals.budgetedExpenses) * 100}%` }}></div>
+                        </div>
+                      </AnimatedCard>
+
+                      <AnimatedCard className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm" delay={0.1}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">Net Surplus</span>
+                            <span className="text-xl font-extrabold text-indigo-600 mt-2 block">{formatINR(totals.projectedProfit)}</span>
+                          </div>
+                          <div className="bg-amber-50 p-2.5 rounded-xl">
+                            <DollarSign className="w-5 h-5 text-amber-600" />
+                          </div>
+                        </div>
+                        <div className="mt-4 flex items-center justify-between text-[10px] text-slate-500">
+                          <span>Actual Net:</span>
+                          <span className={`font-bold ${totals.actualProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {formatINR(totals.actualProfit)}
+                          </span>
+                        </div>
+                      </AnimatedCard>
+
+                      <AnimatedCard className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm" delay={0.15}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">Target Seats</span>
+                            <span className="text-xl font-extrabold text-slate-900 mt-2 block">{totals.targetSeats} Delegates</span>
+                          </div>
+                          <div className="bg-rose-50 p-2.5 rounded-xl">
+                            <Users className="w-5 h-5 text-rose-600" />
+                          </div>
+                        </div>
+                        <div className="mt-4 flex items-center justify-between text-[10px] text-slate-500">
+                          <span>Expected Turnout:</span>
+                          <span className="font-bold text-slate-800">{totals.actualTurnout} ({attendanceRealizationRate}%)</span>
+                        </div>
+                        <div className="mt-2 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div className="bg-rose-500 h-full rounded-full" style={{ width: `${attendanceRealizationRate}%` }}></div>
+                        </div>
+                      </AnimatedCard>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Department Budget Comparison */}
+                      <AnimatedCard className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm" delay={0.2}>
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-6 flex items-center gap-2">
+                          <BarChart3 className="w-4 h-4 text-indigo-500" />
+                          Department Budget vs Actual (INR)
+                        </h3>
+                        <div className="space-y-4">
+                          {DEPARTMENTS.slice(1).map(d => {
+                            const budgetVal = totals.deptBudgets[d.name] || 0
+                            const actualVal = totals.deptActuals[d.name] || 0
+                            const maxVal = Math.max(...Object.values(totals.deptBudgets as any), 1)
+                            const budgetPct = (budgetVal / maxVal) * 100
+                            const actualPct = (actualVal / maxVal) * 100
+
+                            return (
+                              <div key={d.name} className="space-y-1.5">
+                                <div className="flex justify-between text-[10px] text-slate-500 font-semibold">
+                                  <span>{d.name}</span>
+                                  <span>
+                                    <strong className="text-indigo-600">{formatINR(budgetVal)}</strong> / <span className="text-rose-500">{formatINR(actualVal)}</span>
+                                  </span>
+                                </div>
+                                <div className="relative h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                                  <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${budgetPct}%` }}
+                                    transition={{ duration: 0.5 }}
+                                    className="absolute left-0 top-0 h-full bg-indigo-500 rounded-full"
+                                  />
+                                  <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${actualPct}%` }}
+                                    transition={{ duration: 0.5, delay: 0.1 }}
+                                    className="absolute left-0 top-0 h-full bg-rose-500 rounded-full opacity-70"
+                                  />
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </AnimatedCard>
+
+                      {/* Revenue Distribution */}
+                      <AnimatedCard className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm" delay={0.25}>
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-6 flex items-center gap-2">
+                          <LucidePieChart className="w-4 h-4 text-indigo-500" />
+                          Committee Revenue Share
+                        </h3>
+                        <div className="flex flex-wrap gap-4 mb-6">
+                          {workstationCommittees.map((c, index) => {
+                            const rev = c.target * c.fee
+                            const pct = totals.targetRegRevenue > 0 ? (rev / totals.targetRegRevenue) * 100 : 0
+                            const colors = ['#4F46E5', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']
+                            return (
+                              <div key={c.id} className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors[index % colors.length] }} />
+                                <span className="text-[10px] font-medium text-slate-600">{c.name.slice(0, 20)}</span>
+                                <span className="text-[10px] font-bold text-slate-800">{Math.round(pct)}%</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <div className="w-full h-8 bg-slate-100 rounded-lg overflow-hidden flex">
+                          {workstationCommittees.map((c, index) => {
+                            const rev = c.target * c.fee
+                            const pct = totals.targetRegRevenue > 0 ? (rev / totals.targetRegRevenue) * 100 : 0
+                            const colors = ['#4F46E5', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']
+                            if (pct === 0) return null
+                            return (
+                              <div
+                                key={c.id}
+                                style={{ width: `${pct}%`, backgroundColor: colors[index % colors.length] }}
+                                className="h-full transition-all duration-500"
+                              />
+                            )
+                          })}
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                          <div className="flex justify-between text-[10px] text-slate-500">
+                            <span>Total Registration Revenue:</span>
+                            <span className="font-bold text-slate-800">{formatINR(totals.targetRegRevenue)}</span>
+                          </div>
+                          <div className="flex justify-between text-[10px] text-slate-500 mt-1">
+                            <span>Average Seat Fee:</span>
+                            <span className="font-bold text-slate-800">{formatINR(totals.avgSeatFee)}</span>
+                          </div>
+                        </div>
+                      </AnimatedCard>
+                    </div>
+                  </div>
+                )}
+
+                {/* Committee Registry Tab */}
+                {workstationTab === 'committees' && (
+                  <AnimatedCard>
+                    <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
+                      <div className="p-4 bg-slate-50/50 border-b border-slate-200/60 flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Committee Configurator</span>
+                        <button
+                          onClick={openAddCommitteeModal}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer transition-all"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Committee
+                        </button>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                              <th className="py-3 px-4 font-bold">ID</th>
+                              <th className="py-3 px-4 font-bold">Classification</th>
+                              <th className="py-3 px-4 font-bold">Committee Name</th>
+                              <th className="py-3 px-4 text-center">Target Seats</th>
+                              <th className="py-3 px-4 text-right">Delegate Fee</th>
+                              <th className="py-3 px-4 text-right">Revenue</th>
+                              <th className="py-3 px-4 text-center">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {workstationCommittees.map(c => (
+                              <tr key={c.id} className="hover:bg-indigo-50/30 transition-all group">
+                                <td className="py-3 px-4 text-slate-400 font-mono font-bold">{c.id}</td>
+                                <td className="py-3 px-4">
+                                  <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 text-[9px] font-bold">
+                                    {c.category}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 font-semibold text-slate-800">{c.name}</td>
+                                <td className="py-3 px-4 text-center font-bold">{c.target}</td>
+                                <td className="py-3 px-4 text-right font-bold">{formatINR(c.fee)}</td>
+                                <td className="py-3 px-4 text-right font-bold text-emerald-600">{formatINR(c.target * c.fee)}</td>
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      onClick={() => openEditCommitteeModal(c)}
+                                      className="p-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:border-indigo-300 rounded-lg transition-all"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => setDeleteConfirm({ type: 'committees', id: c.id, name: c.name })}
+                                      className="p-1.5 bg-white border border-slate-200 text-slate-500 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-lg transition-all"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </AnimatedCard>
+                )}
+
+                {/* Expenses Tab */}
+                {workstationTab === 'expenses' && (
+                  <AnimatedCard>
+                    <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
+                      <div className="p-4 bg-slate-50/50 border-b border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Operational Expenditure Ledger</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {DEPARTMENTS.map(d => (
+                            <button
+                              key={d.name}
+                              onClick={() => setSelectedDeptFilter(d.name)}
+                              className={`px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-all ${selectedDeptFilter === d.name
+                                  ? 'bg-indigo-600 border-indigo-600 text-white'
+                                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                }`}
+                            >
+                              {d.name.replace('Delegate Relations', 'Del Rel')}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                              <th className="py-3 px-4">Item</th>
+                              <th className="py-3 px-4">Department</th>
+                              <th className="py-3 px-4 text-right">Budgeted</th>
+                              <th className="py-3 px-4 text-right">Actual</th>
+                              <th className="py-3 px-4 text-center">Status</th>
+                              <th className="py-3 px-4 text-center">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {workstationExpenses
+                              .filter(e => selectedDeptFilter === 'All Departments' || e.dept === selectedDeptFilter)
+                              .map(item => {
+                                const budgetedVal = item.isPerDelegate ? (totals.targetSeats * item.unitCost) : (item.qty * item.unitCost)
+                                const statusColors: any = {
+                                  'Paid': 'bg-emerald-50 text-emerald-700',
+                                  'Pending': 'bg-amber-50 text-amber-700',
+                                  'Ordered': 'bg-sky-50 text-sky-700',
+                                  'Partially Paid': 'bg-violet-50 text-violet-700',
+                                }
+                                return (
+                                  <tr key={item.id} className="hover:bg-indigo-50/30 transition-all group">
+                                    <td className="py-3 px-4 font-medium text-slate-800">{item.item}</td>
+                                    <td className="py-3 px-4 text-slate-600">{item.dept}</td>
+                                    <td className="py-3 px-4 text-right font-bold text-indigo-600">{formatINR(budgetedVal)}</td>
+                                    <td className="py-3 px-4 text-right font-bold text-slate-700">{formatINR(item.actualCost)}</td>
+                                    <td className="py-3 px-4 text-center">
+                                      <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${statusColors[item.status] || 'bg-slate-100 text-slate-600'}`}>
+                                        {item.status}
+                                      </span>
+                                    </td>
+                                    <td className="py-3 px-4">
+                                      <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                          onClick={() => openEditExpenseModal(item)}
+                                          className="p-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                        >
+                                          <Edit2 className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          onClick={() => setDeleteConfirm({ type: 'expenses', id: item.id, name: item.item })}
+                                          className="p-1.5 bg-white border border-slate-200 text-slate-500 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="p-4 bg-slate-50/50 border-t border-slate-200/60 flex justify-end">
+                        <button
+                          onClick={openAddExpenseModal}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-2 cursor-pointer transition-all"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Expense
+                        </button>
+                      </div>
+                    </div>
+                  </AnimatedCard>
+                )}
+
+                {/* Revenue Tab */}
+                {workstationTab === 'revenue' && (
+                  <AnimatedCard>
+                    <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
+                      <div className="p-4 bg-slate-50/50 border-b border-slate-200/60 flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Partnerships & Inflows</span>
+                        <button
+                          onClick={openAddRevenueModal}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer transition-all"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Partnership
+                        </button>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                              <th className="py-3 px-4">Source</th>
+                              <th className="py-3 px-4">Category</th>
+                              <th className="py-3 px-4 text-right">Target</th>
+                              <th className="py-3 px-4 text-right">Actual</th>
+                              <th className="py-3 px-4 text-center">Status</th>
+                              <th className="py-3 px-4 text-center">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {workstationRevenues.map(r => (
+                              <tr key={r.id} className="hover:bg-indigo-50/30 transition-all group">
+                                <td className="py-3 px-4 font-semibold text-slate-800">{r.source}</td>
+                                <td className="py-3 px-4">
+                                  <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[9px] font-bold">
+                                    {r.category}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-right font-bold text-slate-700">{formatINR(r.target)}</td>
+                                <td className="py-3 px-4 text-right font-bold text-emerald-600">{formatINR(r.actual)}</td>
+                                <td className="py-3 px-4 text-center">
+                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${r.status === 'Completed' ? 'bg-emerald-50 text-emerald-700' :
+                                      r.status === 'Partially Received' ? 'bg-amber-50 text-amber-700' :
+                                        'bg-sky-50 text-sky-700'
+                                    }`}>
+                                    {r.status}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      onClick={() => openEditRevenueModal(r)}
+                                      className="p-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => setDeleteConfirm({ type: 'revenue', id: r.id, name: r.source })}
+                                      className="p-1.5 bg-white border border-slate-200 text-slate-500 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </AnimatedCard>
+                )}
+
+                {/* Scenario Tab */}
+                {workstationTab === 'scenario' && (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <AnimatedCard className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 mb-6">
+                        <Sliders className="w-4 h-4 text-indigo-500" />
+                        Variable Controls
+                      </h3>
+                      <div className="space-y-6">
+                        <div>
+                          <div className="flex justify-between text-xs font-bold text-slate-700 mb-2">
+                            <span>Attendance Realization</span>
+                            <span className="text-indigo-600">{attendanceRealizationRate}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={attendanceRealizationRate}
+                            onChange={(e) => setAttendanceRealizationRate(Number(e.target.value))}
+                            className="w-full accent-indigo-600 cursor-pointer"
+                          />
+                          <p className="text-[10px] text-slate-400 mt-1">Affects seat-fill and registration revenue</p>
+                        </div>
+                        <div>
+                          <div className="flex justify-between text-xs font-bold text-slate-700 mb-2">
+                            <span>Sponsorship Realization</span>
+                            <span className="text-indigo-600">{sponsorRealizationRate}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={sponsorRealizationRate}
+                            onChange={(e) => setSponsorRealizationRate(Number(e.target.value))}
+                            className="w-full accent-indigo-600 cursor-pointer"
+                          />
+                          <p className="text-[10px] text-slate-400 mt-1">Scales non-registration revenue</p>
+                        </div>
+                        <div>
+                          <div className="flex justify-between text-xs font-bold text-slate-700 mb-2">
+                            <span>Contingency Buffer</span>
+                            <span className="text-indigo-600">{contingencyRate}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="50"
+                            value={contingencyRate}
+                            onChange={(e) => setContingencyRate(Number(e.target.value))}
+                            className="w-full accent-indigo-600 cursor-pointer"
+                          />
+                          <p className="text-[10px] text-slate-400 mt-1">Emergency allocation on expenditures</p>
+                        </div>
+                      </div>
+                    </AnimatedCard>
+
+                    <AnimatedCard className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 p-6 rounded-xl border border-indigo-100 shadow-sm" delay={0.1}>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 mb-4">
+                        <Target className="w-4 h-4 text-indigo-600" />
+                        Break-Even Analysis
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-[11px] font-semibold">
+                          <span className="text-slate-600">Fixed Expenses:</span>
+                          <span className="font-bold">{formatINR(totals.totalFixedCosts)}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px] font-semibold">
+                          <span className="text-slate-600">Avg Delegate Fee:</span>
+                          <span className="font-bold">{formatINR(totals.avgSeatFee)}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px] font-semibold">
+                          <span className="text-slate-600">Variable Cost/Delegate:</span>
+                          <span className="font-bold">{formatINR(totals.totalVariableUnitCost)}</span>
+                        </div>
+                        <div className="border-t border-indigo-200 pt-3 mt-2">
+                          <div className="text-center">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Required Seats</span>
+                            <div className="text-3xl font-black text-indigo-700">{totals.breakEvenSeats}</div>
+                            <p className="text-[9px] text-slate-500 mt-1">to offset fixed costs</p>
+                          </div>
+                        </div>
+                      </div>
+                    </AnimatedCard>
+                  </div>
+                )}
+
+              </motion.div>
+            )}
+
+            {/* 3. LIVE ALLOCATIONS */}
+            {activeMenuTab === 'live_allocations' && (
+              <motion.div
+                key="allocations"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row items-center gap-3">
+                  <form onSubmit={handleCheckinViaBarcodeInput} className="relative flex-1 w-full">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search by ID, email, or phone to check-in..."
+                      value={barcodeInput}
+                      onChange={(e) => setBarcodeInput(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                    />
+                  </form>
+                  <div className="flex gap-2 shrink-0">
+                    <select
+                      value={liveAllocationFilter}
+                      onChange={(e) => setLiveAllocationFilter(e.target.value as any)}
+                      className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 cursor-pointer"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="vacant">Not Checked-In</option>
+                      <option value="allocated">Checked-In Only</option>
+                    </select>
+                    <button
+                      onClick={() => { }}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Export
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
+                  <div className="p-4 bg-slate-50/50 border-b border-slate-200/60">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Delegate Registry ({filteredLiveDelegates.length})</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                          <th className="py-3 px-4">Name</th>
+                          <th className="py-3 px-4">Institution</th>
+                          <th className="py-3 px-4">Contact</th>
+                          <th className="py-3 px-4 text-center">Status</th>
+                          <th className="py-3 px-4 text-center">Check-in Time</th>
+                          <th className="py-3 px-4 text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredLiveDelegates.map(del => (
+                          <tr key={del.id} className="hover:bg-slate-50/50 transition-all">
+                            <td className="py-3 px-4 font-semibold text-slate-800">{del.name}</td>
+                            <td className="py-3 px-4 text-slate-600">{del.institution}</td>
+                            <td className="py-3 px-4">
+                              <span className="text-slate-500 text-xs">{del.email}</span>
+                              <span className="block text-[10px] text-slate-400">{del.phone}</span>
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${del.isCheckedIn ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                                }`}>
+                                {del.isCheckedIn ? 'Checked-In' : 'Pending'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-center text-slate-500 text-xs">{del.checkInTime || '-'}</td>
+                            <td className="py-3 px-4 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  onClick={() => toggleDelegateCheckinStatus(del)}
+                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${del.isCheckedIn
+                                      ? 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                                      : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                    }`}
+                                >
+                                  {del.isCheckedIn ? 'Check-Out' : 'Check-In'}
+                                </button>
+                                <button
+                                  onClick={() => handleBlacklistDelegate(del)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 transition-all"
+                                >
+                                  <Ban className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 4. ACADEMIC VAULT */}
+            {activeMenuTab === 'academic_vault' && (
+              <motion.div
+                key="academic"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+              >
+                <AnimatedCard className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-6">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 mb-4">
+                    <BookOpen className="w-4 h-4 text-indigo-500" />
+                    Study Guides & Resources
+                  </h3>
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                    {dbResources.length === 0 ? (
+                      <p className="text-center text-slate-400 py-8 text-sm">No resources available</p>
+                    ) : (
+                      dbResources.map(res => (
+                        <div key={res.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <div>
+                            <span className="font-semibold text-slate-800 text-sm">{res.title}</span>
+                            <span className="block text-[10px] text-slate-400 mt-0.5">{res.type}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {role === 'admin' && (
+                              <button
+                                onClick={() => toggleResourceApprovalStatus(res.id, res.isApproved)}
+                                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold ${res.isApproved ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                  }`}
+                              >
+                                {res.isApproved ? 'Approved' : 'Approve'}
+                              </button>
+                            )}
+                            <a href={res.url} target="_blank" rel="noopener noreferrer" className="p-2 bg-white border border-slate-200 rounded-lg hover:text-indigo-600 transition-all">
+                              <Eye className="w-3.5 h-3.5" />
+                            </a>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </AnimatedCard>
+
+                <AnimatedCard className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-6" delay={0.1}>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 mb-4">
+                    <FileCheck className="w-4 h-4 text-indigo-500" />
+                    Marksheet Approvals
+                  </h3>
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                    {dbCommittees.map(comm => {
+                      const commMarks = dbMarksheets.filter(m => m.committeeId === comm.id)
+                      const pendingMarks = commMarks.filter(m => !m.isApproved).length
+                      return (
+                        <div key={comm.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <div>
+                            <span className="font-semibold text-slate-800 text-sm">{comm.name}</span>
+                            <span className="block text-[10px] text-slate-400">{commMarks.length} records</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {pendingMarks > 0 && role === 'admin' && (
+                              <button
+                                onClick={() => handleBulkApproveMarksheets(comm.id)}
+                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-all"
+                              >
+                                Approve All
+                              </button>
+                            )}
+                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold ${pendingMarks === 0 && commMarks.length > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                              }`}>
+                              {commMarks.length === 0 ? 'No Data' : (pendingMarks === 0 ? 'Verified' : `${pendingMarks} Pending`)}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </AnimatedCard>
+              </motion.div>
+            )}
+
+            {/* 5. RECRUITMENT (Admin only) */}
+            {activeMenuTab === 'recruitment' && role === 'admin' && (
+              <motion.div
+                key="recruitment"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">OC Application Vetting</h2>
+                    <p className="text-xs text-slate-500 mt-1">Manage organising committee applications and staff onboarding</p>
+                  </div>
+                  <button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all">
+                    <Download className="w-3.5 h-3.5" /> Export Excel
+                  </button>
+                </div>
+
+                <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                          <th className="py-3 px-4">Applicant</th>
+                          <th className="py-3 px-4">College</th>
+                          <th className="py-3 px-4">Preferences</th>
+                          <th className="py-3 px-4 text-center">Status</th>
+                          <th className="py-3 px-4 text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {dbApplications.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="text-center py-12 text-slate-400">No applications found</td>
+                          </tr>
+                        ) : (
+                          dbApplications.map(app => (
+                            <tr key={app.uid} className="hover:bg-slate-50/50 transition-all">
+                              <td className="py-3 px-4">
+                                <span className="font-semibold text-slate-800">{app.name}</span>
+                                <span className="block text-[10px] text-slate-400">{app.email}</span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className="text-slate-600">{app.college}</span>
+                                <span className="block text-[10px] text-slate-400">{app.course} (Year {app.year})</span>
+                              </td>
+                              <td className="py-3 px-4 text-sm text-slate-600">{app.pref1}</td>
+                              <td className="py-3 px-4 text-center">
+                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${app.status === 'welcomed' ? 'bg-emerald-100 text-emerald-700' :
+                                    app.status === 'rejected' ? 'bg-rose-100 text-rose-700' :
+                                      app.status === 'interview' ? 'bg-sky-100 text-sky-700' :
+                                        app.status === 'onboarding' ? 'bg-violet-100 text-violet-700' :
+                                          'bg-amber-100 text-amber-700'
+                                  }`}>
+                                  {app.status}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <select
+                                  value={app.status}
+                                  onChange={(e) => handleUpdateApplicationStatus(app.uid, e.target.value, app.email, app.name)}
+                                  className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none cursor-pointer"
+                                >
+                                  <option value="pending">Pending</option>
+                                  <option value="interview">Interview</option>
+                                  <option value="onboarding">Onboarding</option>
+                                  <option value="welcomed">Welcome</option>
+                                  <option value="rejected">Reject</option>
+                                </select>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            {/* 5b. DEPARTMENT BOARDS */}
+            {activeMenuTab === 'dept_boards' && (
+              <motion.div
+                key="dept-boards"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                {!selectedDeptWorkspace ? (
+                  <>
+                    <div>
+                      <h2 className="text-xl font-black text-slate-900 tracking-tight">Department Boards</h2>
+                      <p className="text-xs text-slate-500 mt-1">Select an operational unit to access its dedicated Kanban board, asset ledger, and notices.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {DEPARTMENTS.slice(1).map((d) => {
+                        const deptTasks = dbTasks.filter(t => t.department === d.name)
+                        const completedTasks = deptTasks.filter(t => t.status === 'completed').length
+                        const completionRate = deptTasks.length > 0 ? Math.round((completedTasks / deptTasks.length) * 100) : 0
+                        const deptAssetCost = dbAssets.filter(a => a.department === d.name).reduce((sum, a) => sum + (a.quantity * a.cost), 0)
+                        const annCount = dbAnnouncements.filter(a => a.department === d.name).length
+                        const IconComponent = d.icon
+
+                        return (
+                          <motion.div
+                            key={d.name}
+                            whileHover={{ y: -4, scale: 1.01 }}
+                            className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition-all duration-300"
+                          >
+                            <div className="p-6 space-y-4">
+                              <div className="flex items-center gap-3">
+                                <div className={`${d.color} p-2.5 rounded-xl text-white shadow-sm`}>
+                                  <IconComponent className="w-5 h-5" />
+                                </div>
+                                <h3 className="font-extrabold text-slate-800 text-base">{d.name}</h3>
+                              </div>
+
+                              <div className="space-y-2">
+                                <div className="flex justify-between text-[11px] font-bold text-slate-500">
+                                  <span>Task Progress</span>
+                                  <span>{completionRate}% ({completedTasks}/{deptTasks.length})</span>
+                                </div>
+                                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                  <div className={`h-full ${d.color} rounded-full`} style={{ width: `${completionRate}%` }} />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4 pt-2 text-xs border-t border-slate-100">
+                                <div>
+                                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Assets</span>
+                                  <span className="font-black text-slate-700">{formatINR(deptAssetCost)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Notices</span>
+                                  <span className="font-black text-slate-700">{annCount} broadcasts</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-4 bg-slate-50 border-t border-slate-100 flex">
+                              <button
+                                onClick={() => { setSelectedDeptWorkspace(d.name); setDeptSubTab('tasks') }}
+                                className={`w-full py-2.5 rounded-xl text-xs font-bold text-white shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer ${d.color} hover:brightness-95`}
+                              >
+                                Enter Workspace <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </motion.div>
+                        )
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  // Department Workspace Cockpit
+                  (() => {
+                    const deptInfo = DEPARTMENTS.find(d => d.name === selectedDeptWorkspace)!
+                    const IconComponent = deptInfo.icon
+                    const deptTasks = dbTasks.filter(t => t.department === selectedDeptWorkspace)
+                    const completedTasks = deptTasks.filter(t => t.status === 'completed').length
+                    const todoTasks = deptTasks.filter(t => t.status === 'todo').length
+                    const inProgressTasks = deptTasks.filter(t => t.status === 'in_progress').length
+                    const completionRate = deptTasks.length > 0 ? Math.round((completedTasks / deptTasks.length) * 100) : 0
+                    const deptAssetCost = dbAssets.filter(a => a.department === selectedDeptWorkspace).reduce((sum, a) => sum + (a.quantity * a.cost), 0)
+                    const annCount = dbAnnouncements.filter(a => a.department === selectedDeptWorkspace).length
+
+                    return (
+                      <div className="space-y-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <button
+                            onClick={() => setSelectedDeptWorkspace(null)}
+                            className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-bold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-sm max-w-max cursor-pointer"
+                          >
+                            <ChevronLeft className="w-4 h-4" /> Back to Boards
+                          </button>
+
+                          <div className="flex items-center gap-3">
+                            <div className={`${deptInfo.color} p-2 rounded-xl text-white`}>
+                              <IconComponent className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h2 className="text-xl font-black text-slate-900 tracking-tight">{selectedDeptWorkspace} Workspace</h2>
+                              <p className="text-xs text-slate-500">Autonomous department operations terminal</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Mini Dashboard Metrics */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Tasks Completed</span>
+                              <span className="text-lg font-black text-slate-800 block mt-1">{completedTasks} / {deptTasks.length}</span>
+                              <span className="text-[10px] text-slate-500 font-semibold block">{completionRate}% Completion Rate</span>
+                            </div>
+                            <div className={`p-2.5 rounded-xl ${deptInfo.color} bg-opacity-10 text-slate-700`}>
+                              <CheckCircle2 className="w-6 h-6 text-indigo-600" />
+                            </div>
+                          </div>
+
+                          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Capital Valuation</span>
+                              <span className="text-lg font-black text-slate-800 block mt-1">{formatINR(deptAssetCost)}</span>
+                              <span className="text-[10px] text-slate-500 font-semibold block">Infrastructural Value</span>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-teal-50 text-teal-700">
+                              <Package className="w-6 h-6" />
+                            </div>
+                          </div>
+
+                          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Notices Feed</span>
+                              <span className="text-lg font-black text-slate-800 block mt-1">{annCount} Broadcasts</span>
+                              <span className="text-[10px] text-slate-500 font-semibold block">Team Communications</span>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-orange-50 text-orange-600">
+                              <Megaphone className="w-6 h-6" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Workspace Navigation Tabs */}
+                        <div className="flex border-b border-slate-200 gap-1.5 pt-2">
+                          {[
+                            { id: 'tasks', label: 'Kanban Tasks', icon: ClipboardList },
+                            { id: 'assets', label: 'Asset Ledger', icon: Package },
+                            { id: 'bulletins', label: 'Broadcast Bulletins', icon: Megaphone }
+                          ].map(tab => {
+                            const TabIcon = tab.icon
+                            const isTabActive = deptSubTab === tab.id
+                            return (
+                              <button
+                                key={tab.id}
+                                onClick={() => setDeptSubTab(tab.id as any)}
+                                className={`px-4.5 py-3 border-b-2 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                                  isTabActive
+                                    ? 'border-indigo-600 text-indigo-700 bg-indigo-50/10'
+                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50/50'
+                                }`}
+                              >
+                                <TabIcon className="w-4 h-4" />
+                                {tab.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+
+                        {/* Tab Content */}
+                        <div className="pt-2">
+                          {/* TASKS TAB */}
+                          {deptSubTab === 'tasks' && (
+                            <div className="space-y-6">
+                              <div className="flex justify-between items-center">
+                                <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">Department Kanban</h3>
+                                <button
+                                  onClick={() => openAddTaskModal(selectedDeptWorkspace)}
+                                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                                >
+                                  <PlusCircle className="w-3.5 h-3.5" /> New Task
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {[
+                                  { title: 'To Do', status: 'todo', color: 'bg-slate-100', textColor: 'text-slate-600', count: todoTasks },
+                                  { title: 'In Progress', status: 'in_progress', color: 'bg-amber-100', textColor: 'text-amber-700', count: inProgressTasks },
+                                  { title: 'Completed', status: 'completed', color: 'bg-emerald-100', textColor: 'text-emerald-700', count: completedTasks }
+                                ].map(column => (
+                                  <div key={column.status} className="space-y-4">
+                                    <div className={`${column.color} rounded-xl px-4 py-2.5 flex justify-between items-center`}>
+                                      <span className={`text-xs font-black uppercase tracking-wider ${column.textColor}`}>{column.title}</span>
+                                      <span className="text-[10px] font-bold bg-white/50 px-2 py-0.5 rounded-full">
+                                        {column.count}
+                                      </span>
+                                    </div>
+                                    <div className="space-y-3">
+                                      {deptTasks.filter(t => t.status === column.status).length === 0 ? (
+                                        <div className="text-center py-8 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 text-slate-400 text-xs">
+                                          No tasks in {column.title}
+                                        </div>
+                                      ) : (
+                                        deptTasks.filter(t => t.status === column.status).map(task => (
+                                          <motion.div
+                                            key={task.id}
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group"
+                                          >
+                                            <div className="flex justify-between items-start gap-2">
+                                              <span className="font-bold text-slate-800 text-sm block truncate">{task.title}</span>
+                                              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 ${
+                                                task.priority === 'high' ? 'bg-rose-100 text-rose-700' :
+                                                task.priority === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                                              }`}>
+                                                {task.priority}
+                                              </span>
+                                            </div>
+                                            <p className="text-[11px] text-slate-500 mt-2 line-clamp-3">{task.description}</p>
+                                            <div className="flex justify-between items-center text-[9px] text-slate-400 border-t border-slate-100 pt-2.5 mt-2.5">
+                                              <span>Due: {task.dueDate}</span>
+                                              <span>Assignee: <span className="font-semibold text-slate-600">{task.assignee || 'Unassigned'}</span></span>
+                                            </div>
+                                            <div className="flex gap-2 justify-end mt-2 pt-2 border-t border-slate-100/60">
+                                              {column.status !== 'completed' && (
+                                                <button onClick={() => claimLiveTask(task.id)} className="px-2.5 py-1 bg-slate-50 border rounded-lg text-[9px] font-bold hover:bg-slate-100 transition-all">
+                                                  Claim
+                                                </button>
+                                              )}
+                                              {column.status === 'in_progress' && (
+                                                <button onClick={() => completeLiveTask(task.id)} className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[9px] font-bold hover:bg-emerald-100 transition-all">
+                                                  Complete
+                                                </button>
+                                              )}
+                                              <div className="flex items-center gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => openEditTaskModal(task)} className="p-1 text-slate-400 hover:text-indigo-600 transition-all" title="Edit Task">
+                                                  <Edit2 className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button onClick={() => handleDeleteLiveTask(task.id, task.title)} className="p-1 text-slate-400 hover:text-rose-500 transition-all" title="Delete Task">
+                                                  <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                              </div>
+                                            </div>
+                                          </motion.div>
+                                        ))
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* ASSETS TAB */}
+                          {deptSubTab === 'assets' && (
+                            <div className="space-y-6">
+                              <div className="flex justify-between items-center">
+                                <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">Asset Registry</h3>
+                                <button
+                                  onClick={() => openAddAssetModal(selectedDeptWorkspace)}
+                                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                                >
+                                  <PlusCircle className="w-3.5 h-3.5" /> Add Asset
+                                </button>
+                              </div>
+
+                              <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                      <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider font-semibold">
+                                        <th className="py-3 px-4 font-bold">Asset Name</th>
+                                        <th className="py-3 px-4 text-center font-bold">Qty</th>
+                                        <th className="py-3 px-4 text-right font-bold">Unit Cost</th>
+                                        <th className="py-3 px-4 text-right font-bold">Total Value</th>
+                                        <th className="py-3 px-4 text-center font-bold">Status</th>
+                                        <th className="py-3 px-4 text-center font-bold">Actions</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                      {dbAssets.filter(a => a.department === selectedDeptWorkspace).length === 0 ? (
+                                        <tr>
+                                          <td colSpan={6} className="text-center py-12 text-slate-400">No assets recorded in this department ledger.</td>
+                                        </tr>
+                                      ) : (
+                                        dbAssets.filter(a => a.department === selectedDeptWorkspace).map(asset => (
+                                          <tr key={asset.id} className="hover:bg-indigo-50/30 transition-all group">
+                                            <td className="py-3 px-4 font-bold text-slate-800">{asset.name}</td>
+                                            <td className="py-3 px-4 text-center font-bold">{asset.quantity}</td>
+                                            <td className="py-3 px-4 text-right font-bold text-slate-700">{formatINR(asset.cost)}</td>
+                                            <td className="py-3 px-4 text-right font-bold text-indigo-600">{formatINR(asset.quantity * asset.cost)}</td>
+                                            <td className="py-3 px-4 text-center">
+                                              <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                                asset.status === 'acquired' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                                                asset.status === 'ordered' ? 'bg-sky-50 text-sky-700 border border-sky-100' :
+                                                'bg-amber-50 text-amber-700 border border-amber-100'
+                                              }`}>
+                                                {asset.status}
+                                              </span>
+                                            </td>
+                                            <td className="py-3 px-4">
+                                              <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                  onClick={() => openEditAssetModal(asset)}
+                                                  className="p-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:border-indigo-300 rounded-lg transition-all"
+                                                >
+                                                  <Edit2 className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                  onClick={() => handleDeleteAsset(asset.id, asset.name)}
+                                                  className="p-1.5 bg-white border border-slate-200 text-slate-500 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-lg transition-all"
+                                                >
+                                                  <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        ))
+                                      )}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* BULLETINS TAB */}
+                          {deptSubTab === 'bulletins' && (
+                            <div className="space-y-6">
+                              <div className="flex justify-between items-center">
+                                <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">Broadcast bulletins</h3>
+                                <button
+                                  onClick={() => openAddAnnouncementModal(selectedDeptWorkspace)}
+                                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                                >
+                                  <PlusCircle className="w-3.5 h-3.5" /> New Broadcast
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {dbAnnouncements.filter(a => a.department === selectedDeptWorkspace).length === 0 ? (
+                                  <div className="col-span-2 bg-white rounded-xl border border-slate-200 py-12 text-center text-slate-400">
+                                    <Bell className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                                    No broadcasts published in this department feed.
+                                  </div>
+                                ) : (
+                                  dbAnnouncements.filter(a => a.department === selectedDeptWorkspace).map(ann => (
+                                    <motion.div
+                                      key={ann.id}
+                                      initial={{ opacity: 0, scale: 0.95 }}
+                                      animate={{ opacity: 1, scale: 1 }}
+                                      className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group animate-fade-in"
+                                    >
+                                      <div className="flex justify-between items-start">
+                                        <div className="flex items-center gap-2">
+                                          {ann.isPinned && <Star className="w-4 h-4 text-amber-500 fill-amber-500" />}
+                                          <h4 className="font-bold text-slate-800">{ann.title}</h4>
+                                        </div>
+                                      </div>
+                                      <p className="text-xs text-slate-600 mt-3 leading-relaxed">{ann.content}</p>
+                                      <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-100">
+                                        <span className="text-[9px] text-slate-400">by {ann.createdBy?.split('@')[0]}</span>
+                                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <button
+                                            onClick={() => openEditAnnouncementModal(ann)}
+                                            className="text-slate-400 hover:text-indigo-650 text-xs font-semibold"
+                                          >
+                                            Edit
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteAnnouncement(ann.id, ann.title)}
+                                            className="text-slate-400 hover:text-rose-500 text-xs font-semibold"
+                                          >
+                                            Delete
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()
+                )}
+              </motion.div>
+            )}
+
+            {/* 6. TASK BOARD */}
+            {activeMenuTab === 'task_board' && (
+              <motion.div
+                key="tasks"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedDeptFilter}
+                      onChange={(e) => setSelectedDeptFilter(e.target.value)}
+                      className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold cursor-pointer outline-none"
+                    >
+                      {DEPARTMENTS.map(d => (
+                        <option key={d.name} value={d.name}>{d.name}</option>
+                      ))}
+                    </select>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search tasks..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500 w-48 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => openAddTaskModal(selectedDeptFilter !== 'All Departments' ? selectedDeptFilter : 'Secretariat')}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" /> New Task
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[
+                    { title: 'To Do', status: 'todo', color: 'bg-slate-100', textColor: 'text-slate-600' },
+                    { title: 'In Progress', status: 'in_progress', color: 'bg-amber-100', textColor: 'text-amber-700' },
+                    { title: 'Completed', status: 'completed', color: 'bg-emerald-100', textColor: 'text-emerald-700' }
+                  ].map(column => (
+                    <div key={column.status} className="space-y-4">
+                      <div className={`${column.color} rounded-xl px-4 py-2.5 flex justify-between items-center`}>
+                        <span className={`text-xs font-black uppercase tracking-wider ${column.textColor}`}>{column.title}</span>
+                        <span className="text-[10px] font-bold bg-white/50 px-2 py-0.5 rounded-full">
+                          {filteredTasks.filter(t => t.status === column.status).length}
+                        </span>
+                      </div>
+                      <div className="space-y-3">
+                        {filteredTasks.filter(t => t.status === column.status).length === 0 ? (
+                          <div className="text-center py-8 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 text-slate-400 text-xs">
+                            No tasks
+                          </div>
+                        ) : (
+                          filteredTasks.filter(t => t.status === column.status).map(task => (
+                            <motion.div
+                              key={task.id}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group"
+                            >
+                              <div className="flex justify-between items-start gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <span className="font-bold text-slate-800 text-sm block truncate">{task.title}</span>
+                                  <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase mt-1 inline-block">{task.department}</span>
+                                </div>
+                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 ${
+                                  task.priority === 'high' ? 'bg-rose-100 text-rose-700' :
+                                  task.priority === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {task.priority}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-2 line-clamp-3">{task.description}</p>
+                              <div className="flex justify-between items-center text-[9px] text-slate-400 border-t border-slate-100 pt-2.5 mt-2.5">
+                                <span>Due: {task.dueDate}</span>
+                                <span>Assignee: <span className="font-semibold text-slate-600">{task.assignee || 'Unassigned'}</span></span>
+                              </div>
+                              <div className="flex gap-2 justify-end mt-2 pt-2 border-t border-slate-100/60">
+                                {column.status !== 'completed' && (
+                                  <button onClick={() => claimLiveTask(task.id)} className="px-2.5 py-1 bg-slate-50 border rounded-lg text-[9px] font-bold hover:bg-slate-100 transition-all">
+                                    Claim
+                                  </button>
+                                )}
+                                {column.status === 'in_progress' && (
+                                  <button onClick={() => completeLiveTask(task.id)} className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[9px] font-bold hover:bg-emerald-100 transition-all">
+                                    Complete
+                                  </button>
+                                )}
+                                <div className="flex items-center gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => openEditTaskModal(task)} className="p-1 text-slate-400 hover:text-indigo-600 transition-all" title="Edit Task">
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button onClick={() => handleDeleteLiveTask(task.id, task.title)} className="p-1 text-slate-400 hover:text-rose-500 transition-all" title="Delete Task">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </motion.div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* 7. ASSETS LEDGER */}
+            {activeMenuTab === 'assets_ledger' && (
+              <motion.div
+                key="assets"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedDeptFilter}
+                      onChange={(e) => setSelectedDeptFilter(e.target.value)}
+                      className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold cursor-pointer outline-none"
+                    >
+                      {DEPARTMENTS.map(d => (
+                        <option key={d.name} value={d.name}>{d.name}</option>
+                      ))}
+                    </select>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search assets..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500 w-48 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => openAddAssetModal(selectedDeptFilter !== 'All Departments' ? selectedDeptFilter : 'Secretariat')}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" /> Add Asset
+                  </button>
+                </div>
+
+                <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider font-semibold">
+                          <th className="py-3 px-4 font-bold">Asset Name</th>
+                          <th className="py-3 px-4 font-bold">Department</th>
+                          <th className="py-3 px-4 text-center font-bold">Qty</th>
+                          <th className="py-3 px-4 text-right font-bold">Unit Cost</th>
+                          <th className="py-3 px-4 text-right font-bold">Total Value</th>
+                          <th className="py-3 px-4 text-center font-bold">Status</th>
+                          <th className="py-3 px-4 text-center font-bold">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredAssets.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="text-center py-12 text-slate-400">No assets found</td>
+                          </tr>
+                        ) : (
+                          filteredAssets.map(asset => (
+                            <tr key={asset.id} className="hover:bg-indigo-50/30 transition-all group">
+                              <td className="py-3 px-4 font-bold text-slate-800">{asset.name}</td>
+                              <td className="py-3 px-4 text-slate-600 font-semibold">{asset.department}</td>
+                              <td className="py-3 px-4 text-center font-bold">{asset.quantity}</td>
+                              <td className="py-3 px-4 text-right font-bold text-slate-700">{formatINR(asset.cost)}</td>
+                              <td className="py-3 px-4 text-right font-bold text-indigo-600">{formatINR(asset.quantity * asset.cost)}</td>
+                              <td className="py-3 px-4 text-center">
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                  asset.status === 'acquired' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                                  asset.status === 'ordered' ? 'bg-sky-50 text-sky-700 border border-sky-100' :
+                                  'bg-amber-50 text-amber-700 border border-amber-100'
+                                }`}>
+                                  {asset.status}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => openEditAssetModal(asset)}
+                                    className="p-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:border-indigo-300 rounded-lg transition-all"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteAsset(asset.id, asset.name)}
+                                    className="p-1.5 bg-white border border-slate-200 text-slate-500 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-lg transition-all"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </motion.div>
+            )}            {activeMenuTab === 'bulletin_board' && (
+              <motion.div
+                key="bulletin"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">Bulletin Board</h2>
+                    <p className="text-xs text-slate-500 mt-1">Broadcast announcements to the team</p>
+                  </div>
+                  <button
+                    onClick={() => openAddAnnouncementModal(selectedDeptFilter !== 'All Departments' ? selectedDeptFilter : 'Secretariat')}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" /> New Broadcast
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {dbAnnouncements.length === 0 ? (
+                    <div className="col-span-2 bg-white rounded-xl border border-slate-200 py-12 text-center text-slate-400">
+                      <Bell className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                      No announcements yet
+                    </div>
+                  ) : (
+                    dbAnnouncements.map(ann => (
+                      <motion.div
+                        key={ann.id}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-2">
+                            {ann.isPinned && <Star className="w-4 h-4 text-amber-500 fill-amber-500" />}
+                            <h4 className="font-bold text-slate-800">{ann.title}</h4>
+                          </div>
+                          <span className="text-[9px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-bold">
+                            {ann.department}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-3 leading-relaxed">{ann.content}</p>
+                        <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-100">
+                          <span className="text-[9px] text-slate-400">by {ann.createdBy?.split('@')[0]}</span>
+                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => openEditAnnouncementModal(ann)}
+                              className="text-slate-400 hover:text-indigo-600 text-xs font-semibold"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAnnouncement(ann.id, ann.title)}
+                              className="text-slate-400 hover:text-rose-500 text-xs font-semibold"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
+                </div>
+              </motion.div>
+            )}
+            {/* 9. PAYOUTS (Admin only) */}
+            {activeMenuTab === 'payouts' && role === 'admin' && (
+              <motion.div
+                key="payouts"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">Prize Payouts</h2>
+                    <p className="text-xs text-slate-500 mt-1">Process delegate awards and cash prizes</p>
+                  </div>
+                  <button
+                    onClick={() => setShowPayoutModal(true)}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all"
+                  >
+                    <Award className="w-3.5 h-3.5" /> New Payout
+                  </button>
+                </div>
+
+                <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                          <th className="py-3 px-4">Recipient</th>
+                          <th className="py-3 px-4">Award</th>
+                          <th className="py-3 px-4 text-right">Amount</th>
+                          <th className="py-3 px-4">Bank Account</th>
+                          <th className="py-3 px-4 text-center">Status</th>
+                          <th className="py-3 px-4 text-center">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {dbPayouts.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="text-center py-12 text-slate-400">No payouts processed yet</td>
+                          </tr>
+                        ) : (
+                          dbPayouts.map(p => (
+                            <tr key={p.id} className="hover:bg-slate-50/50 transition-all">
+                              <td className="py-3 px-4">
+                                <span className="font-semibold text-slate-800">{p.name}</span>
+                                <span className="block text-[10px] text-slate-400">{p.bankName}</span>
+                              </td>
+                              <td className="py-3 px-4 text-slate-600">{p.award}</td>
+                              <td className="py-3 px-4 text-right font-bold text-emerald-600">{formatINR(p.amount)}</td>
+                              <td className="py-3 px-4 font-mono text-xs text-slate-500">{p.accountNumber}</td>
+                              <td className="py-3 px-4 text-center">
+                                <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-700">
+                                  {p.status}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-center text-slate-500 text-xs">{new Date(p.timestamp).toLocaleDateString()}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Payout Modal */}
+                {showPayoutModal && (
+                  <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <motion.div
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.9, opacity: 0 }}
+                      className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl"
+                    >
+                      <div className="flex justify-between items-center pb-4 border-b">
+                        <span className="text-sm font-bold text-slate-800">Initiate Payout</span>
+                        <button onClick={() => setShowPayoutModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+                      </div>
+                      {payoutStatus !== 'idle' ? (
+                        <div className="py-10 text-center">
+                          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-3" />
+                          <p className="text-xs font-semibold text-slate-600">
+                            {payoutStatus === 'verifying' ? 'Verifying bank details...' : 'Processing payment...'}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4 mt-4">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Select Delegate</label>
+                            <select
+                              value={payoutDelegateId}
+                              onChange={(e) => setPayoutDelegateId(e.target.value)}
+                              className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                              required
+                            >
+                              <option value="">-- Select Recipient --</option>
+                              {dbDelegates.map(d => (
+                                <option key={d.id} value={d.id}>{d.name} ({d.institution})</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Award</label>
+                              <select
+                                value={payoutAward}
+                                onChange={(e) => setPayoutAward(e.target.value)}
+                                className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                              >
+                                <option>Best Delegate</option>
+                                <option>High Commendation</option>
+                                <option>Special Mention</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Amount (INR)</label>
+                              <input
+                                type="number"
+                                value={payoutAmount || ''}
+                                onChange={(e) => setPayoutAmount(Number(e.target.value))}
+                                className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                                required
+                              />
+                            </div>
+                          </div>
+                          <div className="bg-slate-50 rounded-xl p-3 space-y-2">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Bank Details</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="text"
+                                placeholder="Bank Name"
+                                value={payoutBank.bankName}
+                                onChange={(e) => setPayoutBank(prev => ({ ...prev, bankName: e.target.value }))}
+                                className="bg-white border rounded-lg px-2 py-1.5 text-xs outline-none"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Account Holder"
+                                value={payoutBank.name}
+                                onChange={(e) => setPayoutBank(prev => ({ ...prev, name: e.target.value }))}
+                                className="bg-white border rounded-lg px-2 py-1.5 text-xs outline-none"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Account Number"
+                                value={payoutBank.accountNumber}
+                                onChange={(e) => setPayoutBank(prev => ({ ...prev, accountNumber: e.target.value }))}
+                                className="bg-white border rounded-lg px-2 py-1.5 text-xs outline-none"
+                              />
+                              <input
+                                type="text"
+                                placeholder="IFSC Code"
+                                value={payoutBank.ifscCode}
+                                onChange={(e) => setPayoutBank(prev => ({ ...prev, ifscCode: e.target.value }))}
+                                className="bg-white border rounded-lg px-2 py-1.5 text-xs outline-none"
+                              />
+                            </div>
+                          </div>
+                          <button
+                            onClick={handleInitiatePayoutSim}
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition-all"
+                          >
+                            Process Payment
+                          </button>
+                        </div>
+                      )}
+                    </motion.div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* 10. COUPONS (Admin only) */}
+            {activeMenuTab === 'coupons' && role === 'admin' && (
+              <motion.div
+                key="coupons"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">Coupon Engine</h2>
+                    <p className="text-xs text-slate-500 mt-1">Manage discount campaigns and partner codes</p>
+                  </div>
+                  <button
+                    onClick={() => setShowCouponModal(true)}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all"
+                  >
+                    <Ticket className="w-3.5 h-3.5" /> Create Coupon
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {dbCoupons.map(coupon => (
+                    <motion.div
+                      key={coupon.id}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-all"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <span className="font-mono bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold">
+                          {coupon.code}
+                        </span>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${coupon.isUsed ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                          {coupon.isUsed ? 'Used' : 'Active'}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-slate-800 text-sm">{coupon.title}</h4>
+                      <p className="text-[11px] text-slate-500 mt-1">{coupon.description}</p>
+                      <div className="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center">
+                        <span className="text-lg font-black text-indigo-600">{coupon.discount}</span>
+                        <span className="text-[9px] text-slate-400">Expires: {coupon.expiry}</span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Coupon Modal */}
+                {showCouponModal && (
+                  <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <motion.div
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.9, opacity: 0 }}
+                      className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl"
+                    >
+                      <div className="flex justify-between items-center pb-4 border-b">
+                        <span className="text-sm font-bold text-slate-800">Create Coupon</span>
+                        <button onClick={() => setShowCouponModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+                      </div>
+                      <form onSubmit={handleCreateCoupon} className="space-y-4 mt-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Code</label>
+                            <input
+                              type="text"
+                              value={newCoupon.code}
+                              onChange={(e) => setNewCoupon(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                              className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none font-mono"
+                              placeholder="SAVE20"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Title</label>
+                            <input
+                              type="text"
+                              value={newCoupon.title}
+                              onChange={(e) => setNewCoupon(prev => ({ ...prev, title: e.target.value }))}
+                              className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                              placeholder="20% Off"
+                              required
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Description</label>
+                          <input
+                            type="text"
+                            value={newCoupon.description}
+                            onChange={(e) => setNewCoupon(prev => ({ ...prev, description: e.target.value }))}
+                            className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                            placeholder="Discount for campus ambassadors"
+                            required
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Discount</label>
+                            <input
+                              type="text"
+                              value={newCoupon.discount}
+                              onChange={(e) => setNewCoupon(prev => ({ ...prev, discount: e.target.value }))}
+                              className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                              placeholder="20% off"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Expiry Date</label>
+                            <input
+                              type="date"
+                              value={newCoupon.expiry}
+                              onChange={(e) => setNewCoupon(prev => ({ ...prev, expiry: e.target.value }))}
+                              className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                              required
+                            />
+                          </div>
+                        </div>
+                        <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition-all">
+                          Create Coupon
+                        </button>
+                      </form>
+                    </motion.div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </main>
+      </div>
+
+      {/* Modals */}
+      {/* Committee Modal */}
+      {showCommitteeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+          >
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-sm">{editingCommittee ? 'Edit Committee' : 'New Committee'}</h2>
+                <p className="text-indigo-200 text-xs mt-0.5">{editingCommittee ? `Modifying: ${editingCommittee.id}` : 'Add a new committee track'}</p>
+              </div>
+              <button onClick={() => setShowCommitteeModal(false)} className="text-indigo-200 hover:text-white transition-colors">✕</button>
+            </div>
+            <form onSubmit={handleSaveCommittee} className="p-6 space-y-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Committee Name</label>
+                <input
+                  type="text"
+                  value={committeeForm.name}
+                  onChange={e => setCommitteeForm(p => ({ ...p, name: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Target Seats</label>
+                  <input
+                    type="number"
+                    value={committeeForm.target}
+                    onChange={e => setCommitteeForm(p => ({ ...p, target: parseInt(e.target.value) || 1 }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Fee (INR)</label>
+                  <input
+                    type="number"
+                    value={committeeForm.fee || ''}
+                    onChange={e => setCommitteeForm(p => ({ ...p, fee: parseFloat(e.target.value) || 0 }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Category</label>
+                <select
+                  value={committeeForm.category}
+                  onChange={e => setCommitteeForm(p => ({ ...p, category: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                >
+                  <option>Premium Single</option>
+                  <option>Double/Single</option>
+                  <option>Regional National</option>
+                  <option>Specialized</option>
+                </select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowCommitteeModal(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition-all">Cancel</button>
+                <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition-all">
+                  {editingCommittee ? 'Save' : 'Add'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Expense Modal */}
+      {showExpenseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+          >
+            <div className="bg-gradient-to-r from-rose-600 to-rose-700 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-sm">{editingExpense ? 'Edit Expense' : 'New Expense'}</h2>
+                <p className="text-rose-200 text-xs mt-0.5">Add to operational ledger</p>
+              </div>
+              <button onClick={() => setShowExpenseModal(false)} className="text-rose-200 hover:text-white transition-colors">✕</button>
+            </div>
+            <form onSubmit={handleSaveExpense} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Department</label>
+                  <select
+                    value={expenseForm.dept}
+                    onChange={e => setExpenseForm(p => ({ ...p, dept: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                  >
+                    {DEPARTMENTS.slice(1).map(d => <option key={d.name}>{d.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Status</label>
+                  <select
+                    value={expenseForm.status}
+                    onChange={e => setExpenseForm(p => ({ ...p, status: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                  >
+                    <option>Pending</option><option>Paid</option><option>Ordered</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Item Description</label>
+                <input
+                  type="text"
+                  value={expenseForm.item}
+                  onChange={e => setExpenseForm(p => ({ ...p, item: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Qty</label>
+                  <input type="number"
+                    value={expenseForm.qty}
+                    onChange={e => setExpenseForm(p => ({ ...p, qty: parseInt(e.target.value) || 1 }))}
+                    disabled={expenseForm.isPerDelegate}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-center disabled:opacity-50"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Unit Cost</label>
+                  <input type="number"
+                    value={expenseForm.unitCost || ''}
+                    onChange={e => setExpenseForm(p => ({ ...p, unitCost: parseFloat(e.target.value) || 0 }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-right"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Actual Cost</label>
+                  <input type="number"
+                    value={expenseForm.actualCost || ''}
+                    onChange={e => setExpenseForm(p => ({ ...p, actualCost: parseFloat(e.target.value) || 0 }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-right"
+                  />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={expenseForm.isPerDelegate} onChange={e => setExpenseForm(p => ({ ...p, isPerDelegate: e.target.checked }))} className="rounded" />
+                <span className="text-xs font-semibold text-slate-600">Per-delegate scaling</span>
+              </label>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowExpenseModal(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition-all">Cancel</button>
+                <button type="submit" className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl transition-all">
+                  {editingExpense ? 'Save' : 'Add'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Revenue Modal */}
+      {showRevenueModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+          >
+            <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-sm">{editingRevenue ? 'Edit Partnership' : 'New Partnership'}</h2>
+                <p className="text-emerald-200 text-xs mt-0.5">Add sponsorship or grant</p>
+              </div>
+              <button onClick={() => setShowRevenueModal(false)} className="text-emerald-200 hover:text-white transition-colors">✕</button>
+            </div>
+            <form onSubmit={handleSaveRevenue} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Category</label>
+                  <select
+                    value={revenueForm.category}
+                    onChange={e => setRevenueForm(p => ({ ...p, category: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                  >
+                    <option>Sponsorships</option><option>Grants</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Status</label>
+                  <select
+                    value={revenueForm.status}
+                    onChange={e => setRevenueForm(p => ({ ...p, status: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                  >
+                    <option>In Progress</option><option>Partially Received</option><option>Completed</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Source Name</label>
+                <input
+                  type="text"
+                  value={revenueForm.source}
+                  onChange={e => setRevenueForm(p => ({ ...p, source: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Target (INR)</label>
+                  <input type="number"
+                    value={revenueForm.target || ''}
+                    onChange={e => setRevenueForm(p => ({ ...p, target: parseFloat(e.target.value) || 0 }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-right"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Actual (INR)</label>
+                  <input type="number"
+                    value={revenueForm.actual || ''}
+                    onChange={e => setRevenueForm(p => ({ ...p, actual: parseFloat(e.target.value) || 0 }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-right"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowRevenueModal(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition-all">Cancel</button>
+                <button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition-all">
+                  {editingRevenue ? 'Save' : 'Add'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+      {/* SAP MODAL: Task Board Form */}
+      {showTaskForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+          >
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-sm">{editingTask ? 'Edit Task' : 'New Kanban Task'}</h2>
+                <p className="text-indigo-200 text-xs mt-0.5">{editingTask ? `Updating task assigned to ${taskForm.assignee || 'unassigned'}` : 'Publish operational task to board'}</p>
+              </div>
+              <button onClick={() => setShowTaskForm(false)} className="text-indigo-200 hover:text-white transition-colors">✕</button>
+            </div>
+            <form onSubmit={handleSaveTask} className="p-6 space-y-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Title</label>
+                <input
+                  type="text"
+                  value={taskForm.title}
+                  onChange={(e) => setTaskForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Description</label>
+                <textarea
+                  value={taskForm.description}
+                  onChange={(e) => setTaskForm(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 h-24 resize-none"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Department</label>
+                  <select
+                    value={taskForm.department}
+                    onChange={(e) => setTaskForm(prev => ({ ...prev, department: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                  >
+                    {DEPARTMENTS.slice(1).map(d => (
+                      <option key={d.name} value={d.name}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Due Date</label>
+                  <input
+                    type="date"
+                    value={taskForm.dueDate}
+                    onChange={(e) => setTaskForm(prev => ({ ...prev, dueDate: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Priority</label>
+                  <select
+                    value={taskForm.priority}
+                    onChange={(e) => setTaskForm(prev => ({ ...prev, priority: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Assignee</label>
+                  <input
+                    type="text"
+                    value={taskForm.assignee}
+                    onChange={(e) => setTaskForm(prev => ({ ...prev, assignee: e.target.value }))}
+                    placeholder="Optional Name"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowTaskForm(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition-all">Cancel</button>
+                <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition-all">
+                  {editingTask ? 'Save Changes' : 'Create Task'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* SAP MODAL: Infrastructure Asset Form */}
+      {showAssetForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+          >
+            <div className="bg-gradient-to-r from-teal-600 to-teal-700 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-sm">{editingAsset ? 'Edit Infrastructure Asset' : 'New Infrastructure Asset'}</h2>
+                <p className="text-teal-200 text-xs mt-0.5">{editingAsset ? 'Modify asset details in ledger' : 'Add capital asset item for tracking'}</p>
+              </div>
+              <button onClick={() => setShowAssetForm(false)} className="text-teal-200 hover:text-white transition-colors">✕</button>
+            </div>
+            <form onSubmit={handleSaveAsset} className="p-6 space-y-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Asset Name</label>
+                <input
+                  type="text"
+                  value={assetForm.name}
+                  onChange={(e) => setAssetForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-teal-500"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Quantity</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={assetForm.quantity}
+                    onChange={(e) => setAssetForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Unit Cost (INR)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={assetForm.cost || ''}
+                    onChange={(e) => setAssetForm(prev => ({ ...prev, cost: parseFloat(e.target.value) || 0 }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Department</label>
+                  <select
+                    value={assetForm.department}
+                    onChange={(e) => setAssetForm(prev => ({ ...prev, department: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                  >
+                    {DEPARTMENTS.slice(1).map(d => (
+                      <option key={d.name} value={d.name}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Status</label>
+                  <select
+                    value={assetForm.status}
+                    onChange={(e) => setAssetForm(prev => ({ ...prev, status: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                  >
+                    <option value="acquired">Acquired</option>
+                    <option value="pending">Pending</option>
+                    <option value="ordered">Ordered</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowAssetForm(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition-all">Cancel</button>
+                <button type="submit" className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl transition-all">
+                  {editingAsset ? 'Save Asset' : 'Add Asset'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* SAP MODAL: Announcement Bulletin Form */}
+      {showAnnouncementForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+          >
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-sm">{editingAnnouncement ? 'Edit Announcement' : 'New Broadcast Announcement'}</h2>
+                <p className="text-orange-100 text-xs mt-0.5">{editingAnnouncement ? 'Modify announcement parameters' : 'Broadcast a pin-able banner notice'}</p>
+              </div>
+              <button onClick={() => setShowAnnouncementForm(false)} className="text-orange-100 hover:text-white transition-colors">✕</button>
+            </div>
+            <form onSubmit={handleSaveAnnouncement} className="p-6 space-y-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Title</label>
+                <input
+                  type="text"
+                  value={announcementForm.title}
+                  onChange={(e) => setAnnouncementForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-orange-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Content</label>
+                <textarea
+                  value={announcementForm.content}
+                  onChange={(e) => setAnnouncementForm(prev => ({ ...prev, content: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-orange-500 h-24 resize-none"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Department</label>
+                  <select
+                    value={announcementForm.department}
+                    onChange={(e) => setAnnouncementForm(prev => ({ ...prev, department: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                  >
+                    {DEPARTMENTS.slice(1).map(d => (
+                      <option key={d.name} value={d.name}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2 pt-6">
+                  <input
+                    type="checkbox"
+                    id="pinAnnouncementForm"
+                    checked={announcementForm.isPinned}
+                    onChange={(e) => setAnnouncementForm(prev => ({ ...prev, isPinned: e.target.checked }))}
+                    className="rounded text-orange-500 focus:ring-orange-500 bg-slate-50"
+                  />
+                  <label htmlFor="pinAnnouncementForm" className="text-xs font-semibold text-slate-600 cursor-pointer">Pin to top</label>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowAnnouncementForm(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition-all">Cancel</button>
+                <button type="submit" className="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl transition-all">
+                  {editingAnnouncement ? 'Save Changes' : 'Broadcast'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+          >
+            <div className="bg-rose-50 px-6 py-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h2 className="font-bold text-slate-800 text-sm">Confirm Delete</h2>
+                <p className="text-slate-500 text-xs">This action cannot be undone</p>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-slate-600 text-sm">Remove <span className="font-bold text-slate-800">{deleteConfirm.name}</span> permanently?</p>
+              <div className="flex gap-3 mt-5">
+                <button onClick={() => setDeleteConfirm(null)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-xl transition-all">Cancel</button>
+                <button onClick={handleConfirmDelete} className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 rounded-xl transition-all">Delete</button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      <footer className="bg-white border-t border-slate-200 py-5 text-center text-[10px] text-slate-400 font-semibold shrink-0">
+        <p>© 2026 Kalinga International MUN Secretariat — Oasis Command Center</p>
+      </footer>
+    </div>
+  )
+}

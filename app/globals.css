@@ -1,0 +1,270 @@
+/* globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles */
+body {
+  font-family: 'Arial', sans-serif;
+  @apply bg-gray-50 text-gray-900;
+}
+
+/* Text balance utility */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Color variables */
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 215 45% 18%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 45% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 45% 18%;
+    --primary: 210 100% 28%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 210 35% 94%;
+    --secondary-foreground: 215 45% 18%;
+    --muted: 210 30% 95%;
+    --muted-foreground: 215 20% 42%;
+    --accent: 199 88% 94%;
+    --accent-foreground: 210 100% 28%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 214 32% 88%;
+    --input: 214 32% 88%;
+    --ring: 210 100% 28%;
+    --radius: 0.5rem;
+    --sidebar-background: 210 40% 97%;
+    --sidebar-foreground: 215 45% 18%;
+    --sidebar-primary: 210 100% 28%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 210 35% 94%;
+    --sidebar-accent-foreground: 210 100% 28%;
+    --sidebar-border: 214 32% 88%;
+    --sidebar-ring: 210 100% 28%;
+  }
+
+  .dark {
+    --background: 215 40% 96%;
+    --foreground: 215 45% 18%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 45% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 45% 18%;
+    --primary: 210 100% 28%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 210 35% 94%;
+    --secondary-foreground: 215 45% 18%;
+    --muted: 210 30% 95%;
+    --muted-foreground: 215 20% 42%;
+    --accent: 199 88% 94%;
+    --accent-foreground: 210 100% 28%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 214 32% 88%;
+    --input: 214 32% 88%;
+    --ring: 210 100% 28%;
+    --sidebar-background: 210 40% 97%;
+    --sidebar-foreground: 215 45% 18%;
+    --sidebar-primary: 210 100% 28%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 210 35% 94%;
+    --sidebar-accent-foreground: 210 100% 28%;
+    --sidebar-border: 214 32% 88%;
+    --sidebar-ring: 210 100% 28%;
+  }
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.8);
+}
+
+/* Animations */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px 2px hsla(var(--primary) / 0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px 5px hsla(var(--primary) / 0.4);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Base element styles */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  h1 {
+    @apply text-3xl font-bold;
+  }
+
+  h2 {
+    @apply text-2xl font-semibold;
+  }
+
+  h3 {
+    @apply text-xl font-medium;
+  }
+
+  input, textarea, select {
+    @apply bg-background text-foreground border-border rounded-md p-2 border focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition-colors;
+  }
+
+  input[type="checkbox"] {
+    @apply h-4 w-4 rounded border-border bg-background text-primary focus:ring-primary;
+  }
+}
+
+/* Custom components */
+@layer components {
+  .sidebar-item {
+    @apply bg-sidebar-background text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground;
+  }
+
+  .card {
+    @apply bg-card text-card-foreground rounded-lg shadow-sm border border-border;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90;
+  }
+
+  .btn-outline {
+    @apply border-border hover:bg-accent hover:text-accent-foreground;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .badge-primary {
+    @apply bg-primary/10 text-primary;
+  }
+
+  .badge-secondary {
+    @apply bg-secondary/10 text-secondary-foreground;
+  }
+}
+
+/* React Select overrides */
+.react-select-container {
+  @apply w-full text-sm;
+}
+
+.react-select__control {
+  @apply bg-background border-border hover:border-border !important;
+}
+
+.react-select__control--is-focused {
+  @apply border-primary ring-2 ring-primary !important;
+}
+
+.react-select__menu {
+  @apply bg-background border-border !important;
+}
+
+.react-select__option {
+  @apply hover:bg-accent hover:text-accent-foreground !important;
+}
+
+.react-select__option--is-focused {
+  @apply bg-accent text-accent-foreground !important;
+}
+
+.react-select__option--is-selected {
+  @apply bg-primary text-primary-foreground !important;
+}
+
+/* Table styles */
+.table-container {
+  @apply overflow-x-auto;
+}
+
+.table {
+  @apply min-w-full divide-y divide-border;
+}
+
+.table th {
+  @apply px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider;
+}
+
+.table td {
+  @apply px-6 py-4 whitespace-nowrap text-sm text-foreground;
+}
+
+.table tr {
+  @apply hover:bg-accent/50;
+}
+
+/* Form styles */
+.form-label {
+  @apply block text-sm font-medium text-foreground mb-1;
+}
+
+.form-input {
+  @apply w-full bg-background text-foreground border-border rounded-md p-2 border focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  @apply fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50;
+}
+
+/* Modal content */
+.modal-content {
+  @apply bg-background rounded-xl shadow-xl w-full max-w-md p-6;
+}
+
+/* Utility classes */
+.high-contrast {
+  @apply bg-background text-foreground;
+}
+
+.text-muted {
+  @apply text-muted-foreground;
+}
