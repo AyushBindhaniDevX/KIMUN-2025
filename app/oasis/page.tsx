@@ -68,10 +68,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ref, onValue, update, push, remove, get, set } from 'firebase/database'
-import { ref, onValue, update, push, remove, get, set } from 'firebase/database'
 import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth'
-import { firebaseAuth, firebaseDb, googleProvider, firebaseStorage } from '@/lib/firebase-client'
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { firebaseAuth, firebaseDb, googleProvider, firebaseStorage } from '@/lib/firebase-client'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import * as XLSX from 'xlsx'
@@ -386,13 +383,6 @@ export default function OasisWorkplace() {
 
   // Coupon states
   const [newCoupon, setNewCoupon] = useState({ code: '', title: '', description: '', discount: '', expiry: '', partner: '', terms: '' })
-
-  // Applicant details modal and legacy profile states
-  const [selectedApplicant, setSelectedApplicant] = useState<any | null>(null)
-  const [showAppDetailsModal, setShowAppDetailsModal] = useState(false)
-  const [legacyProfile, setLegacyProfile] = useState<any | null>(null)
-  const [fetchingLegacyProfile, setFetchingLegacyProfile] = useState(false)
-  const [legacyProfileError, setLegacyProfileError] = useState('')
 
   // Applicant details modal and legacy profile states
   const [selectedApplicant, setSelectedApplicant] = useState<any | null>(null)
