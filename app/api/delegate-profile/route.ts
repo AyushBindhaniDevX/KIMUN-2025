@@ -58,12 +58,18 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(1)
 
-    if (email && phone) {
-      query = query.or(`email.eq.${email},phone.eq.${phone}`)
-    } else if (email) {
-      query = query.eq('email', email)
-    } else {
-      query = query.eq('phone', phone)
+    let conditions: string[] = []
+    if (email) {
+      conditions.push(`email.eq.${email}`)
+      conditions.push(`joint_delegate_email.eq.${email}`)
+    }
+    if (phone) {
+      conditions.push(`phone.eq.${phone}`)
+      conditions.push(`joint_delegate_phone.eq.${phone}`)
+    }
+
+    if (conditions.length > 0) {
+      query = query.or(conditions.join(','))
     }
 
     const { data, error } = await query
