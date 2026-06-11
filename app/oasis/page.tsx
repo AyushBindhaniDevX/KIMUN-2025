@@ -67,9 +67,10 @@ import {
   Crown
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ref, onValue, update, push, remove, get } from 'firebase/database'
+import { ref, onValue, update, push, remove, get, set } from 'firebase/database'
 import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth'
-import { firebaseAuth, firebaseDb, googleProvider } from '@/lib/firebase-client'
+import { firebaseAuth, firebaseDb, googleProvider, firebaseStorage } from '@/lib/firebase-client'
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import 'jspdf-autotable'
@@ -141,36 +142,36 @@ const formatINR = (value: number) => {
 // Animated card wrapper
 const AnimatedCard = ({ children, className = "", delay = 0 }: { children: React.ReactNode, className?: string, delay?: number }) => (
   <motion.div
-    initial={{ opacity: 0, y: 20 }}
+    initial={{ opacity: 0, y: 16 }}
     animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.4, delay }}
+    transition={{ duration: 0.5, delay, ease: [0.25, 0.8, 0.25, 1] }}
     className={className}
   >
     {children}
   </motion.div>
 )
 
-// KPI Metric Card Component
+// KPI Metric Card Component — Apple-inspired
 const KPICard = ({ title, value, subtitle, icon: Icon, color, trend, trendValue }: any) => (
   <motion.div
-    whileHover={{ y: -4, transition: { duration: 0.2 } }}
-    className="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
+    whileHover={{ y: -2, transition: { duration: 0.25, ease: [0.25, 0.8, 0.25, 1] } }}
+    className="bg-white/70 backdrop-blur-xl rounded-2xl border border-white/60 shadow-[0_2px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all duration-300 overflow-hidden"
   >
     <div className="p-5">
       <div className="flex justify-between items-start">
-        <div>
-          <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">{title}</span>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-2xl font-black text-slate-900">{value}</span>
+        <div className="space-y-1">
+          <span className="text-[11px] font-semibold text-[#86868b] tracking-wide">{title}</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[22px] font-bold text-[#1d1d1f] tracking-tight">{value}</span>
             {trend && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${trend === 'up' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${trend === 'up' ? 'bg-[#e8f5e9] text-[#2e7d32]' : 'bg-[#fce4ec] text-[#c62828]'}`}>
                 {trendValue}
               </span>
             )}
           </div>
-          <p className="text-[10px] text-slate-400 font-medium mt-1">{subtitle}</p>
+          <p className="text-[11px] text-[#86868b] font-medium">{subtitle}</p>
         </div>
-        <div className={`${color} p-2.5 rounded-xl shadow-sm`}>
+        <div className={`${color} p-2.5 rounded-xl`}>
           <Icon className="w-5 h-5 text-white" />
         </div>
       </div>
@@ -188,7 +189,7 @@ export default function OasisWorkplace() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Workspace Navigation
-  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'dept_boards'>('dashboard')
+  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'dept_boards' | 'registry_manager' | 'delegate_search' | 'help_docs'>('dashboard')
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All Departments')
 
   // Live Database Datasets
@@ -214,6 +215,103 @@ export default function OasisWorkplace() {
   const [attendanceRealizationRate, setAttendanceRealizationRate] = useState(100)
   const [sponsorRealizationRate, setSponsorRealizationRate] = useState(100)
   const [contingencyRate, setContingencyRate] = useState(10)
+  const [excludeSponsors, setExcludeSponsors] = useState(false)
+  const [tourStep, setTourStep] = useState(-1)
+  const [searchQueryDele, setSearchQueryDele] = useState('')
+  const [supabaseDelegates, setSupabaseDelegates] = useState<any[]>([])
+  const [loadingSupabase, setLoadingSupabase] = useState(false)
+  const [selectedDele, setSelectedDele] = useState<any>(null)
+
+  // Fetch Supabase delegates reactively with debounce
+  useEffect(() => {
+    const query = searchQueryDele.trim()
+    if (!query) {
+      setSupabaseDelegates([])
+      return
+    }
+
+    setLoadingSupabase(true)
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/supabase-search?query=${encodeURIComponent(query)}`)
+        const data = await response.json()
+        if (data.delegates) {
+          setSupabaseDelegates(data.delegates)
+        } else {
+          setSupabaseDelegates([])
+        }
+      } catch (error) {
+        console.error('Failed to search Supabase:', error)
+      } finally {
+        setLoadingSupabase(false)
+      }
+    }, 400)
+
+    return () => clearTimeout(delayDebounce)
+  }, [searchQueryDele])
+
+  const [docSubTab, setDocSubTab] = useState<'quickstart' | 'metrics' | 'finance' | 'faq'>('quickstart')
+
+  // Custom Interactive Tour Steps definition
+  const TOUR_STEPS = [
+    {
+      title: 'Welcome to Oasis Dashboard',
+      content: 'This is the Overview tab where you can monitor live check-ins, attendance rates, and recent broadcast alerts from the Secretariat.',
+      tab: 'dashboard',
+      highlightId: 'dashboard-tab'
+    },
+    {
+      title: 'Financial Workstation',
+      content: 'Model registration prices, manage ledgers, sponsorships, and run break-even simulations. Try toggling "No Sponsors Mode" to view pure registration-funded forecasts.',
+      tab: 'finance_station',
+      highlightId: 'finance_station-tab'
+    },
+    {
+      title: 'Registrations & Check-in Desk',
+      content: 'Track physical check-ins, allocation status, and verify registration details in real time as delegates arrive at the venue.',
+      tab: 'live_allocations',
+      highlightId: 'live_allocations-tab'
+    },
+    {
+      title: 'Academic Resources & Vault',
+      content: 'Store background study guides, rules of procedure, and record or approve delegate marks and evaluation grades.',
+      tab: 'academic_vault',
+      highlightId: 'academic_vault-tab'
+    },
+    {
+      title: 'Onboarding & Recruitment Hub',
+      content: 'Exclusively for administrators. Track and review applications for organizing committee roles, accept applications, or send onboarding invites.',
+      tab: 'recruitment',
+      highlightId: 'recruitment-tab'
+    },
+    {
+      title: 'Department Workspace',
+      content: 'OC members can collaborate here. Track tasks, assets, and broadcast alerts specific to your department.',
+      tab: 'dept_boards',
+      highlightId: 'dept_boards-tab'
+    },
+    {
+      title: 'DeleOs Search Engine',
+      content: 'Search the delegate registration database. Contact details are automatically masked to comply with standard security policies.',
+      tab: 'delegate_search',
+      highlightId: 'delegate_search-tab'
+    },
+    {
+      title: 'Help and Documentation',
+      content: 'Need assistance? Read quick-start guides, metrics definitions, and system FAQs, or replay this tour anytime.',
+      tab: 'help_docs',
+      highlightId: 'help_docs-tab'
+    }
+  ]
+
+  useEffect(() => {
+    if (accessGranted && !authLoading) {
+      const isCompleted = localStorage.getItem('oasis_tour_completed')
+      if (isCompleted !== 'true') {
+        setTourStep(-2)
+      }
+    }
+  }, [accessGranted, authLoading])
 
   // Modal States
   const [showCommitteeModal, setShowCommitteeModal] = useState(false)
@@ -228,7 +326,29 @@ export default function OasisWorkplace() {
   const [editingRevenue, setEditingRevenue] = useState<any | null>(null)
   const [revenueForm, setRevenueForm] = useState({ category: 'Sponsorships', source: '', target: 0, actual: 0, status: 'In Progress' })
 
-  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'committees' | 'expenses' | 'revenue' | 'tasks' | 'assets' | 'announcements', id: string, name: string } | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'committees' | 'expenses' | 'revenue' | 'tasks' | 'assets' | 'announcements' | 'db_committees' | 'db_portfolios' | 'db_eb', id: string, name: string, subId?: string } | null>(null)
+
+  // Real Database Registry Manager States
+  const [selectedRegistryCommitteeId, setSelectedRegistryCommitteeId] = useState<string | null>(null)
+  const [registryTab, setRegistryTab] = useState<'portfolios' | 'eb'>('portfolios')
+
+  // Db Committee Form States
+  const [showDbCommitteeModal, setShowDbCommitteeModal] = useState(false)
+  const [editingDbCommittee, setEditingDbCommittee] = useState<any | null>(null)
+  const [dbCommitteeForm, setDbCommitteeForm] = useState({ id: '', name: '', description: '', category: '', topics: '', backgroundGuide: '', rules: '', studyGuide: '' })
+
+  // Db Portfolio Form States
+  const [showDbPortfolioModal, setShowDbPortfolioModal] = useState(false)
+  const [editingDbPortfolio, setEditingDbPortfolio] = useState<any | null>(null)
+  const [dbPortfolioForm, setDbPortfolioForm] = useState({ id: '', country: '', countryCode: '', isDoubleDelAllowed: false, isVacant: true, minExperience: 0, email: '' })
+
+  // Db EB Member Form States
+  const [showDbEbModal, setShowDbEbModal] = useState(false)
+  const [editingDbEb, setEditingDbEb] = useState<any | null>(null)
+  const [dbEbForm, setDbEbForm] = useState({ id: '', name: '', role: 'Chairperson', email: '', photourl: '', instagram: '', bio: '' })
+
+  const [isUploadingFile, setIsUploadingFile] = useState(false)
+
 
   // Notifications
   const [notification, setNotification] = useState<{ show: boolean, message: string, type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'success' })
@@ -263,6 +383,13 @@ export default function OasisWorkplace() {
 
   // Coupon states
   const [newCoupon, setNewCoupon] = useState({ code: '', title: '', description: '', discount: '', expiry: '', partner: '', terms: '' })
+
+  // Applicant details modal and legacy profile states
+  const [selectedApplicant, setSelectedApplicant] = useState<any | null>(null)
+  const [showAppDetailsModal, setShowAppDetailsModal] = useState(false)
+  const [legacyProfile, setLegacyProfile] = useState<any | null>(null)
+  const [fetchingLegacyProfile, setFetchingLegacyProfile] = useState(false)
+  const [legacyProfileError, setLegacyProfileError] = useState('')
 
   const triggerNotification = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setNotification({ show: true, message, type })
@@ -367,11 +494,55 @@ export default function OasisWorkplace() {
         const flatList: any[] = []
         Object.entries(data).forEach(([regId, reg]: [string, any]) => {
           if (reg.delegateInfo) {
-            Object.entries(reg.delegateInfo).forEach(([delId, del]: [string, any]) => {
+            if (reg.delegateInfo.delegate1 || reg.delegateInfo.delegate2) {
+              if (reg.delegateInfo.delegate1) {
+                const del = reg.delegateInfo.delegate1
+                flatList.push({
+                  id: `${regId}_delegate1`,
+                  regId,
+                  delId: 'delegate1',
+                  name: del.name || '',
+                  email: del.email || '',
+                  phone: del.phone || '',
+                  institution: del.institution || '',
+                  course: del.course || '',
+                  year: del.year || '',
+                  committeeId: reg.committeeId || '',
+                  portfolioId: reg.portfolioId || '',
+                  isCheckedIn: del.isCheckedIn || false,
+                  checkInTime: del.checkInTime || '',
+                  paymentId: reg.paymentId || '',
+                  paymentStatus: reg.paymentStatus || 'pending',
+                  paymentAmount: reg.paymentAmount || 0,
+                })
+              }
+              if (reg.delegateInfo.delegate2) {
+                const del = reg.delegateInfo.delegate2
+                flatList.push({
+                  id: `${regId}_delegate2`,
+                  regId,
+                  delId: 'delegate2',
+                  name: del.name || '',
+                  email: del.email || '',
+                  phone: del.phone || '',
+                  institution: del.institution || '',
+                  course: del.course || '',
+                  year: del.year || '',
+                  committeeId: reg.committeeId || '',
+                  portfolioId: reg.portfolioId || '',
+                  isCheckedIn: del.isCheckedIn || false,
+                  checkInTime: del.checkInTime || '',
+                  paymentId: reg.paymentId || '',
+                  paymentStatus: reg.paymentStatus || 'pending',
+                  paymentAmount: reg.paymentAmount || 0,
+                })
+              }
+            } else if (reg.delegateInfo.name) {
+              const del = reg.delegateInfo
               flatList.push({
-                id: `${regId}_${delId}`,
+                id: `${regId}_single`,
                 regId,
-                delId,
+                delId: 'single',
                 name: del.name || '',
                 email: del.email || '',
                 phone: del.phone || '',
@@ -386,7 +557,30 @@ export default function OasisWorkplace() {
                 paymentStatus: reg.paymentStatus || 'pending',
                 paymentAmount: reg.paymentAmount || 0,
               })
-            })
+            } else {
+              Object.entries(reg.delegateInfo).forEach(([delId, del]: [string, any]) => {
+                if (del && typeof del === 'object') {
+                  flatList.push({
+                    id: `${regId}_${delId}`,
+                    regId,
+                    delId,
+                    name: del.name || '',
+                    email: del.email || '',
+                    phone: del.phone || '',
+                    institution: del.institution || '',
+                    course: del.course || '',
+                    year: del.year || '',
+                    committeeId: reg.committeeId || '',
+                    portfolioId: reg.portfolioId || '',
+                    isCheckedIn: del.isCheckedIn || false,
+                    checkInTime: del.checkInTime || '',
+                    paymentId: reg.paymentId || '',
+                    paymentStatus: reg.paymentStatus || 'pending',
+                    paymentAmount: reg.paymentAmount || 0,
+                  })
+                }
+              })
+            }
           }
         })
         setDbDelegates(flatList)
@@ -557,8 +751,10 @@ export default function OasisWorkplace() {
     let actualNonRegRevenue = 0
     workstationRevenues.forEach(r => {
       if (r.category === 'Sponsorships') {
-        targetNonRegRevenue += r.target * (sponsorRealizationRate / 100)
-        actualNonRegRevenue += r.actual * (sponsorRealizationRate / 100)
+        if (!excludeSponsors) {
+          targetNonRegRevenue += r.target * (sponsorRealizationRate / 100)
+          actualNonRegRevenue += r.actual * (sponsorRealizationRate / 100)
+        }
       } else {
         targetNonRegRevenue += r.target
         actualNonRegRevenue += r.actual
@@ -633,7 +829,7 @@ export default function OasisWorkplace() {
       deptBudgets,
       deptActuals,
     }
-  }, [workstationCommittees, workstationExpenses, workstationRevenues, attendanceRealizationRate, sponsorRealizationRate, contingencyRate])
+  }, [workstationCommittees, workstationExpenses, workstationRevenues, attendanceRealizationRate, sponsorRealizationRate, contingencyRate, excludeSponsors])
 
   // Modal Handlers
   const openAddCommitteeModal = () => {
@@ -756,6 +952,29 @@ export default function OasisWorkplace() {
       remove(ref(firebaseDb, `oc_announcements/${id}`))
         .then(() => triggerNotification('Broadcast removed.', 'error'))
         .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
+    } else if (type === 'db_committees') {
+      remove(ref(firebaseDb, `committees/${id}`))
+        .then(() => {
+          triggerNotification('Committee removed from database.', 'error')
+          if (selectedRegistryCommitteeId === id) {
+            setSelectedRegistryCommitteeId(null)
+          }
+        })
+        .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
+    } else if (type === 'db_portfolios') {
+      const portfolioId = deleteConfirm.subId
+      if (portfolioId) {
+        remove(ref(firebaseDb, `committees/${id}/portfolios/${portfolioId}`))
+          .then(() => triggerNotification('Portfolio slot removed.', 'error'))
+          .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
+      }
+    } else if (type === 'db_eb') {
+      const memberId = deleteConfirm.subId
+      if (memberId) {
+        remove(ref(firebaseDb, `committees/${id}/eb/${memberId}`))
+          .then(() => triggerNotification('EB Member removed.', 'error'))
+          .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
+      }
     }
     setDeleteConfirm(null)
   }
@@ -801,6 +1020,102 @@ export default function OasisWorkplace() {
     document.body.removeChild(link)
     triggerNotification('Spreadsheet CSV download initiated!')
   }
+
+  const handleDownloadCitationPDF = (delegate: any) => {
+    try {
+      const doc = new jsPDF()
+
+      // Page Frame
+      doc.setDrawColor(60, 80, 224) // Brand Blue
+      doc.setLineWidth(1.5)
+      doc.rect(10, 10, 190, 277)
+
+      // Header Banner
+      doc.setFillColor(60, 80, 224)
+      doc.rect(10, 10, 190, 28, 'F')
+
+      // Title
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('Helvetica', 'bold')
+      doc.setFontSize(14)
+      doc.text("KIMUN DELEGATE PROFILE RECORD", 105, 20, { align: 'center' })
+      doc.setFontSize(8.5)
+      doc.text("Kalinga International Model United Nations Delegate Directory", 105, 28, { align: 'center' })
+
+      // Body Content
+      doc.setTextColor(28, 36, 52)
+      doc.setFontSize(10)
+
+      // Fields
+      let y = 55
+      const drawField = (label: string, val: string, isHeader = false) => {
+        doc.setFont('Helvetica', 'bold')
+        doc.setFontSize(isHeader ? 12 : 10)
+        doc.text(label, 20, y)
+        doc.setFont('Helvetica', 'normal')
+        doc.setFontSize(isHeader ? 12 : 10)
+        doc.text(val, 75, y)
+        y += isHeader ? 12 : 9
+      }
+
+      drawField("REGISTRATION CODE:", (delegate.displayId || '').toUpperCase())
+      drawField("REGISTRY SOURCE:", delegate.sourceType === 'firebase' ? 'Active Registry' : 'Legacy Archives')
+      y += 4 // space
+      drawField("DELEGATE NAME:", (delegate.displayName || '').toUpperCase(), true)
+      y += 2
+      drawField("SCHOOL / COLLEGE:", delegate.displayInstitution || 'N/A')
+      drawField("MUN EXPERIENCE:", delegate.displayExperience || 'N/A')
+      drawField("PREV ALLOTMENT:", delegate.displayPreviousAllotments || 'N/A')
+      drawField("CURRENT COMMITTEE:", delegate.displayCommittee || 'N/A')
+      drawField("CURRENT PORTFOLIO:", delegate.displayPortfolio || 'N/A')
+
+      const maskEmail = (email: string) => {
+        if (!email || !email.includes('@')) return '***@***.***'
+        const [local, domain] = email.split('@')
+        if (local.length <= 2) return `${local[0]}***@${domain}`
+        return `${local[0]}${'*'.repeat(Math.min(5, local.length - 2))}${local[local.length - 1]}@${domain}`
+      }
+      const maskPhone = (phone: string) => {
+        if (!phone) return '**********'
+        const clean = phone.trim()
+        if (clean.length <= 4) return '******' + clean
+        return clean.slice(0, -4).replace(/\d/g, '*') + clean.slice(-4)
+      }
+
+      drawField("EMAIL (MASKED):", maskEmail(delegate.displayEmail))
+      drawField("PHONE (MASKED):", maskPhone(delegate.displayPhone))
+      drawField("BLACKLIST / VETTING:", delegate.displayVettingStatus || 'N/A')
+
+      // Divider
+      doc.setDrawColor(226, 232, 240)
+      doc.setLineWidth(0.5)
+      doc.line(20, y + 5, 190, y + 5)
+      y += 15
+
+      // Status Alert Banner
+      const isBanned = (delegate.displayStatus || '').toLowerCase().includes('ban') || (delegate.displayPayment || '').toLowerCase().includes('black')
+      doc.setFillColor(isBanned ? 239 : 16, isBanned ? 68 : 185, isBanned ? 68 : 129) // Red or Green
+      doc.rect(20, y, 170, 25, 'F')
+
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('Helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.text(isBanned ? "STATUS: BLACKLISTED" : "STATUS: VERIFIED & CLEARED", 105, y + 10, { align: 'center' })
+      doc.setFontSize(8.5)
+      doc.text(isBanned ? "DELEGATE HAS A PREVIOUS BAN HISTORY OR BLACKLIST RECORD" : "DELEGATE IS IN GOOD STANDING FOR KALINGA INTERNATIONAL MUN", 105, y + 17, { align: 'center' })
+
+      // Footer
+      doc.setTextColor(148, 163, 184)
+      doc.setFontSize(7.5)
+      doc.text("KIMUN DELEGATE DIRECTORY SERVICES", 105, 270, { align: 'center' })
+      doc.save(`Delegate_Record_${delegate.displayName.replace(/\s+/g, '_')}.pdf`)
+      triggerNotification('Delegate Profile PDF generated successfully!')
+    } catch (e: any) {
+      console.error(e)
+      triggerNotification('Failed to generate profile PDF: ' + e.message, 'error')
+    }
+  }
+
 
   // Real-time CRUD Triggers
   const claimLiveTask = async (taskId: string) => {
@@ -965,6 +1280,40 @@ export default function OasisWorkplace() {
       triggerNotification(`Applicant status updated to ${nextStatus}.`)
     } catch (err: any) {
       triggerNotification('Failed to update: ' + err.message, 'error')
+    }
+  }
+
+  const handleOpenAppDetailsModal = async (app: any) => {
+    setSelectedApplicant(app)
+    setShowAppDetailsModal(true)
+    setLegacyProfile(null)
+    setLegacyProfileError('')
+    setFetchingLegacyProfile(true)
+
+    try {
+      const email = app.email || ''
+      const phone = app.phone || ''
+
+      const queryParams = new URLSearchParams()
+      if (email) queryParams.set('email', email)
+      if (phone) queryParams.set('phone', phone)
+
+      const response = await fetch(`/api/delegate-profile?${queryParams.toString()}`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch legacy profile (Status: ${response.status})`)
+      }
+
+      const data = await response.json()
+      if (data.error) {
+        setLegacyProfileError(data.error)
+      } else {
+        setLegacyProfile(data.profile || null)
+      }
+    } catch (err: any) {
+      console.error('Error loading legacy profile:', err)
+      setLegacyProfileError(err.message || 'An error occurred while fetching details.')
+    } finally {
+      setFetchingLegacyProfile(false)
     }
   }
 
@@ -1135,6 +1484,141 @@ export default function OasisWorkplace() {
     }
   }
 
+
+  // Real Database Registry Manager Handlers
+  const handleSaveDbCommittee = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const commId = dbCommitteeForm.id.trim().toUpperCase()
+    if (!commId || !dbCommitteeForm.name.trim()) {
+      triggerNotification('Committee ID and Name are required.', 'error')
+      return
+    }
+
+    if (!editingDbCommittee && dbCommittees.some(c => c.id === commId)) {
+      triggerNotification(`Committee with ID ${commId} already exists!`, 'error')
+      return
+    }
+
+    try {
+      const commRef = ref(firebaseDb, `committees/${commId}`)
+      const payload: any = {
+        name: dbCommitteeForm.name.trim(),
+        description: dbCommitteeForm.description.trim(),
+        category: dbCommitteeForm.category.trim(),
+        topics: dbCommitteeForm.topics.split(',').map(t => t.trim()).filter(Boolean),
+        backgroundGuide: dbCommitteeForm.backgroundGuide.trim(),
+        rules: dbCommitteeForm.rules.trim(),
+        studyGuide: dbCommitteeForm.studyGuide.trim(),
+        updatedAt: new Date().toISOString()
+      }
+
+      await update(commRef, payload)
+      setShowDbCommitteeModal(false)
+      setEditingDbCommittee(null)
+      setDbCommitteeForm({ id: '', name: '', description: '', category: '', topics: '', backgroundGuide: '', rules: '', studyGuide: '' })
+      triggerNotification(editingDbCommittee ? 'Committee updated successfully.' : 'New committee registered successfully.')
+    } catch (err: any) {
+      triggerNotification('Failed to save committee: ' + err.message, 'error')
+    }
+  }
+
+  const handleSaveDbPortfolio = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedRegistryCommitteeId) return
+    const portId = dbPortfolioForm.id.trim().toLowerCase()
+    if (!portId || !dbPortfolioForm.country.trim()) {
+      triggerNotification('Portfolio ID and Country name are required.', 'error')
+      return
+    }
+
+    const currentComm = dbCommittees.find(c => c.id === selectedRegistryCommitteeId)
+    const portfolioExists = currentComm?.portfolios?.some((p: any) => p.id === portId)
+    if (!editingDbPortfolio && portfolioExists) {
+      triggerNotification(`Portfolio with ID ${portId} already exists!`, 'error')
+      return
+    }
+
+    try {
+      const portRef = ref(firebaseDb, `committees/${selectedRegistryCommitteeId}/portfolios/${portId}`)
+      const payload = {
+        country: dbPortfolioForm.country.trim(),
+        countryCode: dbPortfolioForm.countryCode.trim().toUpperCase(),
+        isDoubleDelAllowed: dbPortfolioForm.isDoubleDelAllowed,
+        isVacant: dbPortfolioForm.isVacant,
+        minExperience: Number(dbPortfolioForm.minExperience) || 0,
+        email: dbPortfolioForm.email.trim()
+      }
+      await set(portRef, payload)
+      setShowDbPortfolioModal(false)
+      setEditingDbPortfolio(null)
+      setDbPortfolioForm({ id: '', country: '', countryCode: '', isDoubleDelAllowed: false, isVacant: true, minExperience: 0, email: '' })
+      triggerNotification(editingDbPortfolio ? 'Portfolio updated successfully.' : 'New portfolio added successfully.')
+    } catch (err: any) {
+      triggerNotification('Failed to save portfolio: ' + err.message, 'error')
+    }
+  }
+
+  const handleSaveDbEbMember = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedRegistryCommitteeId) return
+    const mId = editingDbEb ? dbEbForm.id : `eb-${Date.now()}`
+
+    if (!dbEbForm.name.trim() || !dbEbForm.role.trim() || !dbEbForm.email.trim()) {
+      triggerNotification('Name, Role, and Email are required.', 'error')
+      return
+    }
+
+    try {
+      const ebRef = ref(firebaseDb, `committees/${selectedRegistryCommitteeId}/eb/${mId}`)
+      const payload = {
+        name: dbEbForm.name.trim(),
+        role: dbEbForm.role.trim(),
+        email: dbEbForm.email.trim().toLowerCase(),
+        photourl: dbEbForm.photourl.trim(),
+        instagram: dbEbForm.instagram.trim(),
+        bio: dbEbForm.bio.trim()
+      }
+      await set(ebRef, payload)
+      setShowDbEbModal(false)
+      setEditingDbEb(null)
+      setDbEbForm({ id: '', name: '', role: 'Chairperson', email: '', photourl: '', instagram: '', bio: '' })
+      triggerNotification(editingDbEb ? 'EB member updated successfully.' : 'New EB member registered successfully.')
+    } catch (err: any) {
+      triggerNotification('Failed to save EB member: ' + err.message, 'error')
+    }
+  }
+
+  const handleDbFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'eb_photo' | 'bg_guide' | 'rules' | 'study_guide') => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploadingFile(true)
+    try {
+      const folder = selectedRegistryCommitteeId || 'general'
+      const storagePath = `registry/${folder}/${type}/${file.name}`
+      const fileRef = storageRef(firebaseStorage, storagePath)
+
+      await uploadBytes(fileRef, file)
+      const downloadURL = await getDownloadURL(fileRef)
+
+      if (type === 'eb_photo') {
+        setDbEbForm(prev => ({ ...prev, photourl: downloadURL }))
+      } else if (type === 'bg_guide') {
+        setDbCommitteeForm(prev => ({ ...prev, backgroundGuide: downloadURL }))
+      } else if (type === 'rules') {
+        setDbCommitteeForm(prev => ({ ...prev, rules: downloadURL }))
+      } else if (type === 'study_guide') {
+        setDbCommitteeForm(prev => ({ ...prev, studyGuide: downloadURL }))
+      }
+
+      triggerNotification('File uploaded successfully.')
+    } catch (err: any) {
+      triggerNotification('Upload failed: ' + err.message, 'error')
+    } finally {
+      setIsUploadingFile(false)
+    }
+  }
+
   const handleBlacklistDelegate = async (del: any) => {
     const reason = prompt(`Provide administrative reason to blacklist delegate: ${del.name}`)
     if (!reason) return
@@ -1263,22 +1747,173 @@ export default function OasisWorkplace() {
     )
   }
   const menuItems = [
-    { id: 'dashboard', label: 'Overview Hub', icon: LayoutDashboard, color: 'text-indigo-600' },
-    { id: 'finance_station', label: 'Financial Station', icon: FileSpreadsheet, color: 'text-emerald-600' },
-    { id: 'live_allocations', label: 'Live Inventory', icon: Globe, color: 'text-sky-600' },
-    { id: 'academic_vault', label: 'Academic Vault', icon: BookOpen, color: 'text-amber-600' },
+    { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, color: 'text-indigo-600' },
+    { id: 'finance_station', label: 'Finance', icon: FileSpreadsheet, color: 'text-emerald-600' },
+    { id: 'live_allocations', label: 'Registrations', icon: UserCheck, color: 'text-sky-600' },
+    { id: 'academic_vault', label: 'Resources', icon: BookOpen, color: 'text-amber-600' },
     ...(role === 'admin' ? [{ id: 'recruitment', label: 'Onboarding Hub', icon: Users, color: 'text-violet-600' }] : []),
-    { id: 'dept_boards', label: 'Department Boards', icon: Layers, color: 'text-purple-600' },
-    { id: 'task_board', label: 'Task Board', icon: ClipboardList, color: 'text-rose-600' },
-    { id: 'assets_ledger', label: 'Assets Ledger', icon: Package, color: 'text-teal-600' },
-    { id: 'bulletin_board', label: 'Bulletin Board', icon: Megaphone, color: 'text-orange-600' },
+    { id: 'dept_boards', label: 'Department Workspace', icon: Layers, color: 'text-purple-600' },
+    { id: 'delegate_search', label: 'DeleOs', icon: Search, color: 'text-indigo-600' },
+    { id: 'help_docs', label: 'Help and Doc', icon: Info, color: 'text-blue-600' },
     ...(role === 'admin' ? [
-      { id: 'payouts', label: 'Prizes & Payouts', icon: Award, color: 'text-purple-600' },
-      { id: 'coupons', label: 'Coupon Engine', icon: Ticket, color: 'text-pink-600' }
+      { id: 'coupons', label: 'Coupons', icon: Ticket, color: 'text-pink-600' },
+      { id: 'registry_manager', label: 'Committee Management', icon: Sliders, color: 'text-teal-600' }
     ] : [])
   ]
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-800 flex flex-col font-sans antialiased">
+    <div className="min-h-screen bg-[#F1F5F9] text-[#1C2434] flex flex-col antialiased relative" style={{ fontFamily: '"Outfit", "Inter", sans-serif' }}>
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        /* ═══════════════════════════════════════════════ */
+        /*  TailAdmin Dashboard Theme                      */
+        /*  Professional • High-Contrast • Clean Borders   */
+        /* ═══════════════════════════════════════════════ */
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+          --tailadmin-bg: #F1F5F9;
+          --tailadmin-sidebar: #1C2434;
+          --tailadmin-sidebar-hover: #333A48;
+          --tailadmin-header: #FFFFFF;
+          --tailadmin-primary: #3C50E0;
+          --tailadmin-primary-hover: #2B3EB2;
+          --tailadmin-stroke: #E2E8F0;
+          --tailadmin-text: #1C2434;
+          --tailadmin-text-secondary: #64748B;
+          --tailadmin-success: #10B981;
+          --tailadmin-warning: #F2994A;
+          --tailadmin-danger: #D34053;
+          --tailadmin-shadow: 0px 8px 13px -3px rgba(0, 0, 0, 0.07);
+        }
+        
+        body {
+          background-color: var(--tailadmin-bg) !important;
+          color: var(--tailadmin-text) !important;
+          font-family: 'Outfit', 'Inter', sans-serif !important;
+        }
+
+        /* Solid White Cards with TailAdmin borders and shadows */
+        .bg-white {
+          background: #FFFFFF !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          border: 1px solid var(--tailadmin-stroke) !important;
+          border-radius: 6px !important;
+          color: var(--tailadmin-text) !important;
+          box-shadow: var(--tailadmin-shadow) !important;
+        }
+
+        /* Solid White Header */
+        header {
+          background: #FFFFFF !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          border-bottom: 1px solid var(--tailadmin-stroke) !important;
+          border-radius: 0 !important;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        }
+
+        /* Solid Dark Sidebar */
+        aside {
+          background: var(--tailadmin-sidebar) !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          border-right: 1px solid #2E3A4F !important;
+          border-radius: 0 !important;
+        }
+
+        /* Text hierarchies */
+        .text-slate-900, .text-slate-800 { color: var(--tailadmin-text) !important; }
+        .text-slate-700 { color: #2C3A54 !important; }
+        .text-slate-600 { color: #4A5668 !important; }
+        .text-slate-500 { color: var(--tailadmin-text-secondary) !important; }
+        .text-slate-400 { color: #8A99AD !important; }
+
+        /* Border refinements */
+        .border-slate-200, .border-slate-200\\/80, .border-slate-200\\/60, .border-slate-100 {
+          border-color: var(--tailadmin-stroke) !important;
+        }
+        .divide-slate-100 > * + * { border-color: var(--tailadmin-stroke) !important; }
+
+        /* Background offsets */
+        .bg-slate-50, .bg-slate-50\\/50, .bg-slate-50\\/30, .bg-slate-50\\/80 {
+          background-color: #F8FAFC !important;
+          border-radius: 4px !important;
+          border: 1px solid var(--tailadmin-stroke) !important;
+        }
+
+        /* Form Inputs & Selects - TailAdmin style */
+        input, select, textarea {
+          background: #FFFFFF !important;
+          border: 1px solid var(--tailadmin-stroke) !important;
+          color: var(--tailadmin-text) !important;
+          border-radius: 4px !important;
+          padding: 10px 16px !important;
+          font-size: 14px !important;
+          transition: border-color 0.2s, box-shadow 0.2s !important;
+        }
+        input:focus, select:focus, textarea:focus {
+          border-color: var(--tailadmin-primary) !important;
+          box-shadow: 0 0 0 3px rgba(60, 80, 224, 0.12) !important;
+          outline: none !important;
+        }
+        input::placeholder { color: #8A99AD !important; }
+
+        /* Brand Accent Custom Mapping */
+        .bg-indigo-50 {
+          background: rgba(60, 80, 224, 0.08) !important;
+          color: var(--tailadmin-primary) !important;
+          border-color: rgba(60, 80, 224, 0.15) !important;
+        }
+        .text-indigo-700, .text-indigo-600 { color: var(--tailadmin-primary) !important; }
+        .bg-indigo-600 {
+          background: var(--tailadmin-primary) !important;
+          color: #fff !important;
+          border: none !important;
+        }
+        .bg-indigo-600:hover, .hover\\:bg-indigo-700:hover {
+          background: var(--tailadmin-primary-hover) !important;
+          box-shadow: 0 4px 12px rgba(60, 80, 224, 0.25) !important;
+        }
+
+        /* Table styles */
+        table { border-collapse: collapse !important; width: 100% !important; }
+        thead tr { background: #F7F9FC !important; }
+        tbody tr { border-bottom: 1px solid var(--tailadmin-stroke) !important; }
+        tbody tr:hover { background: #F8FAFC !important; }
+        th {
+          font-weight: 600 !important;
+          color: var(--tailadmin-text) !important;
+          border-bottom: 1px solid var(--tailadmin-stroke) !important;
+        }
+        td {
+          border-bottom: 1px solid var(--tailadmin-stroke) !important;
+        }
+
+        /* Button elements */
+        button {
+          transition: all 0.2s ease-in-out !important;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+        /* Tour highlight adjustments */
+        .tour-highlight {
+          position: relative;
+          z-index: 50;
+          box-shadow: 0 0 0 9999px rgba(0,0,0,0.4), 0 0 0 3px var(--tailadmin-primary), 0 0 24px rgba(60, 80, 224, 0.4) !important;
+          border-color: var(--tailadmin-primary) !important;
+        }
+        
+        /* Footer styling */
+        footer { border-radius: 0 !important; background: transparent !important; border-top: 1px solid var(--tailadmin-stroke) !important; }
+        input[type='range'] { padding: 0 !important; }
+        input[type='checkbox'] { border-radius: 2px !important; padding: 0 !important; }
+      ` }} />
 
       {/* Notifications */}
       <AnimatePresence>
@@ -1287,68 +1922,71 @@ export default function OasisWorkplace() {
             initial={{ opacity: 0, x: 50, scale: 0.9 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 50, scale: 0.9 }}
-            className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4.5 py-3.5 rounded-xl shadow-lg border backdrop-blur-sm ${notification.type === 'error' ? 'bg-rose-50/90 text-rose-800 border-rose-100' :
-                notification.type === 'info' ? 'bg-sky-50/90 text-sky-800 border-sky-100' :
-                  'bg-emerald-50/90 text-emerald-800 border-emerald-100'
+            className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4.5 py-3.5 rounded-lg shadow-lg border backdrop-blur-sm ${notification.type === 'error' ? 'bg-rose-50/95 text-rose-800 border-rose-100' :
+              notification.type === 'info' ? 'bg-sky-50/95 text-sky-800 border-sky-100' :
+                'bg-emerald-50/95 text-emerald-800 border-emerald-100'
               }`}
           >
-            {notification.type === 'error' ? <AlertCircle className="w-4 h-4" /> :
-              notification.type === 'info' ? <Info className="w-4 h-4" /> :
-                <CheckCircle2 className="w-4 h-4" />}
+            {notification.type === 'error' ? <AlertCircle className="w-4 h-4 text-rose-600" /> :
+              notification.type === 'info' ? <Info className="w-4 h-4 text-sky-600" /> :
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
             <span className="text-xs font-semibold tracking-wide">{notification.message}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-40">
-        <div className="mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+      {/* Header — TailAdmin Solid White Navbar */}
+      <header className="sticky top-0 z-40 bg-white border-b border-[#E2E8F0] shadow-sm">
+        <div className="mx-auto px-6 py-4 flex items-center justify-between gap-4">
 
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden p-2 rounded-xl hover:bg-slate-100 transition-colors"
+              className="lg:hidden p-2 rounded-md hover:bg-slate-100 active:bg-slate-200 transition-colors"
             >
-              <Menu className="w-5 h-5 text-slate-600" />
+              <Menu className="w-5 h-5 text-[#1C2434]" />
             </button>
-            <motion.div
-              initial={{ rotate: -5 }}
-              animate={{ rotate: 0 }}
-              className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-2 rounded-xl shadow-md"
-            >
+            <div className="w-9 h-9 rounded-md bg-[#3C50E0] flex items-center justify-center shadow-sm">
               <Building className="w-5 h-5 text-white" />
-            </motion.div>
+            </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="bg-indigo-50 text-indigo-700 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide border border-indigo-100/60">
-                  OASIS.KIMUN
-                </span>
-                <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide ${role === 'admin' ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                  }`}>
-                  {role === 'admin' ? 'Admin Tenant' : 'OC Workspace'}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold text-[#3C50E0] tracking-wider">OASIS</span>
+                <span className="text-[10px] text-[#AEB7C0]">•</span>
+                <span className={`text-[10px] font-semibold ${role === 'admin' ? 'text-purple-600' : 'text-emerald-600'}`}>
+                  {role === 'admin' ? 'Admin' : 'Member'}
                 </span>
               </div>
-              <h1 className="text-md font-extrabold text-slate-900 tracking-tight mt-0.5 flex items-center gap-1.5">
-                Operations & Business <span className="text-indigo-600 font-medium">Dashboard</span>
+              <h1 className="text-[16px] font-bold text-[#1C2434] tracking-tight leading-none mt-0.5">
+                Oasis Dashboard
               </h1>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 text-right">
-              <div>
-                <span className="text-xs font-bold text-slate-700 block">{user.displayName}</span>
-                <span className="text-[9px] text-slate-400 block font-semibold">{user.email}</span>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => { setTourStep(0); setActiveMenuTab('dashboard'); }}
+              className="hidden md:flex items-center gap-1.5 px-4 py-2 bg-[#3C50E0] hover:bg-[#2B3EB2] text-white font-medium text-[12px] rounded-[4px] shadow-sm transition-all cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Tour
+            </motion.button>
+            <div className="hidden sm:flex items-center gap-2.5 border-l border-[#E2E8F0] pl-4">
+              <div className="w-8 h-8 rounded-full bg-[#3C50E0] text-white flex items-center justify-center text-[12px] font-bold shadow-inner">
+                {user.displayName?.charAt(0) || 'U'}
+              </div>
+              <div className="text-left">
+                <span className="text-[13px] font-semibold text-[#1C2434] block leading-tight">{user.displayName?.split(' ')[0]}</span>
               </div>
             </div>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+            <button
               onClick={handleSignOut}
-              className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-700 rounded-xl transition-all"
+              className="p-2 rounded-md hover:bg-slate-100 text-[#64748B] hover:text-[#1C2434] transition-colors"
             >
               <LogOut className="w-4 h-4" />
-            </motion.button>
+            </button>
           </div>
 
         </div>
@@ -1356,72 +1994,58 @@ export default function OasisWorkplace() {
 
       <div className="flex grow overflow-hidden relative">
 
-        {/* Sidebar */}
+        {/* Sidebar — TailAdmin Dark Slate Sidebar */}
         <AnimatePresence>
           {(sidebarOpen || window.innerWidth >= 1024) && (
             <motion.aside
-              initial={{ x: -280 }}
+              initial={{ x: -290 }}
               animate={{ x: 0 }}
-              exit={{ x: -280 }}
+              exit={{ x: -290 }}
               transition={{ type: "spring", damping: 25 }}
-              className="fixed lg:relative lg:translate-x-0 z-30 w-72 bg-white/95 backdrop-blur-sm border-r border-slate-200 shrink-0 h-[calc(100vh-64px)] overflow-y-auto shadow-xl lg:shadow-none"
+              className="fixed lg:relative lg:translate-x-0 z-30 w-[290px] shrink-0 h-[calc(100vh-73px)] overflow-y-auto shadow-xl lg:shadow-none bg-[#1C2434] border-r border-[#2E3A4F]"
             >
-              <div className="p-5 space-y-1">
+              <div className="py-6 px-4 space-y-6">
 
-                <div className="flex items-center justify-between lg:hidden mb-4 px-2">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Menu</span>
-                  <button onClick={() => setSidebarOpen(false)} className="p-1 rounded-lg hover:bg-slate-100">
-                    <X className="w-4 h-4 text-slate-500" />
+                <div className="flex items-center justify-between lg:hidden px-2">
+                  <span className="text-[12px] font-bold text-[#8A99AD] uppercase tracking-wider">NAVIGATION</span>
+                  <button onClick={() => setSidebarOpen(false)} className="p-1.5 rounded-md hover:bg-[#333A48] transition-colors">
+                    <X className="w-4 h-4 text-[#AEB7C0] hover:text-white" />
                   </button>
                 </div>
 
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-3 mb-3">Central Controls</span>
-
-                <LayoutGroup>
-                  {menuItems.map((item) => {
-                    const Icon = item.icon
-                    const isSelected = activeMenuTab === item.id
-                    return (
-                      <motion.button
-                        key={item.id}
-                        layout
-                        onClick={() => { setActiveMenuTab(item.id as any); setSearchQuery(''); setSidebarOpen(false) }}
-                        className={`w-full px-3.5 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 cursor-pointer relative overflow-hidden ${isSelected
-                            ? 'text-indigo-700'
-                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/80'
-                          }`}
-                      >
-                        {isSelected && (
-                          <motion.div
-                            layoutId="activeBg"
-                            className="absolute inset-0 bg-indigo-50/80 rounded-xl border border-indigo-100/60"
-                            transition={{ type: "spring", duration: 0.4 }}
-                          />
-                        )}
-                        <div className={`relative z-10 flex items-center gap-3 w-full ${isSelected ? 'text-indigo-700' : item.color}`}>
-                          <Icon className="w-4 h-4 shrink-0" />
-                          <span>{item.label}</span>
-                          {isSelected && (
-                            <motion.div
-                              layoutId="activeIndicator"
-                              className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-600"
-                            />
-                          )}
-                        </div>
-                      </motion.button>
-                    )
-                  })}
-                </LayoutGroup>
-
-                <div className="pt-6 mt-4 border-t border-slate-100">
-                  <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                      <span className="text-[9px] font-black text-indigo-700 uppercase tracking-wider">KIMUN 2026</span>
-                    </div>
-                    <p className="text-[10px] text-indigo-800/70 leading-relaxed">
-                      Centralized command center for MUN operations, finance, and delegate management.
-                    </p>
+                <div>
+                  <h3 className="px-3 mb-3 text-[11px] font-bold text-[#8A99AD] uppercase tracking-wider">MENU</h3>
+                  <div className="space-y-1.5">
+                    <LayoutGroup>
+                      {menuItems.map((item) => {
+                        const Icon = item.icon
+                        const isSelected = activeMenuTab === item.id
+                        return (
+                          <motion.button
+                            key={item.id}
+                            layout
+                            id={`${item.id}-tab`}
+                            onClick={() => { setActiveMenuTab(item.id as any); setSearchQuery(''); setSidebarOpen(false) }}
+                            className={`w-full px-3.5 py-3 rounded-[4px] text-[14px] font-medium transition-all flex items-center gap-3 cursor-pointer relative overflow-hidden ${isSelected
+                              ? 'text-white bg-[#333A48]'
+                              : 'text-[#AEB7C0] hover:text-white hover:bg-[#333A48]'
+                              } ${tourStep >= 0 && TOUR_STEPS[tourStep]?.highlightId === `${item.id}-tab` ? 'tour-highlight' : ''}`}
+                          >
+                            {isSelected && (
+                              <motion.div
+                                layoutId="activeBg"
+                                className="absolute left-0 top-0 bottom-0 w-[4px] bg-[#3C50E0]"
+                                transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
+                              />
+                            )}
+                            <div className="relative z-10 flex items-center gap-3 w-full">
+                              <Icon className="w-[18px] h-[18px] shrink-0" style={{ opacity: isSelected ? 1 : 0.8 }} />
+                              <span>{item.label}</span>
+                            </div>
+                          </motion.button>
+                        )
+                      })}
+                    </LayoutGroup>
                   </div>
                 </div>
 
@@ -1437,7 +2061,7 @@ export default function OasisWorkplace() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 bg-black/20 z-20 lg:hidden"
+            className="fixed inset-0 bg-black/40 z-20 lg:hidden"
           />
         )}
 
@@ -1455,31 +2079,28 @@ export default function OasisWorkplace() {
                 transition={{ duration: 0.3 }}
                 className="space-y-6"
               >
-                {/* Hero Banner */}
+                {/* Hero Banner — Apple-inspired minimal greeting */}
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-900 p-6 text-white shadow-xl"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, ease: [0.25, 0.8, 0.25, 1] }}
+                  className="relative overflow-hidden rounded-2xl p-6 sm:p-8"
+                  style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
                 >
-                  <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=2000&q=80')] bg-cover bg-center opacity-10"></div>
+                  <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(circle at 80% 20%, rgba(255,255,255,0.3) 0%, transparent 60%)' }} />
                   <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                      <span className="bg-white/10 backdrop-blur-sm border border-white/20 text-indigo-200 text-[9px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider inline-block">
+                      <span className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white/90 text-[10px] px-3 py-1 rounded-full font-medium tracking-wide">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#30d158] animate-pulse" />
                         Live Session
                       </span>
-                      <h2 className="text-2xl sm:text-3xl font-black tracking-tight mt-2">
-                        Welcome back, <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">{user.displayName?.split(' ')[0]}</span>!
+                      <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mt-3 text-white">
+                        Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user.displayName?.split(' ')[0]}.
                       </h2>
-                      <p className="text-slate-300 text-xs mt-1 max-w-md">
-                        KIMUN 2026 centralized business dashboard. Real-time metrics, financial insights, and operations at your fingertips.
+                      <p className="text-white/70 text-sm mt-1.5 max-w-md font-normal">
+                        Here's your operations overview for KIMUN 2026.
                       </p>
                     </div>
-                    <motion.div
-                      whileHover={{ rotate: 5, scale: 1.05 }}
-                      className="hidden lg:block bg-white/5 backdrop-blur-sm border border-white/10 p-3 rounded-2xl"
-                    >
-                      <Crown className="w-8 h-8 text-indigo-400" />
-                    </motion.div>
                   </div>
                 </motion.div>
 
@@ -1674,6 +2295,18 @@ export default function OasisWorkplace() {
                     <p className="text-xs text-slate-500 mt-1">Simulate turnout models, review outlays, calculate break-evens, and commit baseline configurations.</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/40 border border-slate-800 rounded-xl mr-1">
+                      <input
+                        type="checkbox"
+                        id="exclude-sponsors-header"
+                        checked={excludeSponsors}
+                        onChange={(e) => setExcludeSponsors(e.target.checked)}
+                        className="w-4 h-4 accent-indigo-500 rounded cursor-pointer"
+                      />
+                      <label htmlFor="exclude-sponsors-header" className="text-xs font-bold text-slate-300 cursor-pointer select-none">
+                        No Sponsors Mode
+                      </label>
+                    </div>
                     <button
                       onClick={resetWorkstationToDefault}
                       className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs transition-all"
@@ -1716,8 +2349,8 @@ export default function OasisWorkplace() {
                         key={tab.id}
                         onClick={() => setWorkstationTab(tab.id)}
                         className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${isSelected
-                            ? 'bg-slate-100 text-slate-900 border border-slate-200/60 shadow-xs'
-                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                          ? 'bg-slate-100 text-slate-900 border border-slate-200/60 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
                           }`}
                       >
                         <Icon className="w-3.5 h-3.5" />
@@ -1977,8 +2610,8 @@ export default function OasisWorkplace() {
                               key={d.name}
                               onClick={() => setSelectedDeptFilter(d.name)}
                               className={`px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-all ${selectedDeptFilter === d.name
-                                  ? 'bg-indigo-600 border-indigo-600 text-white'
-                                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                ? 'bg-indigo-600 border-indigo-600 text-white'
+                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
                                 }`}
                             >
                               {d.name.replace('Delegate Relations', 'Del Rel')}
@@ -2094,8 +2727,8 @@ export default function OasisWorkplace() {
                                 <td className="py-3 px-4 text-right font-bold text-emerald-600">{formatINR(r.actual)}</td>
                                 <td className="py-3 px-4 text-center">
                                   <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${r.status === 'Completed' ? 'bg-emerald-50 text-emerald-700' :
-                                      r.status === 'Partially Received' ? 'bg-amber-50 text-amber-700' :
-                                        'bg-sky-50 text-sky-700'
+                                    r.status === 'Partially Received' ? 'bg-amber-50 text-amber-700' :
+                                      'bg-sky-50 text-sky-700'
                                     }`}>
                                     {r.status}
                                   </span>
@@ -2163,6 +2796,18 @@ export default function OasisWorkplace() {
                             className="w-full accent-indigo-600 cursor-pointer"
                           />
                           <p className="text-[10px] text-slate-400 mt-1">Scales non-registration revenue</p>
+                        </div>
+                        <div className="p-4 bg-slate-950/40 border border-slate-800/80 rounded-xl flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-bold text-slate-200 block">No Sponsors Mode</span>
+                            <span className="text-[9px] text-slate-400">Exclude all sponsorship inflows from operations budgets</span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={excludeSponsors}
+                            onChange={(e) => setExcludeSponsors(e.target.checked)}
+                            className="w-5 h-5 accent-indigo-500 rounded cursor-pointer"
+                          />
                         </div>
                         <div>
                           <div className="flex justify-between text-xs font-bold text-slate-700 mb-2">
@@ -2291,8 +2936,8 @@ export default function OasisWorkplace() {
                                 <button
                                   onClick={() => toggleDelegateCheckinStatus(del)}
                                   className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${del.isCheckedIn
-                                      ? 'bg-rose-50 text-rose-700 hover:bg-rose-100'
-                                      : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                    ? 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                                    : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                                     }`}
                                 >
                                   {del.isCheckedIn ? 'Check-Out' : 'Check-In'}
@@ -2423,13 +3068,14 @@ export default function OasisWorkplace() {
                           <th className="py-3 px-4">College</th>
                           <th className="py-3 px-4">Preferences</th>
                           <th className="py-3 px-4 text-center">Status</th>
+                          <th className="py-3 px-4 text-center">Details</th>
                           <th className="py-3 px-4 text-center">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {dbApplications.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="text-center py-12 text-slate-400">No applications found</td>
+                            <td colSpan={6} className="text-center py-12 text-slate-400">No applications found</td>
                           </tr>
                         ) : (
                           dbApplications.map(app => (
@@ -2445,13 +3091,21 @@ export default function OasisWorkplace() {
                               <td className="py-3 px-4 text-sm text-slate-600">{app.pref1}</td>
                               <td className="py-3 px-4 text-center">
                                 <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${app.status === 'welcomed' ? 'bg-emerald-100 text-emerald-700' :
-                                    app.status === 'rejected' ? 'bg-rose-100 text-rose-700' :
-                                      app.status === 'interview' ? 'bg-sky-100 text-sky-700' :
-                                        app.status === 'onboarding' ? 'bg-violet-100 text-violet-700' :
-                                          'bg-amber-100 text-amber-700'
+                                  app.status === 'rejected' ? 'bg-rose-100 text-rose-700' :
+                                    app.status === 'interview' ? 'bg-sky-100 text-sky-700' :
+                                      app.status === 'onboarding' ? 'bg-violet-100 text-violet-700' :
+                                        'bg-amber-100 text-amber-700'
                                   }`}>
                                   {app.status}
                                 </span>
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <button
+                                  onClick={() => handleOpenAppDetailsModal(app)}
+                                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-semibold text-xs px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5" /> View
+                                </button>
                               </td>
                               <td className="py-3 px-4 text-center">
                                 <select
@@ -2632,11 +3286,10 @@ export default function OasisWorkplace() {
                               <button
                                 key={tab.id}
                                 onClick={() => setDeptSubTab(tab.id as any)}
-                                className={`px-4.5 py-3 border-b-2 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                                  isTabActive
-                                    ? 'border-indigo-600 text-indigo-700 bg-indigo-50/10'
-                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50/50'
-                                }`}
+                                className={`px-4.5 py-3 border-b-2 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${isTabActive
+                                  ? 'border-indigo-600 text-indigo-700 bg-indigo-50/10'
+                                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50/50'
+                                  }`}
                               >
                                 <TabIcon className="w-4 h-4" />
                                 {tab.label}
@@ -2688,10 +3341,9 @@ export default function OasisWorkplace() {
                                           >
                                             <div className="flex justify-between items-start gap-2">
                                               <span className="font-bold text-slate-800 text-sm block truncate">{task.title}</span>
-                                              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 ${
-                                                task.priority === 'high' ? 'bg-rose-100 text-rose-700' :
+                                              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 ${task.priority === 'high' ? 'bg-rose-100 text-rose-700' :
                                                 task.priority === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
-                                              }`}>
+                                                }`}>
                                                 {task.priority}
                                               </span>
                                             </div>
@@ -2769,11 +3421,10 @@ export default function OasisWorkplace() {
                                             <td className="py-3 px-4 text-right font-bold text-slate-700">{formatINR(asset.cost)}</td>
                                             <td className="py-3 px-4 text-right font-bold text-indigo-600">{formatINR(asset.quantity * asset.cost)}</td>
                                             <td className="py-3 px-4 text-center">
-                                              <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                                asset.status === 'acquired' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                                              <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${asset.status === 'acquired' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
                                                 asset.status === 'ordered' ? 'bg-sky-50 text-sky-700 border border-sky-100' :
-                                                'bg-amber-50 text-amber-700 border border-amber-100'
-                                              }`}>
+                                                  'bg-amber-50 text-amber-700 border border-amber-100'
+                                                }`}>
                                                 {asset.status}
                                               </span>
                                             </td>
@@ -2938,10 +3589,9 @@ export default function OasisWorkplace() {
                                   <span className="font-bold text-slate-800 text-sm block truncate">{task.title}</span>
                                   <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase mt-1 inline-block">{task.department}</span>
                                 </div>
-                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 ${
-                                  task.priority === 'high' ? 'bg-rose-100 text-rose-700' :
+                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 ${task.priority === 'high' ? 'bg-rose-100 text-rose-700' :
                                   task.priority === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
-                                }`}>
+                                  }`}>
                                   {task.priority}
                                 </span>
                               </div>
@@ -3047,11 +3697,10 @@ export default function OasisWorkplace() {
                               <td className="py-3 px-4 text-right font-bold text-slate-700">{formatINR(asset.cost)}</td>
                               <td className="py-3 px-4 text-right font-bold text-indigo-600">{formatINR(asset.quantity * asset.cost)}</td>
                               <td className="py-3 px-4 text-center">
-                                <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                  asset.status === 'acquired' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${asset.status === 'acquired' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
                                   asset.status === 'ordered' ? 'bg-sky-50 text-sky-700 border border-sky-100' :
-                                  'bg-amber-50 text-amber-700 border border-amber-100'
-                                }`}>
+                                    'bg-amber-50 text-amber-700 border border-amber-100'
+                                  }`}>
                                   {asset.status}
                                 </span>
                               </td>
@@ -3449,11 +4098,1672 @@ export default function OasisWorkplace() {
               </motion.div>
             )}
 
+            {/* 11. REGISTRY MANAGER (Admin only) */}
+            {activeMenuTab === 'registry_manager' && role === 'admin' && (
+              <motion.div
+                key="registry_manager"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                      <Sliders className="w-5 h-5 text-indigo-600" />
+                      Registry Manager
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-1">Manage database records for committees, country portfolios, and EB members</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {selectedRegistryCommitteeId && (
+                      <button
+                        onClick={() => setSelectedRegistryCommitteeId(null)}
+                        className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                      >
+                        ← Back to Committees
+                      </button>
+                    )}
+                    {!selectedRegistryCommitteeId ? (
+                      <button
+                        onClick={() => {
+                          setEditingDbCommittee(null)
+                          setDbCommitteeForm({ id: '', name: '', description: '', category: 'Premium Single', topics: '', backgroundGuide: '', rules: '', studyGuide: '' })
+                          setShowDbCommitteeModal(true)
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Committee
+                      </button>
+                    ) : (
+                      registryTab === 'portfolios' ? (
+                        <button
+                          onClick={() => {
+                            setEditingDbPortfolio(null)
+                            setDbPortfolioForm({ id: '', country: '', countryCode: '', isDoubleDelAllowed: false, isVacant: true, minExperience: 0, email: '' })
+                            setShowDbPortfolioModal(true)
+                          }}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Add Portfolio
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditingDbEb(null)
+                            setDbEbForm({ id: '', name: '', role: 'Chairperson', email: '', photourl: '', instagram: '', bio: '' })
+                            setShowDbEbModal(true)
+                          }}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Add EB Member
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                {/* Sub-sections rendering */}
+                {!selectedRegistryCommitteeId ? (
+                  /* --- 1. COMMITTEES LISTING --- */
+                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                    <div className="p-4 bg-slate-50/50 border-b border-slate-200/60 flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Database Committees ({dbCommittees.length})</span>
+                      <div className="relative w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search committees..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full bg-slate-50 border rounded-xl pl-9 pr-4 py-1.5 text-xs outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                            <th className="py-3 px-4 font-bold">ID / Slug</th>
+                            <th className="py-3 px-4 font-bold">Classification</th>
+                            <th className="py-3 px-4 font-bold">Committee Name</th>
+                            <th className="py-3 px-4 text-center">Portfolios</th>
+                            <th className="py-3 px-4 text-center">EB Members</th>
+                            <th className="py-3 px-4 text-center">Guides</th>
+                            <th className="py-3 px-4 text-center">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {dbCommittees
+                            .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.id.toLowerCase().includes(searchQuery.toLowerCase()))
+                            .map(c => {
+                              const portfoliosCount = c.portfolios ? c.portfolios.length : 0
+                              const ebCount = c.eb ? Object.keys(c.eb).length : 0
+                              return (
+                                <tr key={c.id} className="hover:bg-indigo-50/20 transition-all group">
+                                  <td className="py-3.5 px-4 text-slate-500 font-mono font-bold">{c.id}</td>
+                                  <td className="py-3.5 px-4">
+                                    <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 text-[9px] font-bold">
+                                      {c.category}
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5 px-4 font-semibold text-slate-800 text-sm">{c.name}</td>
+                                  <td className="py-3.5 px-4 text-center">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedRegistryCommitteeId(c.id)
+                                        setRegistryTab('portfolios')
+                                      }}
+                                      className="font-bold text-indigo-600 hover:underline cursor-pointer"
+                                    >
+                                      {portfoliosCount} slots
+                                    </button>
+                                  </td>
+                                  <td className="py-3.5 px-4 text-center">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedRegistryCommitteeId(c.id)
+                                        setRegistryTab('eb')
+                                      }}
+                                      className="font-bold text-amber-600 hover:underline cursor-pointer"
+                                    >
+                                      {ebCount} members
+                                    </button>
+                                  </td>
+                                  <td className="py-3.5 px-4">
+                                    <div className="flex justify-center gap-1.5">
+                                      {c.backgroundGuide ? (
+                                        <a href={c.backgroundGuide} target="_blank" rel="noopener noreferrer" className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-medium hover:bg-slate-200">
+                                          BG
+                                        </a>
+                                      ) : <span className="text-slate-300 text-[9px]">-</span>}
+                                      {c.rules ? (
+                                        <a href={c.rules} target="_blank" rel="noopener noreferrer" className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-medium hover:bg-slate-200">
+                                          Rules
+                                        </a>
+                                      ) : null}
+                                    </div>
+                                  </td>
+                                  <td className="py-3.5 px-4">
+                                    <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button
+                                        onClick={() => {
+                                          setEditingDbCommittee(c)
+                                          setDbCommitteeForm({
+                                            id: c.id,
+                                            name: c.name,
+                                            description: c.description || '',
+                                            category: c.category || '',
+                                            topics: c.topics ? (Array.isArray(c.topics) ? c.topics.join(', ') : Object.values(c.topics).join(', ')) : '',
+                                            backgroundGuide: c.backgroundGuide || '',
+                                            rules: c.rules || '',
+                                            studyGuide: c.studyGuide || ''
+                                          })
+                                          setShowDbCommitteeModal(true)
+                                        }}
+                                        className="p-1.5 bg-white border border-slate-200 text-slate-650 hover:bg-indigo-50 hover:border-indigo-300 rounded-lg transition-all cursor-pointer"
+                                        title="Edit Committee"
+                                      >
+                                        <Edit2 className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => setDeleteConfirm({ type: 'db_committees', id: c.id, name: c.name })}
+                                        className="p-1.5 bg-white border border-slate-200 text-slate-500 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-lg transition-all cursor-pointer"
+                                        title="Delete Committee"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  /* --- 2. DRILL-DOWN SUB-TAB (PORTFOLIOS & EB) --- */
+                  <div className="space-y-4">
+                    {/* Committee Summary Banner */}
+                    {(() => {
+                      const comm = dbCommittees.find(c => c.id === selectedRegistryCommitteeId)
+                      if (!comm) return null
+                      return (
+                        <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-sm relative overflow-hidden">
+                          <div className="absolute right-0 top-0 translate-x-1/4 -translate-y-1/4 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+                          <div className="relative z-10 flex flex-col md:flex-row justify-between md:items-center gap-4">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="bg-indigo-600 text-indigo-100 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider">{comm.id}</span>
+                                <span className="text-slate-450 text-xs font-semibold">{comm.category}</span>
+                              </div>
+                              <h3 className="text-xl font-bold mt-1 text-white">{comm.name}</h3>
+                              {comm.description && <p className="text-slate-300 text-xs mt-1.5 max-w-2xl">{comm.description}</p>}
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <button
+                                onClick={() => {
+                                  setEditingDbCommittee(comm)
+                                  setDbCommitteeForm({
+                                    id: comm.id,
+                                    name: comm.name,
+                                    description: comm.description || '',
+                                    category: comm.category || '',
+                                    topics: comm.topics ? (Array.isArray(comm.topics) ? comm.topics.join(', ') : Object.values(comm.topics).join(', ')) : '',
+                                    backgroundGuide: comm.backgroundGuide || '',
+                                    rules: comm.rules || '',
+                                    studyGuide: comm.studyGuide || ''
+                                  })
+                                  setShowDbCommitteeModal(true)
+                                }}
+                                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Edit2 className="w-3.5 h-3.5 text-indigo-400" /> Edit Committee
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    {/* Sub-tab navigation */}
+                    <div className="flex border-b border-slate-200">
+                      <button
+                        onClick={() => setRegistryTab('portfolios')}
+                        className={`py-3 px-6 text-sm font-bold border-b-2 transition-all cursor-pointer ${registryTab === 'portfolios'
+                          ? 'border-indigo-600 text-indigo-600'
+                          : 'border-transparent text-slate-500 hover:text-slate-850'
+                          }`}
+                      >
+                        Portfolios Registry
+                      </button>
+                      <button
+                        onClick={() => setRegistryTab('eb')}
+                        className={`py-3 px-6 text-sm font-bold border-b-2 transition-all cursor-pointer ${registryTab === 'eb'
+                          ? 'border-indigo-600 text-indigo-600'
+                          : 'border-transparent text-slate-500 hover:text-slate-850'
+                          }`}
+                      >
+                        Executive Board (EB)
+                      </button>
+                    </div>
+
+                    {/* --- PORTFOLIOS LIST --- */}
+                    {registryTab === 'portfolios' && (
+                      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                        {(() => {
+                          const comm = dbCommittees.find(c => c.id === selectedRegistryCommitteeId)
+                          const portfolios = comm?.portfolios || []
+                          return (
+                            <>
+                              <div className="p-4 bg-slate-50/50 border-b border-slate-200/60 flex items-center justify-between">
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Portfolios ({portfolios.length})</span>
+                                <div className="relative w-64">
+                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                  <input
+                                    type="text"
+                                    placeholder="Search portfolios..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full bg-slate-50 border rounded-xl pl-9 pr-4 py-1.5 text-xs outline-none"
+                                  />
+                                </div>
+                              </div>
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse text-xs">
+                                  <thead>
+                                    <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                                      <th className="py-3 px-4 font-bold">Portfolio ID / Slug</th>
+                                      <th className="py-3 px-4 font-bold">Country / Position</th>
+                                      <th className="py-3 px-4 text-center">Flag</th>
+                                      <th className="py-3 px-4 text-center">Double Delegate</th>
+                                      <th className="py-3 px-4 text-center">Vacancy</th>
+                                      <th className="py-3 px-4 text-center">Min Experience</th>
+                                      <th className="py-3 px-4">Assigned Email</th>
+                                      <th className="py-3 px-4 text-center">Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {portfolios.length === 0 ? (
+                                      <tr>
+                                        <td colSpan={8} className="py-8 text-center text-slate-400">No portfolios registered for this committee. Click "Add Portfolio" to create one.</td>
+                                      </tr>
+                                    ) : (
+                                      portfolios
+                                        .filter((p: any) => p.country.toLowerCase().includes(searchQuery.toLowerCase()) || p.id.toLowerCase().includes(searchQuery.toLowerCase()))
+                                        .map((p: any) => (
+                                          <tr key={p.id} className="hover:bg-slate-50/50 transition-all group">
+                                            <td className="py-3 px-4 text-slate-500 font-mono font-bold">{p.id}</td>
+                                            <td className="py-3 px-4 font-semibold text-slate-800">{p.country}</td>
+                                            <td className="py-3 px-4 text-center font-mono text-slate-650">{p.countryCode || '-'}</td>
+                                            <td className="py-3 px-4 text-center">
+                                              <span className={`inline-block w-2.5 h-2.5 rounded-full ${p.isDoubleDelAllowed ? 'bg-indigo-500' : 'bg-slate-200'}`} title={p.isDoubleDelAllowed ? 'Allowed' : 'Single Only'} />
+                                            </td>
+                                            <td className="py-3 px-4 text-center">
+                                              <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold ${p.isVacant ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                {p.isVacant ? 'Vacant' : 'Allocated'}
+                                              </span>
+                                            </td>
+                                            <td className="py-3 px-4 text-center font-bold">{p.minExperience || 0} MUNs</td>
+                                            <td className="py-3 px-4 font-mono text-slate-600 text-[11px]">{p.email || <span className="text-slate-300 italic">none</span>}</td>
+                                            <td className="py-3 px-4">
+                                              <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                  onClick={() => {
+                                                    setEditingDbPortfolio(p)
+                                                    setDbPortfolioForm({
+                                                      id: p.id,
+                                                      country: p.country,
+                                                      countryCode: p.countryCode || '',
+                                                      isDoubleDelAllowed: p.isDoubleDelAllowed || false,
+                                                      isVacant: p.isVacant !== undefined ? p.isVacant : true,
+                                                      minExperience: p.minExperience || 0,
+                                                      email: p.email || ''
+                                                    })
+                                                    setShowDbPortfolioModal(true)
+                                                  }}
+                                                  className="p-1.5 bg-white border border-slate-200 text-slate-650 hover:bg-indigo-50 hover:border-indigo-300 rounded-lg transition-all cursor-pointer"
+                                                >
+                                                  <Edit2 className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                  onClick={() => setDeleteConfirm({ type: 'db_portfolios', id: selectedRegistryCommitteeId, name: p.country, subId: p.id })}
+                                                  className="p-1.5 bg-white border border-slate-200 text-slate-500 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-lg transition-all cursor-pointer"
+                                                >
+                                                  <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        ))
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </>
+                          )
+                        })()}
+                      </div>
+                    )}
+
+                    {/* --- EB MEMBERS LIST --- */}
+                    {registryTab === 'eb' && (
+                      <div className="space-y-4">
+                        {(() => {
+                          const comm = dbCommittees.find(c => c.id === selectedRegistryCommitteeId)
+                          const ebMembers = comm?.eb ? Object.keys(comm.eb).map(key => ({ id: key, ...comm.eb[key] })) : []
+
+                          if (ebMembers.length === 0) {
+                            return (
+                              <div className="bg-white rounded-2xl border border-slate-200/80 p-8 text-center text-slate-400">
+                                No Executive Board members registered for this committee. Click "Add EB Member" to create one.
+                              </div>
+                            )
+                          }
+
+                          return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                              {ebMembers.map(member => (
+                                <motion.div
+                                  key={member.id}
+                                  initial={{ opacity: 0, scale: 0.95 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex gap-4 relative group"
+                                >
+                                  {/* Profile Photo */}
+                                  <div className="w-16 h-16 rounded-full border border-slate-200 overflow-hidden shrink-0 bg-slate-50 flex items-center justify-center">
+                                    {member.photourl ? (
+                                      <img src={member.photourl} alt={member.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <User className="w-8 h-8 text-slate-350" />
+                                    )}
+                                  </div>
+
+                                  {/* Info */}
+                                  <div className="space-y-1 min-w-0 flex-1">
+                                    <h4 className="font-bold text-slate-800 text-sm truncate">{member.name}</h4>
+                                    <p className="text-indigo-650 font-bold text-[10px] uppercase tracking-wider">{member.role}</p>
+                                    <p className="text-[11px] text-slate-500 font-mono truncate">{member.email}</p>
+                                    {member.instagram && (
+                                      <p className="text-[10px] text-slate-450 flex items-center gap-1 font-medium mt-1">
+                                        <Globe className="w-3 h-3 text-slate-400" /> @{member.instagram}
+                                      </p>
+                                    )}
+                                    {member.bio && (
+                                      <p className="text-[11px] text-slate-500 line-clamp-2 mt-2 italic border-t pt-1.5 border-slate-100">
+                                        "{member.bio}"
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {/* Actions */}
+                                  <div className="absolute right-3 top-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      onClick={() => {
+                                        setEditingDbEb(member)
+                                        setDbEbForm({
+                                          id: member.id,
+                                          name: member.name,
+                                          role: member.role || 'Chairperson',
+                                          email: member.email || '',
+                                          photourl: member.photourl || '',
+                                          instagram: member.instagram || '',
+                                          bio: member.bio || ''
+                                        })
+                                        setShowDbEbModal(true)
+                                      }}
+                                      className="p-1 bg-white border border-slate-200 text-slate-650 hover:bg-slate-50 hover:text-indigo-600 rounded-md transition-all cursor-pointer shadow-xs"
+                                    >
+                                      <Edit2 className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      onClick={() => setDeleteConfirm({ type: 'db_eb', id: selectedRegistryCommitteeId, name: member.name, subId: member.id })}
+                                      className="p-1 bg-white border border-slate-200 text-slate-505 hover:bg-rose-50 hover:text-rose-600 rounded-md transition-all cursor-pointer shadow-xs"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* DeleOs Tab */}
+            {activeMenuTab === 'delegate_search' && (
+              <motion.div
+                key="delegate_search"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-[#1C2434] tracking-tight">DelOs Delegate Directory</h2>
+                    <p className="text-xs text-[#64748B] mt-1">
+                      Search active registrations and legacy conference database archives. Contact information is masked to respect privacy guidelines.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] bg-white border border-[#E2E8F0] px-3 py-1.5 rounded-[4px] text-[#64748B] font-bold shadow-sm">
+                      Total Session Records: <strong className="text-[#3C50E0]">{dbDelegates.length}</strong>
+                    </span>
+                    <span className="text-[10px] bg-white border border-[#E2E8F0] px-3 py-1.5 rounded-[4px] text-[#64748B] font-bold shadow-sm">
+                      Checked-In Turnout: <strong className="text-[#10B981]">{dbDelegates.filter(d => d.isCheckedIn).length}</strong>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Left Column: Search & Results List */}
+                  <div className="lg:col-span-2 space-y-4">
+                    <div className="bg-white border border-[#E2E8F0] p-5 rounded-md shadow-sm space-y-4">
+                      <div>
+                        <span className="text-[#64748B] text-[10px] font-bold uppercase tracking-wider block mb-2">Search by Name, Email, or Phone</span>
+                        <div className="relative">
+                          <Search className="absolute left-3.5 top-3 w-4 h-4 text-[#8A99AD]" />
+                          <input
+                            type="text"
+                            placeholder="Search delegates by name, email, or phone number..."
+                            value={searchQueryDele}
+                            onChange={(e) => { setSearchQueryDele(e.target.value); setSelectedDele(null); }}
+                            className="w-full pl-10 pr-12 py-2.5 rounded-md border border-[#E2E8F0] bg-white text-[#1C2434] placeholder-[#8A99AD] text-xs focus:outline-none focus:ring-2 focus:ring-[#3C50E0]/10 focus:border-[#3C50E0]"
+                          />
+                          {loadingSupabase && (
+                            <div className="absolute right-3.5 top-3 flex items-center justify-center">
+                              <Loader2 className="w-4 h-4 text-[#3C50E0] animate-spin" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {(() => {
+                        const maskEmail = (email: string) => {
+                          if (!email || !email.includes('@')) return '***@***.***'
+                          const [local, domain] = email.split('@')
+                          if (local.length <= 2) return `${local[0]}***@${domain}`
+                          return `${local[0]}${'*'.repeat(Math.min(5, local.length - 2))}${local[local.length - 1]}@${domain}`
+                        }
+                        const maskPhone = (phone: string) => {
+                          if (!phone) return '**********'
+                          const clean = phone.trim()
+                          if (clean.length <= 4) return '******' + clean
+                          return clean.slice(0, -4).replace(/\d/g, '*') + clean.slice(-4)
+                        }
+
+                        const localFiltered = dbDelegates.filter(d => {
+                          const query = searchQueryDele.toLowerCase().trim()
+                          if (!query) return true
+
+                          const comm = dbCommittees.find(c => c.id === d.committeeId)
+                          const commName = comm ? comm.name.toLowerCase() : ''
+                          const port = comm?.portfolios?.find(p => p.id === d.portfolioId)
+                          const portName = port ? port.country.toLowerCase() : ''
+
+                          return (
+                            d.name.toLowerCase().includes(query) ||
+                            d.id.toLowerCase().includes(query) ||
+                            d.institution.toLowerCase().includes(query) ||
+                            d.course.toLowerCase().includes(query) ||
+                            commName.includes(query) ||
+                            portName.includes(query) ||
+                            (d.email && d.email.toLowerCase().includes(query)) ||
+                            (d.phone && d.phone.includes(query))
+                          )
+                        }).map(d => {
+                          const comm = dbCommittees.find(c => c.id === d.committeeId)
+                          const commName = comm ? comm.name : 'Unallocated'
+                          const port = comm?.portfolios?.find(p => p.id === d.portfolioId)
+                          const portName = port ? port.country : 'Unallocated'
+
+                          return {
+                            uniqueId: `fb-${d.id}`,
+                            sourceType: 'firebase',
+                            displayId: d.id,
+                            displayName: d.name,
+                            displayInstitution: d.institution || 'N/A',
+                            displayCommittee: commName,
+                            displayPortfolio: portName,
+                            displayEmail: d.email,
+                            displayPhone: d.phone,
+                            displayPayment: d.paymentStatus || 'pending',
+                            displayStatus: d.isCheckedIn ? 'Checked-In' : 'Pending',
+                            displayExperience: d.experience || '0 (Active Session)',
+                            displayVettingStatus: 'Active Delegate - Cleared',
+                            displayPreviousAllotments: 'No archive history (Current session only)'
+                          }
+                        })
+
+                        const supabaseFiltered = supabaseDelegates.map(d => {
+                          const isBlacklisted = d.is_blacklisted || (d.ban_status && d.ban_status.toLowerCase() !== 'none')
+                          return {
+                            uniqueId: `sb-${d.id}`,
+                            sourceType: 'supabase',
+                            displayId: d.booking_code || `LEG-${d.id}`,
+                            displayName: d.full_name,
+                            displayInstitution: d.institution || 'N/A',
+                            displayCommittee: d.committee || 'N/A',
+                            displayPortfolio: d.portfolio || 'N/A',
+                            displayEmail: d.email,
+                            displayPhone: d.phone,
+                            displayPayment: isBlacklisted ? 'Blacklisted' : `Paid (KIMUN ${d.year})`,
+                            displayStatus: isBlacklisted ? 'Banned' : 'Completed',
+                            displayExperience: d.number_of_mun_attended !== null ? `${d.number_of_mun_attended} MUNs` : 'N/A',
+                            displayVettingStatus: isBlacklisted ? `BLACKLISTED: ${d.ban_reason || 'No Reason'} (${d.ban_year || 'N/A'})` : 'Cleared (No Blacklist History)',
+                            displayPreviousAllotments: `${d.committee || 'N/A'} / ${d.portfolio || 'N/A'} (KIMUN ${d.year})`
+                          }
+                        })
+
+                        const combined = [...localFiltered, ...supabaseFiltered]
+
+                        if (!searchQueryDele.trim()) {
+                          return (
+                            <div className="border border-[#E2E8F0] p-8 rounded-md text-center text-[#64748B] bg-[#F7F9FC]">
+                              <Search className="w-7 h-7 text-[#AEB7C0] mx-auto mb-2 opacity-60" />
+                              <p className="text-xs font-semibold">Search delegate registry above</p>
+                              <p className="text-[10px] text-[#AEB7C0] mt-1 max-w-[240px] mx-auto">
+                                Type a name, email or phone coordinates. Results will sync and map active registrations with our archives.
+                              </p>
+                            </div>
+                          )
+                        }
+
+                        if (combined.length === 0) {
+                          return (
+                            <div className="border border-[#E2E8F0] p-8 rounded-md text-center text-[#64748B] bg-[#F7F9FC]">
+                              No matching delegates found.
+                            </div>
+                          )
+                        }
+
+                        return (
+                          <div className="overflow-x-auto rounded-md border border-[#E2E8F0]">
+                            <table className="w-full text-left border-collapse text-xs">
+                              <thead>
+                                <tr className="bg-[#F7F9FC] border-b border-[#E2E8F0] text-[#64748B] uppercase text-[9px] tracking-wider font-bold">
+                                  <th className="py-2.5 px-3">Source</th>
+                                  <th className="py-2.5 px-3">Name</th>
+                                  <th className="py-2.5 px-3">School/College</th>
+                                  <th className="py-2.5 px-3">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[#E2E8F0]">
+                                {combined.map(d => {
+                                  const isBanned = d.displayStatus.toLowerCase().includes('ban') || d.displayPayment.toLowerCase().includes('black')
+                                  const isSelected = selectedDele?.uniqueId === d.uniqueId
+                                  return (
+                                    <tr
+                                      key={d.uniqueId}
+                                      onClick={() => setSelectedDele(d)}
+                                      className={`cursor-pointer transition-all border-b border-[#E2E8F0] ${isSelected
+                                          ? 'bg-[#3C50E0]/5 font-semibold text-[#3C50E0]'
+                                          : 'hover:bg-slate-50 text-[#1C2434]'
+                                        }`}
+                                    >
+                                      <td className="py-2.5 px-3">
+                                        <span className={`inline-block px-1.5 py-0.5 rounded-[3px] text-[8px] font-bold ${d.sourceType === 'firebase'
+                                            ? 'bg-[#3C50E0]/10 text-[#3C50E0]'
+                                            : 'bg-[#bf5af2]/10 text-[#bf5af2]'
+                                          }`}>
+                                          {d.sourceType === 'firebase' ? 'Live' : 'Legacy'}
+                                        </span>
+                                      </td>
+                                      <td className="py-2.5 px-3 truncate max-w-[120px] font-medium">{d.displayName}</td>
+                                      <td className="py-2.5 px-3 truncate max-w-[150px] text-[#64748B]">{d.displayInstitution}</td>
+                                      <td className="py-2.5 px-3">
+                                        <span className={`inline-block w-2.5 h-2.5 rounded-full ${isBanned ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Right Column: Delegate Detail Pane */}
+                  <div>
+                    <div className="bg-white border border-[#E2E8F0] p-5 rounded-md shadow-sm space-y-4">
+                      {selectedDele ? (
+                        (() => {
+                          const maskEmail = (email: string) => {
+                            if (!email || !email.includes('@')) return '***@***.***'
+                            const [local, domain] = email.split('@')
+                            if (local.length <= 2) return `${local[0]}***@${domain}`
+                            return `${local[local.length - 1] ? local[0] + '*'.repeat(Math.min(5, local.length - 2)) + local[local.length - 1] : local[0] + '***'}@${domain}`
+                          }
+                          const maskPhone = (phone: string) => {
+                            if (!phone) return '**********'
+                            const clean = phone.trim()
+                            if (clean.length <= 4) return '******' + clean
+                            return clean.slice(0, -4).replace(/\d/g, '*') + clean.slice(-4)
+                          }
+                          const isBanned = selectedDele.displayStatus.toLowerCase().includes('ban') || selectedDele.displayPayment.toLowerCase().includes('black')
+
+                          return (
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2.5">
+                                <h3 className="font-bold text-[#1C2434] text-xs uppercase tracking-wider">Delegate Record Details</h3>
+                                <button onClick={() => setSelectedDele(null)} className="p-1 rounded hover:bg-slate-100 text-[#64748B] hover:text-[#1C2434] cursor-pointer">
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+
+                              <div className="space-y-3.5 text-xs text-[#1C2434]">
+                                <div>
+                                  <span className="text-[#64748B] text-[10px] uppercase font-bold block">Delegate Name</span>
+                                  <span className="font-extrabold text-sm text-[#1C2434]">{selectedDele.displayName.toUpperCase()}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[#64748B] text-[10px] uppercase font-bold block">Registration ID / Booking Code</span>
+                                  <span className="font-mono text-[#64748B]">{selectedDele.displayId.toUpperCase()}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[#64748B] text-[10px] uppercase font-bold block">Registry Source</span>
+                                  <span className={`inline-block px-2 py-0.5 rounded-[4px] text-[9px] font-bold ${selectedDele.sourceType === 'firebase'
+                                      ? 'bg-[#3C50E0]/10 text-[#3C50E0] border border-[#3C50E0]/20'
+                                      : 'bg-[#bf5af2]/10 text-[#bf5af2] border border-[#bf5af2]/20'
+                                    }`}>
+                                    {selectedDele.sourceType === 'firebase' ? 'Active Registry' : 'Legacy Archives'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-[#64748B] text-[10px] uppercase font-bold block">School / College</span>
+                                  <span className="font-medium text-[#1C2434]">{selectedDele.displayInstitution}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[#64748B] text-[10px] uppercase font-bold block">MUN Experience</span>
+                                  <span className="font-medium text-[#1C2434]">{selectedDele.displayExperience}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[#64748B] text-[10px] uppercase font-bold block">Previous Allotment</span>
+                                  <span className="text-amber-600 font-semibold">{selectedDele.displayPreviousAllotments}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[#64748B] text-[10px] uppercase font-bold block">Current Allocation</span>
+                                  <span className="font-semibold text-[#3C50E0]">{selectedDele.displayCommittee} / {selectedDele.displayPortfolio}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[#64748B] text-[10px] uppercase font-bold block">Phone Number (Masked)</span>
+                                  <span className="font-mono text-[#64748B]">{maskPhone(selectedDele.displayPhone)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[#64748B] text-[10px] uppercase font-bold block">Email Address (Masked)</span>
+                                  <span className="font-mono text-[#64748B] block truncate" title={maskEmail(selectedDele.displayEmail)}>{maskEmail(selectedDele.displayEmail)}</span>
+                                </div>
+                                <div className="border-t border-[#E2E8F0] pt-3">
+                                  <span className="text-[#64748B] text-[10px] uppercase font-bold block mb-1">Status / Vetting Check</span>
+                                  <div className={`px-3 py-2 rounded-md font-semibold text-[11px] border ${isBanned
+                                      ? 'bg-rose-50 text-rose-700 border-rose-100'
+                                      : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                    }`}>
+                                    {selectedDele.displayVettingStatus}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="pt-2">
+                                <button
+                                  onClick={() => handleDownloadCitationPDF(selectedDele)}
+                                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#3C50E0] hover:bg-[#2B3EB2] text-white text-[11px] rounded-[4px] transition-colors border-none uppercase font-bold cursor-pointer"
+                                >
+                                  <Download className="w-3.5 h-3.5" /> Download Delegate Record (PDF)
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })()
+                      ) : (
+                        <div className="py-12 text-center text-[#64748B] space-y-2">
+                          <Info className="w-8 h-8 text-[#AEB7C0] mx-auto opacity-70" />
+                          <p className="text-xs font-semibold">No Delegate Selected</p>
+                          <p className="text-[11px] text-[#AEB7C0] max-w-[200px] mx-auto">
+                            Select a delegate from the search results to view their vetting sheet and MUN experience file.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Help & Documentation Tab */}
+            {activeMenuTab === 'help_docs' && (
+              <motion.div
+                key="help_docs"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-800 tracking-tight">Oasis Help & Documentation</h2>
+                    <p className="text-xs text-slate-505 mt-1">
+                      Quickstart reference material, glossary details, and FAQs for operations and finance management.
+                    </p>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => { setTourStep(0); setActiveMenuTab('dashboard'); }}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4.5 py-2.5 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-lg shadow-indigo-500/20 transition-all"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Replay Guided Tour
+                  </motion.button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                  {/* Doc sidebar */}
+                  <div className="lg:col-span-1 space-y-1">
+                    {[
+                      { id: 'quickstart', label: 'Quick Start Checklist', icon: ClipboardList },
+                      { id: 'metrics', label: 'Metrics Glossary', icon: Activity },
+                      { id: 'finance', label: 'Finance Simulator', icon: FileSpreadsheet },
+                      { id: 'faq', label: 'Registry & Operations FAQ', icon: Shield },
+                    ].map(tab => {
+                      const Icon = tab.icon
+                      const isSelected = docSubTab === tab.id
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setDocSubTab(tab.id as any)}
+                          className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2.5 cursor-pointer ${isSelected
+                              ? 'bg-indigo-50 text-indigo-700 border border-indigo-100/60 shadow-xs'
+                              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
+                            }`}
+                        >
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span>{tab.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {/* Doc content */}
+                  <div className="lg:col-span-3 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-4 min-h-[400px]">
+                    {docSubTab === 'quickstart' && (
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-800 border-b pb-2 flex items-center gap-2">
+                          <ClipboardList className="w-4 h-4 text-indigo-600" />
+                          Operations Quickstart Roadmap
+                        </h3>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          Follow these standard operating steps to execute and audit conference data during the sessions:
+                        </p>
+                        <div className="space-y-3.5 pt-2">
+                          {[
+                            { step: '1', title: 'Onboard OC Members', text: 'Navigate to Onboarding Hub (admin only). Review registrations, approve candidates, and assign permissions.' },
+                            { step: '2', title: 'Setup Committee Matrix', text: 'Go to Committee Management. Verify target quotas and configure country portfolios or Executive Board structures.' },
+                            { step: '3', title: 'Perform Physical Check-ins', text: 'As delegates arrive at the venue, open the Registrations ledger, search their profile, and click Check-In to update check-in stats.' },
+                            { step: '4', title: 'Grade Committee Evaluations', text: 'Executive Board members utilize the Resources tab to access marksheets and submit scorecards for evaluation grades.' },
+                            { step: '5', title: 'Disburse Prizes & Payouts', text: 'Administrators process payouts in the Coupons & Payouts tabs to distribute merit awards and cash rebates.' }
+                          ].map(item => (
+                            <div key={item.step} className="flex gap-3 items-start">
+                              <span className="w-5 h-5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">
+                                {item.step}
+                              </span>
+                              <div>
+                                <h4 className="text-xs font-bold text-slate-800">{item.title}</h4>
+                                <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">{item.text}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {docSubTab === 'metrics' && (
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-800 border-b pb-2 flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-indigo-600" />
+                          Dashboard Metrics Glossary
+                        </h3>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          Understanding key performance indicator ratios inside the Oasis Workplace cockpit:
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                          {[
+                            { name: 'Attendance Realization Rate', desc: 'The percentage of allocated targets that actually materialize at the check-in desk. Essential for modeling food and package logistics.' },
+                            { name: 'Sponsorship Realization Rate', desc: 'Models corporate inflows. Scales down non-delegate sponsorship targets in the What-If simulation by the specified rate.' },
+                            { name: 'Contingency Buffer', desc: 'An automatic markup (between 0% and 50%) applied to budgeted expenditures to account for emergency or unforeseen operational expenses.' },
+                            { name: 'Break-Even Seats', desc: 'The number of paid registrations required to offset the event\'s total fixed overhead liabilities (convention hall, conventional light setups, EB allowances).' }
+                          ].map((item, index) => (
+                            <div key={index} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                              <span className="text-[10px] font-black uppercase text-indigo-600 tracking-wider">{item.name}</span>
+                              <p className="text-[11px] text-slate-500 leading-relaxed">{item.desc}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {docSubTab === 'finance' && (
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-800 border-b pb-2 flex items-center gap-2">
+                          <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
+                          Financial Forecasting Framework
+                        </h3>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          The Financial Operations Workstation helps plan event finances. Here are the core formulas and toggles:
+                        </p>
+                        <div className="space-y-4 pt-2">
+                          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                            <span className="text-[10px] font-black uppercase text-slate-500">Break-Even Model Formula</span>
+                            <div className="font-mono text-xs text-indigo-700 py-1.5">
+                              Required Seats = Fixed Costs / (Average Seat Fee - Variable Cost per Delegate)
+                            </div>
+                            <p className="text-[10px] text-slate-500 leading-relaxed">
+                              Variable costs represent kits, badges, and catering fees. Fixed costs represent venue hire and convention production.
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              No Sponsors Mode (Pure Delegate Funded Model)
+                            </h4>
+                            <p className="text-xs text-slate-500 leading-relaxed">
+                              Enabling "No Sponsors Mode" dynamically filters out all corporate sponsorship agreements. This generates a conservative cashflow model verifying whether delegate registration fees alone are sufficient to cover operations.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {docSubTab === 'faq' && (
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-bold text-slate-800 border-b pb-2 flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-indigo-600" />
+                          Oasis Operations FAQs
+                        </h3>
+                        <div className="space-y-3.5 divide-y divide-slate-100">
+                          {[
+                            { q: 'Who has privileges to synchronize Matrix metrics to the database?', a: 'Only administrators whose emails are registered under ADMIN_ALLOWED_EMAILS have permissions to sync configuration profiles to the cloud. OC members can edit workstation values locally to simulate models.' },
+                            { q: 'How is physical delegate check-in logged?', a: 'Go to the Registrations ledger (live allocations), find the delegate name, and click the Check-In button. This stamps their profile as checked-in and marks their local check-in time.' },
+                            { q: 'Why are contact email and phone details masked in DeleOs search?', a: 'To protect student delegate privacy, general operating committee members cannot view exact emails and phone numbers. This complies with security rules while allowing search validation.' },
+                            { q: 'Can we configure new discount coupons?', a: 'Yes. Administrators can open the Coupons engine tab, set custom discount values, partner programs, and codes, and sync them immediately.' }
+                          ].map((item, index) => (
+                            <div key={index} className={`${index > 0 ? 'pt-3.5' : ''} space-y-1`}>
+                              <h4 className="text-xs font-extrabold text-slate-800 flex items-start gap-1">
+                                <span className="text-indigo-600 font-black">Q:</span>
+                                <span>{item.q}</span>
+                              </h4>
+                              <p className="text-xs text-slate-500 leading-relaxed pl-3.5">{item.a}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Existing closing brace */}
+
           </AnimatePresence>
         </main>
       </div>
 
       {/* Modals */}
+      {/* 1. Real Database Committee Modal */}
+      {showDbCommitteeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden my-8"
+          >
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-sm">{editingDbCommittee ? 'Edit Database Committee' : 'Add Database Committee'}</h2>
+                <p className="text-indigo-200 text-xs mt-0.5">{editingDbCommittee ? `Editing slug: ${editingDbCommittee.id}` : 'Create a new committee track in Firebase'}</p>
+              </div>
+              <button onClick={() => setShowDbCommitteeModal(false)} className="text-indigo-200 hover:text-white transition-colors cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleSaveDbCommittee} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Committee ID / Slug</label>
+                  <input
+                    type="text"
+                    value={dbCommitteeForm.id}
+                    onChange={e => setDbCommitteeForm(p => ({ ...p, id: e.target.value }))}
+                    placeholder="e.g. UNSC"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500 disabled:opacity-50 disabled:bg-slate-100 uppercase"
+                    disabled={!!editingDbCommittee}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Classification / Category</label>
+                  <input
+                    type="text"
+                    value={dbCommitteeForm.category}
+                    onChange={e => setDbCommitteeForm(p => ({ ...p, category: e.target.value }))}
+                    placeholder="e.g. Premium Single"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Committee Name</label>
+                <input
+                  type="text"
+                  value={dbCommitteeForm.name}
+                  onChange={e => setDbCommitteeForm(p => ({ ...p, name: e.target.value }))}
+                  placeholder="e.g. United Nations Security Council"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Agenda Topics (Comma-separated)</label>
+                <textarea
+                  value={dbCommitteeForm.topics}
+                  onChange={e => setDbCommitteeForm(p => ({ ...p, topics: e.target.value }))}
+                  placeholder="e.g. Cyber Warfare threats, Militarization of Outer Space"
+                  rows={2}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 resize-none"
+                />
+              </div>
+
+              {/* PDF Files and uploads */}
+              <div className="space-y-3 pt-2 border-t border-slate-150">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Background Guide URL</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={dbCommitteeForm.backgroundGuide}
+                      onChange={e => setDbCommitteeForm(p => ({ ...p, backgroundGuide: e.target.value }))}
+                      placeholder="https://..."
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-indigo-500"
+                    />
+                    <label className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold border border-slate-250 cursor-pointer flex items-center justify-center shrink-0">
+                      Upload
+                      <input type="file" accept="application/pdf" className="hidden" onChange={(e) => handleDbFileUpload(e, 'bg_guide')} disabled={isUploadingFile} />
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Rules of Procedure URL</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={dbCommitteeForm.rules}
+                      onChange={e => setDbCommitteeForm(p => ({ ...p, rules: e.target.value }))}
+                      placeholder="https://..."
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-indigo-500"
+                    />
+                    <label className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold border border-slate-250 cursor-pointer flex items-center justify-center shrink-0">
+                      Upload
+                      <input type="file" accept="application/pdf" className="hidden" onChange={(e) => handleDbFileUpload(e, 'rules')} disabled={isUploadingFile} />
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Study Guide URL</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={dbCommitteeForm.studyGuide}
+                      onChange={e => setDbCommitteeForm(p => ({ ...p, studyGuide: e.target.value }))}
+                      placeholder="https://..."
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-indigo-500"
+                    />
+                    <label className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold border border-slate-250 cursor-pointer flex items-center justify-center shrink-0">
+                      Upload
+                      <input type="file" accept="application/pdf" className="hidden" onChange={(e) => handleDbFileUpload(e, 'study_guide')} disabled={isUploadingFile} />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Description / Bio</label>
+                <textarea
+                  value={dbCommitteeForm.description}
+                  onChange={e => setDbCommitteeForm(p => ({ ...p, description: e.target.value }))}
+                  placeholder="Provide a brief introductory description..."
+                  rows={3}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 resize-none"
+                />
+              </div>
+
+              {isUploadingFile && (
+                <div className="text-xs text-indigo-650 font-bold flex items-center gap-1.5 animate-pulse">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" /> Uploading document to Firebase Storage...
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isUploadingFile}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {editingDbCommittee ? 'Save Changes' : 'Create Committee'}
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* 2. Real Database Portfolio Modal */}
+      {showDbPortfolioModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+          >
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-sm">{editingDbPortfolio ? 'Edit Portfolio Slot' : 'Add Portfolio Slot'}</h2>
+                <p className="text-indigo-200 text-xs mt-0.5">Register a country slot under committee {selectedRegistryCommitteeId}</p>
+              </div>
+              <button onClick={() => setShowDbPortfolioModal(false)} className="text-indigo-200 hover:text-white transition-colors cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleSaveDbPortfolio} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Portfolio ID / Slug</label>
+                  <input
+                    type="text"
+                    value={dbPortfolioForm.id}
+                    onChange={e => setDbPortfolioForm(p => ({ ...p, id: e.target.value }))}
+                    placeholder="e.g. usa"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500 disabled:opacity-50 disabled:bg-slate-100"
+                    disabled={!!editingDbPortfolio}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Country Code (2-char flag)</label>
+                  <input
+                    type="text"
+                    value={dbPortfolioForm.countryCode}
+                    onChange={e => setDbPortfolioForm(p => ({ ...p, countryCode: e.target.value }))}
+                    placeholder="e.g. US"
+                    maxLength={2}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500 uppercase"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Country / Position Name</label>
+                <input
+                  type="text"
+                  value={dbPortfolioForm.country}
+                  onChange={e => setDbPortfolioForm(p => ({ ...p, country: e.target.value }))}
+                  placeholder="e.g. United States of America"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Min Experience (MUNs)</label>
+                  <input
+                    type="number"
+                    value={dbPortfolioForm.minExperience}
+                    onChange={e => setDbPortfolioForm(p => ({ ...p, minExperience: Number(e.target.value) }))}
+                    placeholder="e.g. 0"
+                    min={0}
+                    className="w-full bg-slate-50 border border-slate-250 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Assigned Delegate Email</label>
+                  <input
+                    type="email"
+                    value={dbPortfolioForm.email}
+                    onChange={e => setDbPortfolioForm(p => ({ ...p, email: e.target.value }))}
+                    placeholder="deleg@email.com"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-6 py-2">
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-650 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={dbPortfolioForm.isDoubleDelAllowed}
+                    onChange={e => setDbPortfolioForm(p => ({ ...p, isDoubleDelAllowed: e.target.checked }))}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Double Delegate Allowed
+                </label>
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-650 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={dbPortfolioForm.isVacant}
+                    onChange={e => setDbPortfolioForm(p => ({ ...p, isVacant: e.target.checked }))}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Vacant Slot
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all cursor-pointer shadow-xs"
+              >
+                {editingDbPortfolio ? 'Save Changes' : 'Create Portfolio'}
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* 3. Real Database EB Member Modal */}
+      {showDbEbModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden my-8"
+          >
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-sm">{editingDbEb ? 'Edit EB Member' : 'Add EB Member'}</h2>
+                <p className="text-indigo-200 text-xs mt-0.5">Configure Executive Board role under {selectedRegistryCommitteeId}</p>
+              </div>
+              <button onClick={() => setShowDbEbModal(false)} className="text-indigo-200 hover:text-white transition-colors cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleSaveDbEbMember} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">EB Member Name</label>
+                  <input
+                    type="text"
+                    value={dbEbForm.name}
+                    onChange={e => setDbEbForm(p => ({ ...p, name: e.target.value }))}
+                    placeholder="e.g. John Doe"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">EB Role / Designation</label>
+                  <input
+                    type="text"
+                    value={dbEbForm.role}
+                    onChange={e => setDbEbForm(p => ({ ...p, role: e.target.value }))}
+                    placeholder="e.g. Chairperson"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Login Email (assigned)</label>
+                  <input
+                    type="email"
+                    value={dbEbForm.email}
+                    onChange={e => setDbEbForm(p => ({ ...p, email: e.target.value }))}
+                    placeholder="eb.member@kimun.com"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Instagram Handle</label>
+                  <input
+                    type="text"
+                    value={dbEbForm.instagram}
+                    onChange={e => setDbEbForm(p => ({ ...p, instagram: e.target.value }))}
+                    placeholder="e.g. johndoe_mun"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Profile Photo URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={dbEbForm.photourl}
+                    onChange={e => setDbEbForm(p => ({ ...p, photourl: e.target.value }))}
+                    placeholder="https://..."
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-indigo-500"
+                  />
+                  <label className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold border border-slate-250 cursor-pointer flex items-center justify-center shrink-0">
+                    Upload
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleDbFileUpload(e, 'eb_photo')} disabled={isUploadingFile} />
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Short Biography</label>
+                <textarea
+                  value={dbEbForm.bio}
+                  onChange={e => setDbEbForm(p => ({ ...p, bio: e.target.value }))}
+                  placeholder="Enter short bio describing their MUN credentials..."
+                  rows={3}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 resize-none"
+                />
+              </div>
+
+              {isUploadingFile && (
+                <div className="text-xs text-indigo-650 font-bold flex items-center gap-1.5 animate-pulse">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-650" /> Uploading image to Firebase Storage...
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isUploadingFile}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {editingDbEb ? 'Save Changes' : 'Create EB Member'}
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Applicant Details Modal */}
+      {showAppDetailsModal && selectedApplicant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col my-8 max-h-[90vh]"
+          >
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-violet-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-base">OC Application Vetting & Verification</h2>
+                <p className="text-indigo-200 text-xs mt-0.5 font-medium">
+                  Vetting: <span className="font-bold text-white">{selectedApplicant.name}</span> ({selectedApplicant.email})
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAppDetailsModal(false)
+                  setSelectedApplicant(null)
+                }}
+                className="text-indigo-200 hover:text-white transition-colors text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                {/* Left Column: OC Application Data */}
+                <div className="space-y-6 border-r border-slate-100 pr-0 md:pr-6 text-left">
+                  <div>
+                    <h3 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <User className="w-4 h-4" /> Application Details
+                    </h3>
+                    <div className="bg-slate-50 rounded-xl p-4 space-y-3 border border-slate-100">
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <span className="text-slate-400 block font-medium">Contact Phone</span>
+                          <span className="font-bold text-slate-800">{selectedApplicant.phone || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block font-medium">Application Status</span>
+                          <span className="font-bold text-slate-800 capitalize">{selectedApplicant.status}</span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-slate-400 block font-medium">College/Institution</span>
+                          <span className="font-bold text-slate-800">{selectedApplicant.college || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block font-medium">Course/Degree</span>
+                          <span className="font-bold text-slate-800">{selectedApplicant.course || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block font-medium">Year of Study</span>
+                          <span className="font-bold text-slate-800">{selectedApplicant.year || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block font-medium">First Preference</span>
+                          <span className="font-bold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-md border border-violet-100">{selectedApplicant.pref1 || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block font-medium">Second Preference</span>
+                          <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">{selectedApplicant.pref2 || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Prior Experience */}
+                  <div>
+                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Prior Experience</h4>
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-3.5 text-xs text-slate-700 max-h-32 overflow-y-auto leading-relaxed">
+                      {selectedApplicant.experience ? (
+                        <p className="whitespace-pre-line">{selectedApplicant.experience}</p>
+                      ) : (
+                        <span className="text-slate-400 italic">No prior experience listed.</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* SOP */}
+                  <div>
+                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Statement of Purpose</h4>
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-3.5 text-xs text-slate-700 max-h-32 overflow-y-auto leading-relaxed italic">
+                      {selectedApplicant.statement ? (
+                        <p className="whitespace-pre-line">"{selectedApplicant.statement}"</p>
+                      ) : (
+                        <span className="text-slate-400 italic">No statement of purpose submitted.</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Resume Link */}
+                  {selectedApplicant.resume && (
+                    <div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-indigo-600" />
+                        <div>
+                          <span className="text-xs font-bold text-slate-800">Resume/CV URL</span>
+                          <span className="text-[10px] text-slate-500 block truncate max-w-[200px]">{selectedApplicant.resume}</span>
+                        </div>
+                      </div>
+                      <a
+                        href={selectedApplicant.resume}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] px-3.5 py-1.5 rounded-lg transition-all"
+                      >
+                        Open Link
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Onboarding Documents & NDA Signed */}
+                  <div>
+                    <h3 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4" /> Onboarding & Verification Status
+                    </h3>
+                    <div className="bg-slate-50 rounded-xl p-4 space-y-3.5 border border-slate-100">
+                      {/* Documents */}
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5">Submitted Documents</span>
+                        {selectedApplicant.documents ? (
+                          <div className="grid grid-cols-3 gap-2">
+                            {selectedApplicant.documents.collegeId && (
+                              <a
+                                href={selectedApplicant.documents.collegeId}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-white border border-slate-200 hover:border-indigo-400 rounded-lg p-2 text-center text-[10px] font-bold text-indigo-600 truncate block transition-all"
+                                title="College ID"
+                              >
+                                🆔 College ID
+                              </a>
+                            )}
+                            {selectedApplicant.documents.aadhar && (
+                              <a
+                                href={selectedApplicant.documents.aadhar}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-white border border-slate-200 hover:border-indigo-400 rounded-lg p-2 text-center text-[10px] font-bold text-indigo-600 truncate block transition-all"
+                                title="Aadhar Card"
+                              >
+                                💳 Aadhar Card
+                              </a>
+                            )}
+                            {selectedApplicant.documents.photo && (
+                              <a
+                                href={selectedApplicant.documents.photo}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-white border border-slate-200 hover:border-indigo-400 rounded-lg p-2 text-center text-[10px] font-bold text-indigo-600 truncate block transition-all"
+                                title="Passport Photo"
+                              >
+                                📷 Photo Image
+                              </a>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">No onboarding documents uploaded yet.</span>
+                        )}
+                        {selectedApplicant.documentsSubmittedAt && (
+                          <span className="text-[9px] text-slate-400 block mt-1">Uploaded at: {new Date(selectedApplicant.documentsSubmittedAt).toLocaleString()}</span>
+                        )}
+                      </div>
+
+                      {/* NDA Sign */}
+                      <div className="border-t border-slate-200/60 pt-3 flex items-center justify-between text-xs">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase block">NDA Contract</span>
+                          <span className="font-semibold text-slate-700">
+                            {selectedApplicant.signature ? 'Signed NDA' : 'Pending Signature'}
+                          </span>
+                        </div>
+                        {selectedApplicant.signature && (
+                          <div className="text-right">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Signature Key</span>
+                            <span className="font-mono text-[10px] bg-slate-200/60 px-1.5 py-0.5 rounded text-slate-600">{selectedApplicant.signature}</span>
+                          </div>
+                        )}
+                      </div>
+                      {selectedApplicant.contractSignedAt && (
+                        <span className="text-[9px] text-slate-400 block">Signed at: {new Date(selectedApplicant.contractSignedAt).toLocaleString()}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Supabase Legacy Delegate Database Lookup */}
+                <div className="space-y-6 text-left">
+                  <div>
+                    <h3 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <Globe className="w-4 h-4" /> Supabase Legacy Check
+                    </h3>
+
+                    {fetchingLegacyProfile ? (
+                      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-12 text-center flex flex-col items-center justify-center">
+                        <Loader2 className="w-6 h-6 text-indigo-600 animate-spin mb-2" />
+                        <span className="text-xs font-semibold text-slate-500">Retrieving legacy delegate profile...</span>
+                      </div>
+                    ) : legacyProfileError ? (
+                      <div className="bg-rose-50 border border-rose-100 text-rose-800 rounded-xl p-4 text-xs space-y-1">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <AlertCircle className="w-4 h-4 text-rose-600" /> Error Loading Legacy Profile
+                        </div>
+                        <p>{legacyProfileError}</p>
+                      </div>
+                    ) : legacyProfile ? (
+                      (() => {
+                        const isPrimary = (legacyProfile.email?.toLowerCase() === selectedApplicant.email?.toLowerCase()) || (legacyProfile.phone === selectedApplicant.phone);
+                        const isJoint = (legacyProfile.joint_delegate_email?.toLowerCase() === selectedApplicant.email?.toLowerCase()) || (legacyProfile.joint_delegate_phone === selectedApplicant.phone);
+
+                        const isBlacklisted = legacyProfile.is_blacklisted || (legacyProfile.ban_status && legacyProfile.ban_status.toLowerCase() !== 'none');
+
+                        return (
+                          <div className="space-y-4">
+                            {/* Success badge */}
+                            <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl p-3.5 flex items-center gap-2.5">
+                              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                              <div className="text-xs">
+                                <span className="font-extrabold block">Legacy Delegate Found</span>
+                                <span className="text-[10px] text-emerald-600/90 font-medium">
+                                  Matched as {isPrimary ? 'Primary Delegate' : (isJoint ? 'Joint Delegate' : 'Delegate')}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Blacklist banner */}
+                            {isBlacklisted ? (
+                              <div className="bg-rose-50 border border-rose-200 text-rose-900 rounded-xl p-4 space-y-2">
+                                <div className="font-bold flex items-center gap-1.5 text-xs text-rose-700 uppercase tracking-wide">
+                                  <Ban className="w-4 h-4 text-rose-600" /> Security Alert: Blacklisted / Banned
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-[11px] leading-snug">
+                                  <div>
+                                    <span className="text-rose-500 font-medium block">Ban Status</span>
+                                    <span className="font-black text-rose-800 uppercase">{legacyProfile.ban_status || 'Banned'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-rose-500 font-medium block">Ban Year</span>
+                                    <span className="font-black text-rose-800">{legacyProfile.ban_year || 'N/A'}</span>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <span className="text-rose-500 font-medium block">Reason for Ban</span>
+                                    <span className="font-bold text-rose-900">{legacyProfile.ban_reason || 'No reason provided.'}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-emerald-50/50 border border-emerald-100 text-emerald-900 rounded-xl p-3 flex items-center gap-2 text-xs">
+                                <Shield className="w-4 h-4 text-emerald-600" />
+                                <span className="font-bold text-emerald-800">Security Pass: No legacy blacklist or ban record detected.</span>
+                              </div>
+                            )}
+
+                            {/* Delegate particulars */}
+                            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-3 text-xs">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Legacy Registration Details</span>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <span className="text-slate-400 block font-medium">Primary Delegate Name</span>
+                                  <span className="font-bold text-slate-800">{legacyProfile.full_name || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block font-medium">Primary Email</span>
+                                  <span className="font-bold text-slate-800 truncate block max-w-[150px]" title={legacyProfile.email}>{legacyProfile.email || 'N/A'}</span>
+                                </div>
+                                {legacyProfile.joint_delegate_name && (
+                                  <>
+                                    <div>
+                                      <span className="text-slate-400 block font-medium">Joint Delegate Name</span>
+                                      <span className="font-bold text-slate-800">{legacyProfile.joint_delegate_name}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 block font-medium">Joint Email</span>
+                                      <span className="font-bold text-slate-800 truncate block max-w-[150px]" title={legacyProfile.joint_delegate_email}>{legacyProfile.joint_delegate_email || 'N/A'}</span>
+                                    </div>
+                                  </>
+                                )}
+                                <div>
+                                  <span className="text-slate-400 block font-medium">Institution</span>
+                                  <span className="font-bold text-slate-800">{legacyProfile.institution || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block font-medium">Location</span>
+                                  <span className="font-bold text-slate-800">{legacyProfile.city ? `${legacyProfile.city}, ` : ''}{legacyProfile.country || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block font-medium">Conference</span>
+                                  <span className="font-bold text-slate-800">{legacyProfile.conference_name || 'KIMUN'} ({legacyProfile.year})</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block font-medium">Allocated Committee</span>
+                                  <span className="font-bold text-slate-800">{legacyProfile.committee || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block font-medium">Allocated Portfolio</span>
+                                  <span className="font-bold text-slate-800">{legacyProfile.portfolio || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block font-medium">MUNs Attended</span>
+                                  <span className="font-bold text-slate-800">{legacyProfile.number_of_mun_attended ?? 'N/A'}</span>
+                                </div>
+                                <div className="col-span-2">
+                                  <span className="text-slate-400 block font-medium">Awards Received</span>
+                                  <span className="font-bold text-indigo-700 bg-indigo-50/70 border border-indigo-100 rounded-md px-2 py-0.5 inline-block mt-0.5">
+                                    {legacyProfile.awards || 'None'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })()
+                    ) : (
+                      <div className="bg-slate-50 border border-slate-200 border-dashed rounded-xl p-8 text-center text-xs text-slate-400">
+                        <Info className="w-5 h-5 text-slate-300 mx-auto mb-1.5" />
+                        <span>No legacy delegate record found in Supabase for this applicant's credentials (email or phone). First-time attendee.</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-50 border-t border-slate-200/80 px-6 py-4 flex items-center justify-between gap-3">
+              <div className="text-[10px] text-slate-400 font-bold uppercase">
+                Submitted: {selectedApplicant.submittedAt ? new Date(selectedApplicant.submittedAt).toLocaleDateString() : 'N/A'}
+              </div>
+              <div className="flex gap-2.5">
+                {selectedApplicant.status !== 'rejected' && (
+                  <button
+                    onClick={() => {
+                      handleUpdateApplicationStatus(selectedApplicant.uid, 'rejected', selectedApplicant.email, selectedApplicant.name)
+                      setSelectedApplicant(prev => prev ? { ...prev, status: 'rejected' } : null)
+                    }}
+                    className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer"
+                  >
+                    Reject Applicant
+                  </button>
+                )}
+                {selectedApplicant.status !== 'welcomed' && (
+                  <button
+                    onClick={() => {
+                      handleUpdateApplicationStatus(selectedApplicant.uid, 'welcomed', selectedApplicant.email, selectedApplicant.name)
+                      setSelectedApplicant(prev => prev ? { ...prev, status: 'welcomed' } : null)
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer shadow-sm shadow-emerald-600/10"
+                  >
+                    Approve & Welcome
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setShowAppDetailsModal(false)
+                    setSelectedApplicant(null)
+                  }}
+                  className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Committee Modal */}
       {showCommitteeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
@@ -3971,6 +6281,116 @@ export default function OasisWorkplace() {
               <div className="flex gap-3 mt-5">
                 <button onClick={() => setDeleteConfirm(null)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-xl transition-all">Cancel</button>
                 <button onClick={handleConfirmDelete} className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 rounded-xl transition-all">Delete</button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Tour Invitation Modal */}
+      {tourStep === -2 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white border border-slate-200 p-6 rounded-2xl shadow-2xl max-w-sm w-full text-center space-y-4"
+          >
+            <div className="mx-auto w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-slate-900">Welcome to Oasis Command Center</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">Would you like a quick 2-minute guided tour of the dashboard features and settings?</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  localStorage.setItem('oasis_tour_completed', 'true')
+                  setTourStep(-1)
+                }}
+                className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-650 font-bold text-xs rounded-xl transition-all cursor-pointer border border-slate-200"
+              >
+                Skip
+              </button>
+              <button
+                onClick={() => {
+                  setTourStep(0)
+                  setActiveMenuTab('dashboard')
+                }}
+                className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-lg shadow-indigo-150"
+              >
+                Start Tour
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Floating Stepper Tour Card */}
+      {tourStep >= 0 && (
+        <div className="fixed bottom-6 left-6 right-6 md:left-auto md:w-96 z-50">
+          <motion.div
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-white border border-indigo-500 p-5 rounded-2xl shadow-2xl space-y-4"
+          >
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                Step {tourStep + 1} of {TOUR_STEPS.length}
+              </span>
+              <button
+                onClick={() => {
+                  localStorage.setItem('oasis_tour_completed', 'true')
+                  setTourStep(-1)
+                }}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-xs font-bold text-slate-900">{TOUR_STEPS[tourStep]?.title}</h4>
+              <p className="text-[11px] text-slate-500 leading-relaxed">{TOUR_STEPS[tourStep]?.content}</p>
+            </div>
+            <div className="flex justify-between items-center pt-2">
+              <button
+                onClick={() => {
+                  localStorage.setItem('oasis_tour_completed', 'true')
+                  setTourStep(-1)
+                }}
+                className="text-[10px] font-bold text-slate-400 hover:text-slate-650 transition-colors cursor-pointer"
+              >
+                Skip Tour
+              </button>
+              <div className="flex gap-2">
+                {tourStep > 0 && (
+                  <button
+                    onClick={() => {
+                      const prev = tourStep - 1
+                      setTourStep(prev)
+                      setActiveMenuTab(TOUR_STEPS[prev].tab as any)
+                    }}
+                    className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-bold rounded-lg transition-all cursor-pointer border border-slate-200"
+                  >
+                    Back
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    const next = tourStep + 1
+                    if (next < TOUR_STEPS.length) {
+                      setTourStep(next)
+                      setActiveMenuTab(TOUR_STEPS[next].tab as any)
+                    } else {
+                      localStorage.setItem('oasis_tour_completed', 'true')
+                      setTourStep(-1)
+                      triggerNotification('Tour completed! Welcome to Oasis.', 'success')
+                    }
+                  }}
+                  className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-lg transition-all cursor-pointer shadow-md shadow-indigo-150"
+                >
+                  {tourStep === TOUR_STEPS.length - 1 ? 'Finish' : 'Next'}
+                </button>
               </div>
             </div>
           </motion.div>

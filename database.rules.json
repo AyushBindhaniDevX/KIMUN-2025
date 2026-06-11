@@ -50,6 +50,10 @@
     "workstation_config": {
       ".read": "auth != null",
       ".write": "auth != null"
+    },
+    "conferenceDetails": {
+      ".read": "true",
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
     }
   }
 }
