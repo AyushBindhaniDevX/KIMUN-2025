@@ -69,10 +69,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { ref, onValue, update, push, remove, get, set } from 'firebase/database'
 import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth'
-import { firebaseAuth, firebaseDb, googleProvider, firebaseStorage } from '@/lib/firebase-client'
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { firebaseAuth, firebaseDb, googleProvider } from '@/lib/firebase-client'
 import * as XLSX from 'xlsx'
-import { jsPDF } from 'jspdf'
 import 'jspdf-autotable'
 
 // Indian-context master committee configuration list (presets)
@@ -390,6 +388,7 @@ export default function OasisWorkplace() {
   const [legacyProfile, setLegacyProfile] = useState<any | null>(null)
   const [fetchingLegacyProfile, setFetchingLegacyProfile] = useState(false)
   const [legacyProfileError, setLegacyProfileError] = useState('')
+  const [downloadingContract, setDownloadingContract] = useState(false)
 
   const triggerNotification = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setNotification({ show: true, message, type })
@@ -1044,6 +1043,281 @@ export default function OasisWorkplace() {
     triggerNotification('Spreadsheet CSV download initiated!')
   }
 
+  const generateContractPDFBytes = async (appData: any): Promise<Uint8Array> => {
+    const { jsPDF } = await import('jspdf')
+    const { PDFDocument } = await import('pdf-lib')
+    const doc = new jsPDF()
+    
+    // Page Frame
+    doc.setDrawColor(60, 80, 224) // Brand Blue
+    doc.setLineWidth(1.5)
+    doc.rect(10, 10, 190, 277)
+    
+    // Header Banner
+    doc.setFillColor(60, 80, 224)
+    doc.rect(10, 10, 190, 28, 'F')
+    
+    // Title
+    doc.setTextColor(255, 255, 255)
+    doc.setFont('Helvetica', 'bold')
+    doc.setFontSize(14)
+    doc.text("KIMUN 2026 EXECUTIVE CONTRACT", 105, 20, { align: 'center' })
+    doc.setFontSize(8.5)
+    doc.text("ORGANIZING COMMITTEE MEMBERSHIP & NON-DISCLOSURE AGREEMENT", 105, 28, { align: 'center' })
+    
+    // Details
+    doc.setTextColor(28, 36, 52)
+    doc.setFontSize(10)
+    
+    let y = 55
+    const drawField = (label: string, val: string, isHeader = false) => {
+      doc.setFont('Helvetica', 'bold')
+      doc.setFontSize(isHeader ? 12 : 9.5)
+      doc.text(label, 20, y)
+      doc.setFont('Helvetica', 'normal')
+      doc.setFontSize(isHeader ? 12 : 9.5)
+      doc.text(val, 65, y)
+      y += isHeader ? 12 : 8.5
+    }
+    
+    const candidateName = appData.name || 'Candidate'
+    const candidateEmail = appData.email || 'N/A'
+    
+    drawField("CANDIDATE NAME:", (candidateName || '').toUpperCase(), true)
+    drawField("ASSIGNED DEPT:", (appData.pref1 || 'Secretariat').toUpperCase())
+    drawField("EMAIL ADDRESS:", candidateEmail || 'N/A')
+    drawField("CONTACT PHONE:", appData.phone || 'N/A')
+    drawField("NDA SIGNED ON:", appData.contractSignedAt ? new Date(appData.contractSignedAt).toLocaleString() : 'PENDING SIGNATURE')
+    drawField("SIGNATURE KEY:", (appData.signature || 'PENDING SIGNATURE').toUpperCase())
+    
+    // Divider
+    doc.setDrawColor(226, 232, 240)
+    doc.setLineWidth(0.5)
+    doc.line(20, y + 2, 190, y + 2)
+    y += 10
+    
+    // Contract Title
+    doc.setFont('Helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.text("TERMS & CONDITIONS AGREEMENT", 20, y)
+    y += 6
+    
+    // NDA Terms paragraph layout
+    doc.setFont('Helvetica', 'normal')
+    doc.setFontSize(8)
+    const terms = [
+      "1. PURPOSE: The Disclosing Party (KIMUN Secretariat) is granting the Candidate access to operational frameworks, registration matrices, financial details, and delegate databases for the execution of KIMUN 2026.",
+      "2. CONFIDENTIALITY PROTOCOLS: All materials, email lists, contact parameters, software integrations, and design files remain the exclusive property of KIMUN. The Candidate shall not reproduce, share, or disseminate any proprietary resources to third parties without prior written consent.",
+      "3. CODE OF CONDUCT: Candidates must maintain a high standard of professional ethics. You are expected to deliver tasks on time as assigned under your respective department parameters. Misconduct or security leaks will result in termination of this appointment and potential legal enforcement.",
+      "4. TERM: This agreement is active from the date of digital authorization until the completion of KIMUN 2026 post-event administrative clearance."
+    ]
+    
+    terms.forEach(term => {
+      const splitLines = doc.splitTextToSize(term, 170)
+      splitLines.forEach((line: string) => {
+        if (y > 250) {
+          doc.addPage()
+          doc.setDrawColor(60, 80, 224)
+          doc.setLineWidth(1.5)
+          doc.rect(10, 10, 190, 277)
+          y = 20
+        }
+        doc.text(line, 20, y)
+        y += 4.5
+      })
+      y += 2.5
+    })
+    
+    // Signature block
+    y += 8
+    if (y > 230) {
+      doc.addPage()
+      doc.setDrawColor(60, 80, 224)
+      doc.setLineWidth(1.5)
+      doc.rect(10, 10, 190, 277)
+      y = 20
+    }
+    
+    doc.setDrawColor(226, 232, 240)
+    doc.setLineWidth(0.5)
+    doc.line(20, y, 190, y)
+    y += 8
+    
+    doc.setFont('Helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.text("AUTHORIZED DIGITAL SIGNATURE", 20, y)
+    y += 8
+    
+    if (appData.signature) {
+      doc.setFont('Times', 'italic')
+      doc.setFontSize(22)
+      doc.setTextColor(60, 80, 224)
+      doc.text(appData.signature, 25, y)
+    } else {
+      doc.setFont('Helvetica', 'italic')
+      doc.setFontSize(11)
+      doc.setTextColor(150, 150, 150)
+      doc.text("PENDING SIGNATURE - DRAFT ONLY", 25, y)
+    }
+    
+    doc.setTextColor(148, 163, 184)
+    doc.setFont('Helvetica', 'normal')
+    doc.setFontSize(7)
+    doc.text("SECURE DIGITAL AUTHORIZATION LOCK - KIMUN ADMINISTRATIVE SERVICES", 20, y + 8)
+    
+    const jsPdfBytes = doc.output('arraybuffer')
+    let mergedPdf = await PDFDocument.load(jsPdfBytes)
+    
+    const docsToMerge = []
+    if (appData.documents) {
+      if (appData.documents.aadhar) docsToMerge.push({ name: 'Aadhar Card', url: appData.documents.aadhar })
+      if (appData.documents.collegeId) docsToMerge.push({ name: 'College ID', url: appData.documents.collegeId })
+    }
+    
+    for (const item of docsToMerge) {
+      try {
+        if (item.url.startsWith('data:application/pdf') || item.url.includes('.pdf') || item.url.includes('alt=media')) {
+          let isPdf = false
+          let arrayBuffer: ArrayBuffer | null = null
+          
+          if (item.url.startsWith('data:application/pdf')) {
+            isPdf = true
+            const base64 = item.url.split(',')[1]
+            const binary = window.atob(base64)
+            const bytes = new Uint8Array(binary.length)
+            for (let i = 0; i < binary.length; i++) {
+              bytes[i] = binary.charCodeAt(i)
+            }
+            arrayBuffer = bytes.buffer
+          } else {
+            const fetchUrl = item.url.startsWith('http')
+              ? `/api/fetch-document?url=${encodeURIComponent(item.url)}`
+              : item.url
+            const response = await fetch(fetchUrl)
+            const contentType = response.headers.get('content-type') || ''
+            if (contentType.includes('pdf') || item.url.toLowerCase().includes('.pdf')) {
+              isPdf = true
+              arrayBuffer = await response.arrayBuffer()
+            } else {
+              arrayBuffer = await response.arrayBuffer()
+              const header = new Uint8Array(arrayBuffer.slice(0, 4))
+              const headerStr = String.fromCharCode(...Array.from(header))
+              if (headerStr === '%PDF') {
+                isPdf = true
+              }
+            }
+          }
+          
+          if (isPdf && arrayBuffer) {
+            const externalDoc = await PDFDocument.load(arrayBuffer)
+            const copiedPages = await mergedPdf.copyPages(externalDoc, externalDoc.getPageIndices())
+            copiedPages.forEach(page => mergedPdf.addPage(page))
+            continue
+          }
+        }
+        
+        // Image drawing fallback
+        const fetchUrl = item.url.startsWith('http')
+          ? `/api/fetch-document?url=${encodeURIComponent(item.url)}`
+          : item.url
+        const imgResponse = await fetch(fetchUrl)
+        const imgBuffer = await imgResponse.arrayBuffer()
+        const imgUint8 = new Uint8Array(imgBuffer)
+        
+        let pdfImage
+        if (item.url.includes('.png') || item.url.startsWith('data:image/png')) {
+          pdfImage = await mergedPdf.embedPng(imgUint8)
+        } else {
+          pdfImage = await mergedPdf.embedJpg(imgUint8)
+        }
+        
+        const page = mergedPdf.addPage([595, 842])
+        const { width, height } = pdfImage.scale(1)
+        
+        const scaleFactor = Math.min(500 / width, 700 / height, 1)
+        const drawWidth = width * scaleFactor
+        const drawHeight = height * scaleFactor
+        
+        page.drawImage(pdfImage, {
+          x: (595 - drawWidth) / 2,
+          y: (842 - drawHeight) / 2,
+          width: drawWidth,
+          height: drawHeight
+        })
+      } catch (err) {
+        console.warn(`Failed to merge ${item.name}:`, err)
+        const page = mergedPdf.addPage([595, 842])
+        const helveticaFont = await mergedPdf.embedFont('Helvetica')
+        page.drawText(`VERIFICATION DOCUMENT ATTACHED ONLINE`, {
+          x: 50,
+          y: 750,
+          size: 14,
+          font: helveticaFont
+        })
+        page.drawText(`Document: ${item.name}`, {
+          x: 50,
+          y: 720,
+          size: 11,
+          font: helveticaFont
+        })
+        page.drawText(`Status: Uploaded & Verified in KIMUN Cloud Database`, {
+          x: 50,
+          y: 690,
+          size: 10,
+          font: helveticaFont
+        })
+        page.drawText(`Storage URL: ${item.url.length > 80 ? item.url.substring(0, 80) + '...' : item.url}`, {
+          x: 50,
+          y: 660,
+          size: 8,
+          font: helveticaFont
+        })
+      }
+    }
+    
+    return await mergedPdf.save()
+  }
+
+  const handleDownloadContractPDF = async (appData: any) => {
+    if (downloadingContract) return
+    setDownloadingContract(true)
+    try {
+      if (appData.contractPdfUrl) {
+        const fetchUrl = appData.contractPdfUrl.startsWith('http')
+          ? `/api/fetch-document?url=${encodeURIComponent(appData.contractPdfUrl)}`
+          : appData.contractPdfUrl
+        const response = await fetch(fetchUrl)
+        const blob = await response.blob()
+        const link = document.createElement('a')
+        link.href = window.URL.createObjectURL(blob)
+        const candidateName = appData.name || 'Candidate'
+        link.download = `KIMUN_OC_Contract_${candidateName.replace(/\s+/g, '_')}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        triggerNotification('Contract PDF downloaded successfully!')
+        setDownloadingContract(false)
+        return
+      }
+
+      const pdfBytes = await generateContractPDFBytes(appData)
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+      const link = document.createElement('a')
+      link.href = window.URL.createObjectURL(blob)
+      const candidateName = appData.name || 'Candidate'
+      link.download = `Signed_Contract_${(candidateName || 'OC').replace(/\s+/g, '_')}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      triggerNotification('Contract PDF generated and downloaded successfully!')
+    } catch (e: any) {
+      console.error(e)
+      triggerNotification('Failed to generate contract PDF: ' + e.message, 'error')
+    } finally {
+      setDownloadingContract(false)
+    }
+  }
+
   const handleDownloadCitationPDF = (delegate: any) => {
     try {
       const doc = new jsPDF()
@@ -1618,11 +1892,24 @@ export default function OasisWorkplace() {
     setIsUploadingFile(true)
     try {
       const folder = selectedRegistryCommitteeId || 'general'
-      const storagePath = `registry/${folder}/${type}/${file.name}`
-      const fileRef = storageRef(firebaseStorage, storagePath)
+      
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('uid', folder)
+      formData.append('field', type)
+      formData.append('name', file.name)
 
-      await uploadBytes(fileRef, file)
-      const downloadURL = await getDownloadURL(fileRef)
+      const response = await fetch('/api/upload-document', {
+        method: 'POST',
+        body: formData
+      })
+      
+      const data = await response.json()
+      if (!data.success || !data.url) {
+        throw new Error(data.error || 'Failed to upload document')
+      }
+      
+      const downloadURL = data.url
 
       if (type === 'eb_photo') {
         setDbEbForm(prev => ({ ...prev, photourl: downloadURL }))
@@ -5611,6 +5898,24 @@ export default function OasisWorkplace() {
                       </div>
                       {selectedApplicant.contractSignedAt && (
                         <span className="text-[9px] text-slate-400 block">Signed at: {new Date(selectedApplicant.contractSignedAt).toLocaleString()}</span>
+                      )}
+                      {(selectedApplicant.status !== 'pending' && selectedApplicant.status !== 'rejected') && (
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadContractPDF(selectedApplicant)}
+                          disabled={downloadingContract}
+                          className="w-full mt-3 flex items-center justify-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] rounded-[4px] transition-colors border-none uppercase font-bold cursor-pointer disabled:opacity-50"
+                        >
+                          {downloadingContract ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Merging Proofs...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="w-3.5 h-3.5" /> Download Contract PDF
+                            </>
+                          )}
+                        </button>
                       )}
                     </div>
                   </div>

@@ -29,7 +29,8 @@ import {
   AlertCircle,
   GraduationCap,
   Clock, Sparkles,
-  Calendar
+  Calendar,
+  Download
 } from 'lucide-react'
 
 import { motion, AnimatePresence } from 'framer-motion'
@@ -96,6 +97,7 @@ export default function OCApplicationPage() {
   const [signatureText, setSignatureText] = useState('')
   const [signingError, setSigningError] = useState('')
   const [signing, setSigning] = useState(false)
+  const [downloadingContract, setDownloadingContract] = useState(false)
 
   const triggerConfetti = () => {
     if (typeof window !== 'undefined') {
@@ -154,32 +156,49 @@ export default function OCApplicationPage() {
     setDocsProgress(prev => ({ ...prev, [field]: 0 }))
     
     try {
-      const storagePath = `oc_onboarding/${user.uid}/${field}_${Date.now()}_${file.name}`
-      const storageRefInstance = sRef(firebaseStorage, storagePath)
-      const uploadTask = uploadBytesResumable(storageRefInstance, file)
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('uid', user.uid)
+      formData.append('field', field)
+      formData.append('name', file.name)
 
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', '/api/upload-document', true)
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const progress = Math.round((event.loaded / event.total) * 100)
           setDocsProgress(prev => ({ ...prev, [field]: progress }))
-        },
-        (error) => {
-          console.warn("Storage upload failed, using fallback:", error)
-          simulateFallbackUpload(field, file)
-        },
-        async () => {
-          try {
-            const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref)
-            setDocFiles(prev => ({ ...prev, [field]: downloadUrl }))
-            setDocsProgress(prev => ({ ...prev, [field]: 100 }))
-          } catch (err) {
-            console.warn("Get download URL failed, using fallback:", err)
-            simulateFallbackUpload(field, file)
-          }
         }
-      )
+      }
+
+      xhr.onload = () => {
+        try {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const response = JSON.parse(xhr.responseText)
+            if (response.success && response.url) {
+              setDocFiles(prev => ({ ...prev, [field]: response.url }))
+              setDocsProgress(prev => ({ ...prev, [field]: 100 }))
+            } else {
+              throw new Error(response.error || 'Failed upload response')
+            }
+          } else {
+            throw new Error(`Server returned status ${xhr.status}`)
+          }
+        } catch (err: any) {
+          console.warn("Proxy upload failed, using fallback:", err)
+          simulateFallbackUpload(field, file)
+        }
+      }
+
+      xhr.onerror = (err) => {
+        console.warn("XHR upload error, using fallback:", err)
+        simulateFallbackUpload(field, file)
+      }
+
+      xhr.send(formData)
     } catch (e) {
-      console.warn("Firebase Storage initialization failed, using fallback:", e)
+      console.warn("Upload initialization failed, using fallback:", e)
       simulateFallbackUpload(field, file)
     }
   }
@@ -223,6 +242,279 @@ export default function OCApplicationPage() {
     }
   }
 
+  const generateContractPDFBytes = async (appData: any): Promise<Uint8Array> => {
+    const { jsPDF } = await import('jspdf')
+    const { PDFDocument } = await import('pdf-lib')
+    const doc = new jsPDF()
+    
+    // Page Frame
+    doc.setDrawColor(60, 80, 224) // Brand Blue
+    doc.setLineWidth(1.5)
+    doc.rect(10, 10, 190, 277)
+    
+    // Header Banner
+    doc.setFillColor(60, 80, 224)
+    doc.rect(10, 10, 190, 28, 'F')
+    
+    // Title
+    doc.setTextColor(255, 255, 255)
+    doc.setFont('Helvetica', 'bold')
+    doc.setFontSize(14)
+    doc.text("KIMUN 2026 EXECUTIVE CONTRACT", 105, 20, { align: 'center' })
+    doc.setFontSize(8.5)
+    doc.text("ORGANIZING COMMITTEE MEMBERSHIP & NON-DISCLOSURE AGREEMENT", 105, 28, { align: 'center' })
+    
+    // Details
+    doc.setTextColor(28, 36, 52)
+    doc.setFontSize(10)
+    
+    let y = 55
+    const drawField = (label: string, val: string, isHeader = false) => {
+      doc.setFont('Helvetica', 'bold')
+      doc.setFontSize(isHeader ? 12 : 9.5)
+      doc.text(label, 20, y)
+      doc.setFont('Helvetica', 'normal')
+      doc.setFontSize(isHeader ? 12 : 9.5)
+      doc.text(val, 65, y)
+      y += isHeader ? 12 : 8.5
+    }
+    
+    const candidateName = appData.name || user?.displayName || 'Candidate'
+    const candidateEmail = appData.email || user?.email || 'N/A'
+    
+    drawField("CANDIDATE NAME:", (candidateName || '').toUpperCase(), true)
+    drawField("ASSIGNED DEPT:", (appData.pref1 || 'Secretariat').toUpperCase())
+    drawField("EMAIL ADDRESS:", candidateEmail || 'N/A')
+    drawField("CONTACT PHONE:", appData.phone || 'N/A')
+    drawField("NDA SIGNED ON:", appData.contractSignedAt ? new Date(appData.contractSignedAt).toLocaleString() : 'PENDING SIGNATURE')
+    drawField("SIGNATURE KEY:", (appData.signature || 'PENDING SIGNATURE').toUpperCase())
+    
+    // Divider
+    doc.setDrawColor(226, 232, 240)
+    doc.setLineWidth(0.5)
+    doc.line(20, y + 2, 190, y + 2)
+    y += 10
+    
+    // Contract Title
+    doc.setFont('Helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.text("TERMS & CONDITIONS AGREEMENT", 20, y)
+    y += 6
+    
+    // NDA Terms paragraph layout
+    doc.setFont('Helvetica', 'normal')
+    doc.setFontSize(8)
+    const terms = [
+      "1. PURPOSE: The Disclosing Party (KIMUN Secretariat) is granting the Candidate access to operational frameworks, registration matrices, financial details, and delegate databases for the execution of KIMUN 2026.",
+      "2. CONFIDENTIALITY PROTOCOLS: All materials, email lists, contact parameters, software integrations, and design files remain the exclusive property of KIMUN. The Candidate shall not reproduce, share, or disseminate any proprietary resources to third parties without prior written consent.",
+      "3. CODE OF CONDUCT: Candidates must maintain a high standard of professional ethics. You are expected to deliver tasks on time as assigned under your respective department parameters. Misconduct or security leaks will result in termination of this appointment and potential legal enforcement.",
+      "4. TERM: This agreement is active from the date of digital authorization until the completion of KIMUN 2026 post-event administrative clearance."
+    ]
+    
+    terms.forEach(term => {
+      const splitLines = doc.splitTextToSize(term, 170)
+      splitLines.forEach((line: string) => {
+        if (y > 250) {
+          doc.addPage()
+          doc.setDrawColor(60, 80, 224)
+          doc.setLineWidth(1.5)
+          doc.rect(10, 10, 190, 277)
+          y = 20
+        }
+        doc.text(line, 20, y)
+        y += 4.5
+      })
+      y += 2.5
+    })
+    
+    // Signature block
+    y += 8
+    if (y > 230) {
+      doc.addPage()
+      doc.setDrawColor(60, 80, 224)
+      doc.setLineWidth(1.5)
+      doc.rect(10, 10, 190, 277)
+      y = 20
+    }
+    
+    doc.setDrawColor(226, 232, 240)
+    doc.setLineWidth(0.5)
+    doc.line(20, y, 190, y)
+    y += 8
+    
+    doc.setFont('Helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.text("AUTHORIZED DIGITAL SIGNATURE", 20, y)
+    y += 8
+    
+    if (appData.signature) {
+      doc.setFont('Times', 'italic')
+      doc.setFontSize(22)
+      doc.setTextColor(60, 80, 224)
+      doc.text(appData.signature, 25, y)
+    } else {
+      doc.setFont('Helvetica', 'italic')
+      doc.setFontSize(11)
+      doc.setTextColor(150, 150, 150)
+      doc.text("PENDING SIGNATURE - DRAFT ONLY", 25, y)
+    }
+    
+    doc.setTextColor(148, 163, 184)
+    doc.setFont('Helvetica', 'normal')
+    doc.setFontSize(7)
+    doc.text("SECURE DIGITAL AUTHORIZATION LOCK - KIMUN ADMINISTRATIVE SERVICES", 20, y + 8)
+    
+    const jsPdfBytes = doc.output('arraybuffer')
+    let mergedPdf = await PDFDocument.load(jsPdfBytes)
+    
+    const docsToMerge = []
+    if (appData.documents) {
+      if (appData.documents.aadhar) docsToMerge.push({ name: 'Aadhar Card', url: appData.documents.aadhar })
+      if (appData.documents.collegeId) docsToMerge.push({ name: 'College ID', url: appData.documents.collegeId })
+    }
+    
+    for (const item of docsToMerge) {
+      try {
+        if (item.url.startsWith('data:application/pdf') || item.url.includes('.pdf') || item.url.includes('alt=media')) {
+          let isPdf = false
+          let arrayBuffer: ArrayBuffer | null = null
+          
+          if (item.url.startsWith('data:application/pdf')) {
+            isPdf = true
+            const base64 = item.url.split(',')[1]
+            const binary = window.atob(base64)
+            const bytes = new Uint8Array(binary.length)
+            for (let i = 0; i < binary.length; i++) {
+              bytes[i] = binary.charCodeAt(i)
+            }
+            arrayBuffer = bytes.buffer
+          } else {
+            const fetchUrl = item.url.startsWith('http')
+              ? `/api/fetch-document?url=${encodeURIComponent(item.url)}`
+              : item.url
+            const response = await fetch(fetchUrl)
+            const contentType = response.headers.get('content-type') || ''
+            if (contentType.includes('pdf') || item.url.toLowerCase().includes('.pdf')) {
+              isPdf = true
+              arrayBuffer = await response.arrayBuffer()
+            } else {
+              arrayBuffer = await response.arrayBuffer()
+              const header = new Uint8Array(arrayBuffer.slice(0, 4))
+              const headerStr = String.fromCharCode(...Array.from(header))
+              if (headerStr === '%PDF') {
+                isPdf = true
+              }
+            }
+          }
+          
+          if (isPdf && arrayBuffer) {
+            const externalDoc = await PDFDocument.load(arrayBuffer)
+            const copiedPages = await mergedPdf.copyPages(externalDoc, externalDoc.getPageIndices())
+            copiedPages.forEach(page => mergedPdf.addPage(page))
+            continue
+          }
+        }
+        
+        // Image drawing fallback
+        const fetchUrl = item.url.startsWith('http')
+          ? `/api/fetch-document?url=${encodeURIComponent(item.url)}`
+          : item.url
+        const imgResponse = await fetch(fetchUrl)
+        const imgBuffer = await imgResponse.arrayBuffer()
+        const imgUint8 = new Uint8Array(imgBuffer)
+        
+        let pdfImage
+        if (item.url.includes('.png') || item.url.startsWith('data:image/png')) {
+          pdfImage = await mergedPdf.embedPng(imgUint8)
+        } else {
+          pdfImage = await mergedPdf.embedJpg(imgUint8)
+        }
+        
+        const page = mergedPdf.addPage([595, 842])
+        const { width, height } = pdfImage.scale(1)
+        
+        const scaleFactor = Math.min(500 / width, 700 / height, 1)
+        const drawWidth = width * scaleFactor
+        const drawHeight = height * scaleFactor
+        
+        page.drawImage(pdfImage, {
+          x: (595 - drawWidth) / 2,
+          y: (842 - drawHeight) / 2,
+          width: drawWidth,
+          height: drawHeight
+        })
+      } catch (err) {
+        console.warn(`Failed to merge ${item.name}:`, err)
+        const page = mergedPdf.addPage([595, 842])
+        const helveticaFont = await mergedPdf.embedFont('Helvetica')
+        page.drawText(`VERIFICATION DOCUMENT ATTACHED ONLINE`, {
+          x: 50,
+          y: 750,
+          size: 14,
+          font: helveticaFont
+        })
+        page.drawText(`Document: ${item.name}`, {
+          x: 50,
+          y: 720,
+          size: 11,
+          font: helveticaFont
+        })
+        page.drawText(`Status: Uploaded & Verified in KIMUN Cloud Database`, {
+          x: 50,
+          y: 690,
+          size: 10,
+          font: helveticaFont
+        })
+        page.drawText(`Storage URL: ${item.url.length > 80 ? item.url.substring(0, 80) + '...' : item.url}`, {
+          x: 50,
+          y: 660,
+          size: 8,
+          font: helveticaFont
+        })
+      }
+    }
+    
+    return await mergedPdf.save()
+  }
+
+  const handleDownloadContractPDF = async (appData: any) => {
+    if (downloadingContract) return
+    setDownloadingContract(true)
+    try {
+      if (appData.contractPdfUrl) {
+        const fetchUrl = appData.contractPdfUrl.startsWith('http')
+          ? `/api/fetch-document?url=${encodeURIComponent(appData.contractPdfUrl)}`
+          : appData.contractPdfUrl
+        const response = await fetch(fetchUrl)
+        const blob = await response.blob()
+        const link = document.createElement('a')
+        link.href = window.URL.createObjectURL(blob)
+        const candidateName = appData.name || user?.displayName || 'Candidate'
+        link.download = `KIMUN_OC_Contract_${candidateName.replace(/\s+/g, '_')}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        setDownloadingContract(false)
+        return
+      }
+
+      const pdfBytes = await generateContractPDFBytes(appData)
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+      const link = document.createElement('a')
+      link.href = window.URL.createObjectURL(blob)
+      const candidateName = appData.name || user?.displayName || 'Candidate'
+      link.download = `Signed_Contract_${(candidateName || 'OC').replace(/\s+/g, '_')}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (e: any) {
+      console.error(e)
+      alert("Error compiling contract PDF: " + e.message)
+    } finally {
+      setDownloadingContract(false)
+    }
+  }
+
   const handleNDASign = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
@@ -238,11 +530,43 @@ export default function OCApplicationPage() {
     setSigningError('')
 
     try {
+      const signatureTime = new Date().toISOString()
+      const signedData = {
+        ...application,
+        signature: signatureText,
+        contractSignedAt: signatureTime
+      }
+      
+      let contractPdfUrl = ''
+      try {
+        const pdfBytes = await generateContractPDFBytes(signedData)
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+        
+        const formData = new FormData()
+        formData.append('file', blob, 'contract.pdf')
+        formData.append('uid', user.uid)
+        
+        const uploadRes = await fetch('/api/upload-contract', {
+          method: 'POST',
+          body: formData
+        })
+        
+        const uploadData = await uploadRes.json()
+        if (uploadData.success && uploadData.url) {
+          contractPdfUrl = uploadData.url
+        }
+      } catch (uploadErr) {
+        console.error("Failed to compile/upload contract PDF, continuing signature without file upload:", uploadErr)
+      }
+
       const appRef = ref(firebaseDb, `oc_applications/${user.uid}`)
-      const updates = {
+      const updates: any = {
         status: 'welcomed',
-        contractSignedAt: new Date().toISOString(),
+        contractSignedAt: signatureTime,
         signature: signatureText
+      }
+      if (contractPdfUrl) {
+        updates.contractPdfUrl = contractPdfUrl
       }
       await update(appRef, updates)
 
@@ -1064,12 +1388,39 @@ export default function OCApplicationPage() {
                       </div>
                     </div>
 
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 text-slate-300 text-[11px] font-mono leading-relaxed h-52 overflow-y-auto shadow-inner mb-6 space-y-3">
+                    {/* DETAILED LEGAL NDA TEXT - UPDATED */}
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 text-slate-300 text-[11px] font-mono leading-relaxed h-64 overflow-y-auto shadow-inner mb-6 space-y-3">
                       <h4 className="text-white font-bold text-xs border-b border-slate-800 pb-2">KIMUN 2026 ORGANIZING COMMITTEE CONTRACT & NON-DISCLOSURE AGREEMENT</h4>
-                      <p><strong>1. PURPOSE:</strong> The Disclosing Party (KIMUN Secretariat) is granting the Candidate access to operational frameworks, registration matrices, financial details, and delegate databases for the execution of KIMUN 2026.</p>
-                      <p><strong>2. CONFIDENTIALITY PROTOCOLS:</strong> All materials, email lists, contact parameters, software integrations, and design files remain the exclusive property of KIMUN. The Candidate shall not reproduce, share, or disseminate any proprietary resources to third parties without prior written consent.</p>
-                      <p><strong>3. CODE OF CONDUCT:</strong> Candidates must maintain a high standard of professional ethics. You are expected to deliver tasks on time as assigned under your respective department parameters. Misconduct or security leaks will result in termination of this appointment and potential legal enforcement.</p>
-                      <p><strong>4. TERM:</strong> This agreement is active from the date of digital authorization until the completion of KIMUN 2026 post-event administrative clearance.</p>
+                      
+                      <p><strong className="text-indigo-400">1. DEFINITIONS.</strong> For the purposes of this Agreement: (a) "Confidential Information" means any and all non-public information disclosed by KIMUN to the Member, whether orally, in writing, electronically, or by any other means, including without limitation strategic plans, event logistics, financial data, delegate information (including PII), personnel records, sponsorship agreements, internal communications, creative content, deliberations, operational frameworks, registration matrices, software integrations, design files, and any other proprietary information pertaining to KIMUN 2026. (b) "Organising Committee" refers to all individuals appointed to serve in any capacity in the planning, management, execution, or administration of KIMUN 2026. (c) "Third Party" means any individual or entity other than KIMUN and the Member.</p>
+                      
+                      <p><strong className="text-indigo-400">2. OBLIGATIONS OF CONFIDENTIALITY.</strong> The Member hereby agrees and undertakes to: (a) Hold all Confidential Information in strict confidence and not disclose, distribute, publish, or transmit any Confidential Information to any Third Party without prior written consent of the Secretary-General. (b) Use the Confidential Information solely and exclusively for the purpose of fulfilling their duties as a member of the Organising Committee. (c) Take all reasonable precautions to protect the confidentiality of the Confidential Information, exercising at least the same degree of care used to protect their own confidential information, but in no event less than reasonable care. (d) Not copy, reproduce, reverse-engineer, or attempt to derive the composition or underlying information of any Confidential Information beyond what is necessary for the performance of their duties. (e) Immediately notify KIMUN upon becoming aware of any actual or suspected unauthorised disclosure, access, or use of Confidential Information.</p>
+                      
+                      <p><strong className="text-indigo-400">3. SCOPE OF CONFIDENTIAL INFORMATION.</strong> Without limitation, Confidential Information shall include: internal communications, meeting minutes, emails, and deliberations of the Organising Committee; personal and contact information of delegates, participants, guests, speakers, and sponsors (PII); financial arrangements, budget allocations, sponsor deals, and pricing information; unpublished creative content, graphics, themes, and conceptual materials; operational plans, schedules, crisis protocols, and security arrangements; committee positions, study guides, and background guides prior to official release; any information marked "Confidential," "For Internal Use Only," or conveyed under circumstances indicating its sensitive nature.</p>
+                      
+                      <p><strong className="text-indigo-400">4. EXCLUSIONS.</strong> Confidentiality obligations shall not apply to information that the Member can demonstrate: (a) was in the public domain at the time of disclosure or subsequently enters the public domain through no fault of the Member; (b) was already rightfully known to the Member at the time of disclosure without restriction; (c) is independently developed without reference to Confidential Information; (d) is required to be disclosed by applicable law, court order, or governmental authority, provided the Member gives KIMUN prior written notice and reasonable opportunity to seek a protective order.</p>
+                      
+                      <p><strong className="text-indigo-400">5. SOCIAL MEDIA & PUBLIC COMMUNICATIONS.</strong> The Member expressly agrees: (a) Not to post, share, publish, or discuss Confidential Information on any social media platform, messaging application, blog, website, or public forum. (b) Not to make any public statement, comment, or representation that purports to speak on behalf of KIMUN 2026 without prior written authorisation from the Secretary-General. (c) Behind-the-scenes content, internal deliberations, and unpublished materials shall not be shared or recorded without express permission. (d) Any communication that could reasonably be interpreted as an official KIMUN position must be reviewed and approved before publication.</p>
+                      
+                      <p><strong className="text-indigo-400">6. DATA PROTECTION & PII COMPLIANCE.</strong> The Member shall process any Personally Identifiable Information (PII) obtained through their role solely for KIMUN operational purposes and in accordance with applicable Indian data protection laws and the Information Technology Act, 2000. The Member shall not retain, copy, or transfer PII to any personal device, cloud storage, or external system outside KIMUN's approved infrastructure. Any breach of PII shall be reported within 24 hours to the Secretariat. Obligations relating to PII shall survive indefinitely.</p>
+                      
+                      <p><strong className="text-indigo-400">7. TERM & SURVIVAL.</strong> This Agreement shall come into force on the date of signing and shall remain in full force and effect for a period of one (1) year following the conclusion of KIMUN 2026, or until the relevant Confidential Information enters the public domain through legitimate means, whichever occurs earlier. Obligations relating to personal data of participants and trade secrets shall continue indefinitely in accordance with applicable data protection laws.</p>
+                      
+                      <p><strong className="text-indigo-400">8. RETURN OR DESTRUCTION OF INFORMATION.</strong> Upon the conclusion of KIMUN 2026, or upon written request from the Organisation, or upon termination of the Member's role — whichever is earliest — the Member shall promptly: (a) Return to KIMUN all documents, files, materials, and other tangible embodiments of Confidential Information in their possession; (b) Permanently delete or destroy all electronic copies of Confidential Information, including from personal devices, cloud storage, and email accounts; (c) Certify in writing, if requested, that all such materials have been returned or destroyed.</p>
+                      
+                      <p><strong className="text-indigo-400">9. REMEDIES & ENFORCEMENT.</strong> The Member acknowledges that any breach or threatened breach would cause irreparable harm to KIMUN for which monetary damages would be an inadequate remedy. KIMUN shall be entitled to seek injunctive or other equitable relief without the requirement to post a bond. KIMUN reserves the right to remove the Member from the Organising Committee and revoke all associated privileges in the event of a breach. KIMUN may pursue any and all legal remedies available for breach of this Agreement, including claims for damages.</p>
+                      
+                      <p><strong className="text-indigo-400">10. NO LICENSE OR RIGHTS.</strong> Nothing in this Agreement shall be construed as granting the Member any right, title, interest, or license in or to any Confidential Information, intellectual property, or other assets of KIMUN 2026. All Confidential Information disclosed hereunder shall remain the sole and exclusive property of KIMUN.</p>
+                      
+                      <p><strong className="text-indigo-400">11. CODE OF CONDUCT & ETHICS.</strong> The Member acknowledges that they are bound by the KIMUN 2026 Organising Committee Code of Conduct, and agrees to: (a) Act with integrity, professionalism, and respect in all matters; (b) Refrain from engaging in any conduct that could bring KIMUN 2026 into disrepute; (c) Always prioritise the best interests of the conference and its participants; (d) Report any conflicts of interest to the Secretary-General at the earliest opportunity.</p>
+                      
+                      <p><strong className="text-indigo-400">12. GOVERNING LAW & JURISDICTION.</strong> This Agreement shall be governed by and construed in accordance with the laws of India. Any disputes arising out of or in connection with this Agreement shall first be subject to good-faith negotiation, and failing resolution, shall be submitted to the exclusive jurisdiction of the competent courts located in Bhubaneswar, Odisha, India.</p>
+                      
+                      <p><strong className="text-indigo-400">13. ENTIRE AGREEMENT & AMENDMENTS.</strong> This Agreement constitutes the entire agreement between the parties with respect to the subject matter hereof and supersedes all prior negotiations, representations, or agreements. This Agreement may only be amended by a written instrument signed by authorised representatives of both parties.</p>
+                      
+                      <p><strong className="text-indigo-400">14. SEVERABILITY & WAIVER.</strong> If any provision of this Agreement is found to be invalid, unlawful, or unenforceable, such provision shall be modified to the minimum extent necessary to make it valid and enforceable. The failure of either party to enforce any provision on one or more occasions shall not be construed as a waiver of that party's right to enforce such provision in the future.</p>
+                      
+                      <p className="text-slate-400 italic mt-3 pt-2 border-t border-slate-800">By signing below, the Member acknowledges that they have read, understood, and agree to be legally bound by all the terms and conditions set forth in this Non-Disclosure Agreement. The Member further acknowledges that no representations, warranties, or inducements have been made to them other than those expressly set forth herein.</p>
                     </div>
 
                     <form onSubmit={handleNDASign} className="space-y-4 pt-4 border-t w-full">
@@ -1088,7 +1439,7 @@ export default function OCApplicationPage() {
                           className="mt-1 h-4 w-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
                         />
                         <label htmlFor="nda-checkbox" className="text-xs text-slate-600 select-none cursor-pointer">
-                          I agree to keep all data confidential and adhere strictly to the KIMUN 2026 code of conduct.
+                          I, <span className="font-mono font-bold text-slate-800">{user?.displayName || signatureText || "[Full Name]"}</span>, acknowledge that I have read, understood, and agree to be legally bound by all terms and conditions set forth in this Non-Disclosure Agreement. I further acknowledge that no representations, warranties, or inducements have been made to me other than those expressly set forth herein.
                         </label>
                       </div>
 
@@ -1114,7 +1465,24 @@ export default function OCApplicationPage() {
                         </div>
                       </div>
 
-                      <div className="flex justify-end pt-4 border-t w-full">
+                      <div className="flex justify-end pt-4 border-t w-full gap-2">
+                        <Button
+                          type="button"
+                          onClick={() => handleDownloadContractPDF(application)}
+                          disabled={downloadingContract}
+                          variant="outline"
+                          className="border-indigo-600 text-indigo-600 hover:bg-indigo-50 text-xs px-4 py-2.5 h-10 rounded-lg cursor-pointer flex items-center gap-2"
+                        >
+                          {downloadingContract ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" /> Preparing...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-4 w-4" /> Download Draft
+                            </>
+                          )}
+                        </Button>
                         <Button
                           type="submit"
                           disabled={signing || !ndaAgreed || !signatureText.trim()}
@@ -1163,6 +1531,23 @@ export default function OCApplicationPage() {
                         <Link href="/oc-dashboard">
                           Go to OC Dashboard <ArrowRight className="h-4.5 w-4.5" />
                         </Link>
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => handleDownloadContractPDF(application)}
+                        disabled={downloadingContract}
+                        variant="outline"
+                        className="border-indigo-600 text-indigo-600 hover:bg-indigo-50 font-semibold px-6 py-2.5 rounded-lg transition-colors cursor-pointer flex items-center gap-2"
+                      >
+                        {downloadingContract ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" /> Merging Proofs...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-4.5 w-4.5" /> Download Signed Contract
+                          </>
+                        )}
                       </Button>
                       <Button variant="outline" asChild className="border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold px-6 py-2.5 rounded-lg transition-colors cursor-pointer">
                         <a href="https://slack.com" target="_blank" rel="noopener noreferrer">

@@ -16,11 +16,13 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // experimental: {
-  //   webpackBuildWorker: true,
-  //   parallelServerBuildTraces: true,
-  //   parallelServerCompiles: true,
-  // },
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'pdf-lib': 'pdf-lib/dist/pdf-lib.esm.js',
+    };
+    return config;
+  },
 }
 
 mergeConfig(nextConfig, userConfig)
