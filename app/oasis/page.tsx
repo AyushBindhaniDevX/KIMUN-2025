@@ -287,6 +287,13 @@ export default function OasisWorkplace() {
   // Coupon states
   const [newCoupon, setNewCoupon] = useState({ code: '', title: '', description: '', discount: '', expiry: '', partner: '', terms: '' })
 
+  // Applicant details modal and legacy profile states
+  const [selectedApplicant, setSelectedApplicant] = useState<any | null>(null)
+  const [showAppDetailsModal, setShowAppDetailsModal] = useState(false)
+  const [legacyProfile, setLegacyProfile] = useState<any | null>(null)
+  const [fetchingLegacyProfile, setFetchingLegacyProfile] = useState(false)
+  const [legacyProfileError, setLegacyProfileError] = useState('')
+
   const triggerNotification = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setNotification({ show: true, message, type })
     setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 4000)
@@ -1011,6 +1018,40 @@ export default function OasisWorkplace() {
       triggerNotification(`Applicant status updated to ${nextStatus}.`)
     } catch (err: any) {
       triggerNotification('Failed to update: ' + err.message, 'error')
+    }
+  }
+
+  const handleOpenAppDetailsModal = async (app: any) => {
+    setSelectedApplicant(app)
+    setShowAppDetailsModal(true)
+    setLegacyProfile(null)
+    setLegacyProfileError('')
+    setFetchingLegacyProfile(true)
+
+    try {
+      const email = app.email || ''
+      const phone = app.phone || ''
+      
+      const queryParams = new URLSearchParams()
+      if (email) queryParams.set('email', email)
+      if (phone) queryParams.set('phone', phone)
+
+      const response = await fetch(`/api/delegate-profile?${queryParams.toString()}`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch legacy profile (Status: ${response.status})`)
+      }
+      
+      const data = await response.json()
+      if (data.error) {
+        setLegacyProfileError(data.error)
+      } else {
+        setLegacyProfile(data.profile || null)
+      }
+    } catch (err: any) {
+      console.error('Error loading legacy profile:', err)
+      setLegacyProfileError(err.message || 'An error occurred while fetching details.')
+    } finally {
+      setFetchingLegacyProfile(false)
     }
   }
 
@@ -2605,13 +2646,14 @@ export default function OasisWorkplace() {
                           <th className="py-3 px-4">College</th>
                           <th className="py-3 px-4">Preferences</th>
                           <th className="py-3 px-4 text-center">Status</th>
+                          <th className="py-3 px-4 text-center">Details</th>
                           <th className="py-3 px-4 text-center">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {dbApplications.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="text-center py-12 text-slate-400">No applications found</td>
+                            <td colSpan={6} className="text-center py-12 text-slate-400">No applications found</td>
                           </tr>
                         ) : (
                           dbApplications.map(app => (
@@ -2634,6 +2676,14 @@ export default function OasisWorkplace() {
                                   }`}>
                                   {app.status}
                                 </span>
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <button
+                                  onClick={() => handleOpenAppDetailsModal(app)}
+                                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-semibold text-xs px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5" /> View
+                                </button>
                               </td>
                               <td className="py-3 px-4 text-center">
                                 <select
@@ -4444,6 +4494,379 @@ export default function OasisWorkplace() {
                 {editingDbEb ? 'Save Changes' : 'Create EB Member'}
               </button>
             </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Applicant Details Modal */}
+      {showAppDetailsModal && selectedApplicant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col my-8 max-h-[90vh]"
+          >
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-violet-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-base">OC Application Vetting & Verification</h2>
+                <p className="text-indigo-200 text-xs mt-0.5 font-medium">
+                  Vetting: <span className="font-bold text-white">{selectedApplicant.name}</span> ({selectedApplicant.email})
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAppDetailsModal(false)
+                  setSelectedApplicant(null)
+                }}
+                className="text-indigo-200 hover:text-white transition-colors text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Left Column: OC Application Data */}
+                <div className="space-y-6 border-r border-slate-100 pr-0 md:pr-6 text-left">
+                  <div>
+                    <h3 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <User className="w-4 h-4" /> Application Details
+                    </h3>
+                    <div className="bg-slate-50 rounded-xl p-4 space-y-3 border border-slate-100">
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <span className="text-slate-400 block font-medium">Contact Phone</span>
+                          <span className="font-bold text-slate-800">{selectedApplicant.phone || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block font-medium">Application Status</span>
+                          <span className="font-bold text-slate-800 capitalize">{selectedApplicant.status}</span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-slate-400 block font-medium">College/Institution</span>
+                          <span className="font-bold text-slate-800">{selectedApplicant.college || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block font-medium">Course/Degree</span>
+                          <span className="font-bold text-slate-800">{selectedApplicant.course || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block font-medium">Year of Study</span>
+                          <span className="font-bold text-slate-800">{selectedApplicant.year || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block font-medium">First Preference</span>
+                          <span className="font-bold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-md border border-violet-100">{selectedApplicant.pref1 || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block font-medium">Second Preference</span>
+                          <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">{selectedApplicant.pref2 || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Prior Experience */}
+                  <div>
+                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Prior Experience</h4>
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-3.5 text-xs text-slate-700 max-h-32 overflow-y-auto leading-relaxed">
+                      {selectedApplicant.experience ? (
+                        <p className="whitespace-pre-line">{selectedApplicant.experience}</p>
+                      ) : (
+                        <span className="text-slate-400 italic">No prior experience listed.</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* SOP */}
+                  <div>
+                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Statement of Purpose</h4>
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-3.5 text-xs text-slate-700 max-h-32 overflow-y-auto leading-relaxed italic">
+                      {selectedApplicant.statement ? (
+                        <p className="whitespace-pre-line">"{selectedApplicant.statement}"</p>
+                      ) : (
+                        <span className="text-slate-400 italic">No statement of purpose submitted.</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Resume Link */}
+                  {selectedApplicant.resume && (
+                    <div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-indigo-600" />
+                        <div>
+                          <span className="text-xs font-bold text-slate-800">Resume/CV URL</span>
+                          <span className="text-[10px] text-slate-500 block truncate max-w-[200px]">{selectedApplicant.resume}</span>
+                        </div>
+                      </div>
+                      <a
+                        href={selectedApplicant.resume}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] px-3.5 py-1.5 rounded-lg transition-all"
+                      >
+                        Open Link
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Onboarding Documents & NDA Signed */}
+                  <div>
+                    <h3 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4" /> Onboarding & Verification Status
+                    </h3>
+                    <div className="bg-slate-50 rounded-xl p-4 space-y-3.5 border border-slate-100">
+                      {/* Documents */}
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5">Submitted Documents</span>
+                        {selectedApplicant.documents ? (
+                          <div className="grid grid-cols-3 gap-2">
+                            {selectedApplicant.documents.collegeId && (
+                              <a
+                                href={selectedApplicant.documents.collegeId}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-white border border-slate-200 hover:border-indigo-400 rounded-lg p-2 text-center text-[10px] font-bold text-indigo-600 truncate block transition-all"
+                                title="College ID"
+                              >
+                                🆔 College ID
+                              </a>
+                            )}
+                            {selectedApplicant.documents.aadhar && (
+                              <a
+                                href={selectedApplicant.documents.aadhar}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-white border border-slate-200 hover:border-indigo-400 rounded-lg p-2 text-center text-[10px] font-bold text-indigo-600 truncate block transition-all"
+                                title="Aadhar Card"
+                              >
+                                💳 Aadhar Card
+                              </a>
+                            )}
+                            {selectedApplicant.documents.photo && (
+                              <a
+                                href={selectedApplicant.documents.photo}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-white border border-slate-200 hover:border-indigo-400 rounded-lg p-2 text-center text-[10px] font-bold text-indigo-600 truncate block transition-all"
+                                title="Passport Photo"
+                              >
+                                📷 Photo Image
+                              </a>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">No onboarding documents uploaded yet.</span>
+                        )}
+                        {selectedApplicant.documentsSubmittedAt && (
+                          <span className="text-[9px] text-slate-400 block mt-1">Uploaded at: {new Date(selectedApplicant.documentsSubmittedAt).toLocaleString()}</span>
+                        )}
+                      </div>
+
+                      {/* NDA Sign */}
+                      <div className="border-t border-slate-200/60 pt-3 flex items-center justify-between text-xs">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase block">NDA Contract</span>
+                          <span className="font-semibold text-slate-700">
+                            {selectedApplicant.signature ? 'Signed NDA' : 'Pending Signature'}
+                          </span>
+                        </div>
+                        {selectedApplicant.signature && (
+                          <div className="text-right">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Signature Key</span>
+                            <span className="font-mono text-[10px] bg-slate-200/60 px-1.5 py-0.5 rounded text-slate-600">{selectedApplicant.signature}</span>
+                          </div>
+                        )}
+                      </div>
+                      {selectedApplicant.contractSignedAt && (
+                        <span className="text-[9px] text-slate-400 block">Signed at: {new Date(selectedApplicant.contractSignedAt).toLocaleString()}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Supabase Legacy Delegate Database Lookup */}
+                <div className="space-y-6 text-left">
+                  <div>
+                    <h3 className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <Globe className="w-4 h-4" /> Supabase Legacy Check
+                    </h3>
+
+                    {fetchingLegacyProfile ? (
+                      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-12 text-center flex flex-col items-center justify-center">
+                        <Loader2 className="w-6 h-6 text-indigo-600 animate-spin mb-2" />
+                        <span className="text-xs font-semibold text-slate-500">Retrieving legacy delegate profile...</span>
+                      </div>
+                    ) : legacyProfileError ? (
+                      <div className="bg-rose-50 border border-rose-100 text-rose-800 rounded-xl p-4 text-xs space-y-1">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <AlertCircle className="w-4 h-4 text-rose-600" /> Error Loading Legacy Profile
+                        </div>
+                        <p>{legacyProfileError}</p>
+                      </div>
+                    ) : legacyProfile ? (
+                      (() => {
+                        const isPrimary = (legacyProfile.email?.toLowerCase() === selectedApplicant.email?.toLowerCase()) || (legacyProfile.phone === selectedApplicant.phone);
+                        const isJoint = (legacyProfile.joint_delegate_email?.toLowerCase() === selectedApplicant.email?.toLowerCase()) || (legacyProfile.joint_delegate_phone === selectedApplicant.phone);
+                        
+                        const isBlacklisted = legacyProfile.is_blacklisted || (legacyProfile.ban_status && legacyProfile.ban_status.toLowerCase() !== 'none');
+
+                        return (
+                          <div className="space-y-4">
+                            {/* Success badge */}
+                            <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl p-3.5 flex items-center gap-2.5">
+                              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                              <div className="text-xs">
+                                <span className="font-extrabold block">Legacy Delegate Found</span>
+                                <span className="text-[10px] text-emerald-600/90 font-medium">
+                                  Matched as {isPrimary ? 'Primary Delegate' : (isJoint ? 'Joint Delegate' : 'Delegate')}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Blacklist banner */}
+                            {isBlacklisted ? (
+                              <div className="bg-rose-50 border border-rose-200 text-rose-900 rounded-xl p-4 space-y-2">
+                                <div className="font-bold flex items-center gap-1.5 text-xs text-rose-700 uppercase tracking-wide">
+                                  <Ban className="w-4 h-4 text-rose-600" /> Security Alert: Blacklisted / Banned
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-[11px] leading-snug">
+                                  <div>
+                                    <span className="text-rose-500 font-medium block">Ban Status</span>
+                                    <span className="font-black text-rose-800 uppercase">{legacyProfile.ban_status || 'Banned'}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-rose-500 font-medium block">Ban Year</span>
+                                    <span className="font-black text-rose-800">{legacyProfile.ban_year || 'N/A'}</span>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <span className="text-rose-500 font-medium block">Reason for Ban</span>
+                                    <span className="font-bold text-rose-900">{legacyProfile.ban_reason || 'No reason provided.'}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-emerald-50/50 border border-emerald-100 text-emerald-900 rounded-xl p-3 flex items-center gap-2 text-xs">
+                                <Shield className="w-4 h-4 text-emerald-600" />
+                                <span className="font-bold text-emerald-800">Security Pass: No legacy blacklist or ban record detected.</span>
+                              </div>
+                            )}
+
+                            {/* Delegate particulars */}
+                            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-3 text-xs">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Legacy Registration Details</span>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <span className="text-slate-400 block font-medium">Primary Delegate Name</span>
+                                  <span className="font-bold text-slate-800">{legacyProfile.full_name || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block font-medium">Primary Email</span>
+                                  <span className="font-bold text-slate-800 truncate block max-w-[150px]" title={legacyProfile.email}>{legacyProfile.email || 'N/A'}</span>
+                                </div>
+                                {legacyProfile.joint_delegate_name && (
+                                  <>
+                                    <div>
+                                      <span className="text-slate-400 block font-medium">Joint Delegate Name</span>
+                                      <span className="font-bold text-slate-800">{legacyProfile.joint_delegate_name}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 block font-medium">Joint Email</span>
+                                      <span className="font-bold text-slate-800 truncate block max-w-[150px]" title={legacyProfile.joint_delegate_email}>{legacyProfile.joint_delegate_email || 'N/A'}</span>
+                                    </div>
+                                  </>
+                                )}
+                                <div>
+                                  <span className="text-slate-400 block font-medium">Institution</span>
+                                  <span className="font-bold text-slate-800">{legacyProfile.institution || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block font-medium">Location</span>
+                                  <span className="font-bold text-slate-800">{legacyProfile.city ? `${legacyProfile.city}, ` : ''}{legacyProfile.country || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block font-medium">Conference</span>
+                                  <span className="font-bold text-slate-800">{legacyProfile.conference_name || 'KIMUN'} ({legacyProfile.year})</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block font-medium">Allocated Committee</span>
+                                  <span className="font-bold text-slate-800">{legacyProfile.committee || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block font-medium">Allocated Portfolio</span>
+                                  <span className="font-bold text-slate-800">{legacyProfile.portfolio || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 block font-medium">MUNs Attended</span>
+                                  <span className="font-bold text-slate-800">{legacyProfile.number_of_mun_attended ?? 'N/A'}</span>
+                                </div>
+                                <div className="col-span-2">
+                                  <span className="text-slate-400 block font-medium">Awards Received</span>
+                                  <span className="font-bold text-indigo-700 bg-indigo-50/70 border border-indigo-100 rounded-md px-2 py-0.5 inline-block mt-0.5">
+                                    {legacyProfile.awards || 'None'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })()
+                    ) : (
+                      <div className="bg-slate-50 border border-slate-200 border-dashed rounded-xl p-8 text-center text-xs text-slate-400">
+                        <Info className="w-5 h-5 text-slate-300 mx-auto mb-1.5" />
+                        <span>No legacy delegate record found in Supabase for this applicant's credentials (email or phone). First-time attendee.</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-50 border-t border-slate-200/80 px-6 py-4 flex items-center justify-between gap-3">
+              <div className="text-[10px] text-slate-400 font-bold uppercase">
+                Submitted: {selectedApplicant.submittedAt ? new Date(selectedApplicant.submittedAt).toLocaleDateString() : 'N/A'}
+              </div>
+              <div className="flex gap-2.5">
+                {selectedApplicant.status !== 'rejected' && (
+                  <button
+                    onClick={() => {
+                      handleUpdateApplicationStatus(selectedApplicant.uid, 'rejected', selectedApplicant.email, selectedApplicant.name)
+                      setSelectedApplicant(prev => prev ? { ...prev, status: 'rejected' } : null)
+                    }}
+                    className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer"
+                  >
+                    Reject Applicant
+                  </button>
+                )}
+                {selectedApplicant.status !== 'welcomed' && (
+                  <button
+                    onClick={() => {
+                      handleUpdateApplicationStatus(selectedApplicant.uid, 'welcomed', selectedApplicant.email, selectedApplicant.name)
+                      setSelectedApplicant(prev => prev ? { ...prev, status: 'welcomed' } : null)
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer shadow-sm shadow-emerald-600/10"
+                  >
+                    Approve & Welcome
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setShowAppDetailsModal(false)
+                    setSelectedApplicant(null)
+                  }}
+                  className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </motion.div>
         </div>
       )}
