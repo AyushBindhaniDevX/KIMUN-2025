@@ -131,7 +131,7 @@ const DEPARTMENTS = [
 
 const ADMIN_ALLOWED_EMAILS = [
   'ayushbindhani001@gmail.com',
-  'admin@kimun.com',
+  'writetoanurup@gmail.com',
   'organizer@kimun.com'
 ]
 
