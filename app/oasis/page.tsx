@@ -68,7 +68,10 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ref, onValue, update, push, remove, get, set } from 'firebase/database'
+import { ref, onValue, update, push, remove, get, set } from 'firebase/database'
 import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth'
+import { firebaseAuth, firebaseDb, googleProvider, firebaseStorage } from '@/lib/firebase-client'
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { firebaseAuth, firebaseDb, googleProvider, firebaseStorage } from '@/lib/firebase-client'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import * as XLSX from 'xlsx'
@@ -383,6 +386,13 @@ export default function OasisWorkplace() {
 
   // Coupon states
   const [newCoupon, setNewCoupon] = useState({ code: '', title: '', description: '', discount: '', expiry: '', partner: '', terms: '' })
+
+  // Applicant details modal and legacy profile states
+  const [selectedApplicant, setSelectedApplicant] = useState<any | null>(null)
+  const [showAppDetailsModal, setShowAppDetailsModal] = useState(false)
+  const [legacyProfile, setLegacyProfile] = useState<any | null>(null)
+  const [fetchingLegacyProfile, setFetchingLegacyProfile] = useState(false)
+  const [legacyProfileError, setLegacyProfileError] = useState('')
 
   // Applicant details modal and legacy profile states
   const [selectedApplicant, setSelectedApplicant] = useState<any | null>(null)
@@ -952,6 +962,29 @@ export default function OasisWorkplace() {
       remove(ref(firebaseDb, `oc_announcements/${id}`))
         .then(() => triggerNotification('Broadcast removed.', 'error'))
         .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
+    } else if (type === 'db_committees') {
+      remove(ref(firebaseDb, `committees/${id}`))
+        .then(() => {
+          triggerNotification('Committee removed from database.', 'error')
+          if (selectedRegistryCommitteeId === id) {
+            setSelectedRegistryCommitteeId(null)
+          }
+        })
+        .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
+    } else if (type === 'db_portfolios') {
+      const portfolioId = deleteConfirm.subId
+      if (portfolioId) {
+        remove(ref(firebaseDb, `committees/${id}/portfolios/${portfolioId}`))
+          .then(() => triggerNotification('Portfolio slot removed.', 'error'))
+          .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
+      }
+    } else if (type === 'db_eb') {
+      const memberId = deleteConfirm.subId
+      if (memberId) {
+        remove(ref(firebaseDb, `committees/${id}/eb/${memberId}`))
+          .then(() => triggerNotification('EB Member removed.', 'error'))
+          .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
+      }
     } else if (type === 'db_committees') {
       remove(ref(firebaseDb, `committees/${id}`))
         .then(() => {
@@ -3069,12 +3102,14 @@ export default function OasisWorkplace() {
                           <th className="py-3 px-4">Preferences</th>
                           <th className="py-3 px-4 text-center">Status</th>
                           <th className="py-3 px-4 text-center">Details</th>
+                          <th className="py-3 px-4 text-center">Details</th>
                           <th className="py-3 px-4 text-center">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {dbApplications.length === 0 ? (
                           <tr>
+                            <td colSpan={6} className="text-center py-12 text-slate-400">No applications found</td>
                             <td colSpan={6} className="text-center py-12 text-slate-400">No applications found</td>
                           </tr>
                         ) : (
@@ -3098,6 +3133,14 @@ export default function OasisWorkplace() {
                                   }`}>
                                   {app.status}
                                 </span>
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <button
+                                  onClick={() => handleOpenAppDetailsModal(app)}
+                                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-semibold text-xs px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5" /> View
+                                </button>
                               </td>
                               <td className="py-3 px-4 text-center">
                                 <button
@@ -4706,14 +4749,14 @@ export default function OasisWorkplace() {
                                       key={d.uniqueId}
                                       onClick={() => setSelectedDele(d)}
                                       className={`cursor-pointer transition-all border-b border-[#E2E8F0] ${isSelected
-                                          ? 'bg-[#3C50E0]/5 font-semibold text-[#3C50E0]'
-                                          : 'hover:bg-slate-50 text-[#1C2434]'
+                                        ? 'bg-[#3C50E0]/5 font-semibold text-[#3C50E0]'
+                                        : 'hover:bg-slate-50 text-[#1C2434]'
                                         }`}
                                     >
                                       <td className="py-2.5 px-3">
                                         <span className={`inline-block px-1.5 py-0.5 rounded-[3px] text-[8px] font-bold ${d.sourceType === 'firebase'
-                                            ? 'bg-[#3C50E0]/10 text-[#3C50E0]'
-                                            : 'bg-[#bf5af2]/10 text-[#bf5af2]'
+                                          ? 'bg-[#3C50E0]/10 text-[#3C50E0]'
+                                          : 'bg-[#bf5af2]/10 text-[#bf5af2]'
                                           }`}>
                                           {d.sourceType === 'firebase' ? 'Live' : 'Legacy'}
                                         </span>
@@ -4774,8 +4817,8 @@ export default function OasisWorkplace() {
                                 <div>
                                   <span className="text-[#64748B] text-[10px] uppercase font-bold block">Registry Source</span>
                                   <span className={`inline-block px-2 py-0.5 rounded-[4px] text-[9px] font-bold ${selectedDele.sourceType === 'firebase'
-                                      ? 'bg-[#3C50E0]/10 text-[#3C50E0] border border-[#3C50E0]/20'
-                                      : 'bg-[#bf5af2]/10 text-[#bf5af2] border border-[#bf5af2]/20'
+                                    ? 'bg-[#3C50E0]/10 text-[#3C50E0] border border-[#3C50E0]/20'
+                                    : 'bg-[#bf5af2]/10 text-[#bf5af2] border border-[#bf5af2]/20'
                                     }`}>
                                     {selectedDele.sourceType === 'firebase' ? 'Active Registry' : 'Legacy Archives'}
                                   </span>
@@ -4807,8 +4850,8 @@ export default function OasisWorkplace() {
                                 <div className="border-t border-[#E2E8F0] pt-3">
                                   <span className="text-[#64748B] text-[10px] uppercase font-bold block mb-1">Status / Vetting Check</span>
                                   <div className={`px-3 py-2 rounded-md font-semibold text-[11px] border ${isBanned
-                                      ? 'bg-rose-50 text-rose-700 border-rose-100'
-                                      : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                    ? 'bg-rose-50 text-rose-700 border-rose-100'
+                                    : 'bg-emerald-50 text-emerald-700 border-emerald-100'
                                     }`}>
                                     {selectedDele.displayVettingStatus}
                                   </div>
@@ -4885,8 +4928,8 @@ export default function OasisWorkplace() {
                           key={tab.id}
                           onClick={() => setDocSubTab(tab.id as any)}
                           className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2.5 cursor-pointer ${isSelected
-                              ? 'bg-indigo-50 text-indigo-700 border border-indigo-100/60 shadow-xs'
-                              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
+                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-100/60 shadow-xs'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
                             }`}
                         >
                           <Icon className="w-4 h-4 shrink-0" />
