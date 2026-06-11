@@ -67,9 +67,10 @@ import {
   Crown
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ref, onValue, update, push, remove, get } from 'firebase/database'
+import { ref, onValue, update, push, remove, get, set } from 'firebase/database'
 import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth'
-import { firebaseAuth, firebaseDb, googleProvider } from '@/lib/firebase-client'
+import { firebaseAuth, firebaseDb, googleProvider, firebaseStorage } from '@/lib/firebase-client'
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import 'jspdf-autotable'
@@ -188,7 +189,7 @@ export default function OasisWorkplace() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Workspace Navigation
-  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'dept_boards'>('dashboard')
+  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'dept_boards' | 'registry_manager'>('dashboard')
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All Departments')
 
   // Live Database Datasets
@@ -228,7 +229,29 @@ export default function OasisWorkplace() {
   const [editingRevenue, setEditingRevenue] = useState<any | null>(null)
   const [revenueForm, setRevenueForm] = useState({ category: 'Sponsorships', source: '', target: 0, actual: 0, status: 'In Progress' })
 
-  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'committees' | 'expenses' | 'revenue' | 'tasks' | 'assets' | 'announcements', id: string, name: string } | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'committees' | 'expenses' | 'revenue' | 'tasks' | 'assets' | 'announcements' | 'db_committees' | 'db_portfolios' | 'db_eb', id: string, name: string, subId?: string } | null>(null)
+
+  // Real Database Registry Manager States
+  const [selectedRegistryCommitteeId, setSelectedRegistryCommitteeId] = useState<string | null>(null)
+  const [registryTab, setRegistryTab] = useState<'portfolios' | 'eb'>('portfolios')
+  
+  // Db Committee Form States
+  const [showDbCommitteeModal, setShowDbCommitteeModal] = useState(false)
+  const [editingDbCommittee, setEditingDbCommittee] = useState<any | null>(null)
+  const [dbCommitteeForm, setDbCommitteeForm] = useState({ id: '', name: '', description: '', category: '', topics: '', backgroundGuide: '', rules: '', studyGuide: '' })
+
+  // Db Portfolio Form States
+  const [showDbPortfolioModal, setShowDbPortfolioModal] = useState(false)
+  const [editingDbPortfolio, setEditingDbPortfolio] = useState<any | null>(null)
+  const [dbPortfolioForm, setDbPortfolioForm] = useState({ id: '', country: '', countryCode: '', isDoubleDelAllowed: false, isVacant: true, minExperience: 0, email: '' })
+
+  // Db EB Member Form States
+  const [showDbEbModal, setShowDbEbModal] = useState(false)
+  const [editingDbEb, setEditingDbEb] = useState<any | null>(null)
+  const [dbEbForm, setDbEbForm] = useState({ id: '', name: '', role: 'Chairperson', email: '', photourl: '', instagram: '', bio: '' })
+
+  const [isUploadingFile, setIsUploadingFile] = useState(false)
+
 
   // Notifications
   const [notification, setNotification] = useState<{ show: boolean, message: string, type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'success' })
@@ -756,6 +779,29 @@ export default function OasisWorkplace() {
       remove(ref(firebaseDb, `oc_announcements/${id}`))
         .then(() => triggerNotification('Broadcast removed.', 'error'))
         .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
+    } else if (type === 'db_committees') {
+      remove(ref(firebaseDb, `committees/${id}`))
+        .then(() => {
+          triggerNotification('Committee removed from database.', 'error')
+          if (selectedRegistryCommitteeId === id) {
+            setSelectedRegistryCommitteeId(null)
+          }
+        })
+        .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
+    } else if (type === 'db_portfolios') {
+      const portfolioId = deleteConfirm.subId
+      if (portfolioId) {
+        remove(ref(firebaseDb, `committees/${id}/portfolios/${portfolioId}`))
+          .then(() => triggerNotification('Portfolio slot removed.', 'error'))
+          .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
+      }
+    } else if (type === 'db_eb') {
+      const memberId = deleteConfirm.subId
+      if (memberId) {
+        remove(ref(firebaseDb, `committees/${id}/eb/${memberId}`))
+          .then(() => triggerNotification('EB Member removed.', 'error'))
+          .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
+      }
     }
     setDeleteConfirm(null)
   }
@@ -1135,6 +1181,141 @@ export default function OasisWorkplace() {
     }
   }
 
+
+  // Real Database Registry Manager Handlers
+  const handleSaveDbCommittee = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const commId = dbCommitteeForm.id.trim().toUpperCase()
+    if (!commId || !dbCommitteeForm.name.trim()) {
+      triggerNotification('Committee ID and Name are required.', 'error')
+      return
+    }
+
+    if (!editingDbCommittee && dbCommittees.some(c => c.id === commId)) {
+      triggerNotification(`Committee with ID ${commId} already exists!`, 'error')
+      return
+    }
+
+    try {
+      const commRef = ref(firebaseDb, `committees/${commId}`)
+      const payload: any = {
+        name: dbCommitteeForm.name.trim(),
+        description: dbCommitteeForm.description.trim(),
+        category: dbCommitteeForm.category.trim(),
+        topics: dbCommitteeForm.topics.split(',').map(t => t.trim()).filter(Boolean),
+        backgroundGuide: dbCommitteeForm.backgroundGuide.trim(),
+        rules: dbCommitteeForm.rules.trim(),
+        studyGuide: dbCommitteeForm.studyGuide.trim(),
+        updatedAt: new Date().toISOString()
+      }
+
+      await update(commRef, payload)
+      setShowDbCommitteeModal(false)
+      setEditingDbCommittee(null)
+      setDbCommitteeForm({ id: '', name: '', description: '', category: '', topics: '', backgroundGuide: '', rules: '', studyGuide: '' })
+      triggerNotification(editingDbCommittee ? 'Committee updated successfully.' : 'New committee registered successfully.')
+    } catch (err: any) {
+      triggerNotification('Failed to save committee: ' + err.message, 'error')
+    }
+  }
+
+  const handleSaveDbPortfolio = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedRegistryCommitteeId) return
+    const portId = dbPortfolioForm.id.trim().toLowerCase()
+    if (!portId || !dbPortfolioForm.country.trim()) {
+      triggerNotification('Portfolio ID and Country name are required.', 'error')
+      return
+    }
+
+    const currentComm = dbCommittees.find(c => c.id === selectedRegistryCommitteeId)
+    const portfolioExists = currentComm?.portfolios?.some((p: any) => p.id === portId)
+    if (!editingDbPortfolio && portfolioExists) {
+      triggerNotification(`Portfolio with ID ${portId} already exists!`, 'error')
+      return
+    }
+
+    try {
+      const portRef = ref(firebaseDb, `committees/${selectedRegistryCommitteeId}/portfolios/${portId}`)
+      const payload = {
+        country: dbPortfolioForm.country.trim(),
+        countryCode: dbPortfolioForm.countryCode.trim().toUpperCase(),
+        isDoubleDelAllowed: dbPortfolioForm.isDoubleDelAllowed,
+        isVacant: dbPortfolioForm.isVacant,
+        minExperience: Number(dbPortfolioForm.minExperience) || 0,
+        email: dbPortfolioForm.email.trim()
+      }
+      await set(portRef, payload)
+      setShowDbPortfolioModal(false)
+      setEditingDbPortfolio(null)
+      setDbPortfolioForm({ id: '', country: '', countryCode: '', isDoubleDelAllowed: false, isVacant: true, minExperience: 0, email: '' })
+      triggerNotification(editingDbPortfolio ? 'Portfolio updated successfully.' : 'New portfolio added successfully.')
+    } catch (err: any) {
+      triggerNotification('Failed to save portfolio: ' + err.message, 'error')
+    }
+  }
+
+  const handleSaveDbEbMember = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedRegistryCommitteeId) return
+    const mId = editingDbEb ? dbEbForm.id : `eb-${Date.now()}`
+    
+    if (!dbEbForm.name.trim() || !dbEbForm.role.trim() || !dbEbForm.email.trim()) {
+      triggerNotification('Name, Role, and Email are required.', 'error')
+      return
+    }
+
+    try {
+      const ebRef = ref(firebaseDb, `committees/${selectedRegistryCommitteeId}/eb/${mId}`)
+      const payload = {
+        name: dbEbForm.name.trim(),
+        role: dbEbForm.role.trim(),
+        email: dbEbForm.email.trim().toLowerCase(),
+        photourl: dbEbForm.photourl.trim(),
+        instagram: dbEbForm.instagram.trim(),
+        bio: dbEbForm.bio.trim()
+      }
+      await set(ebRef, payload)
+      setShowDbEbModal(false)
+      setEditingDbEb(null)
+      setDbEbForm({ id: '', name: '', role: 'Chairperson', email: '', photourl: '', instagram: '', bio: '' })
+      triggerNotification(editingDbEb ? 'EB member updated successfully.' : 'New EB member registered successfully.')
+    } catch (err: any) {
+      triggerNotification('Failed to save EB member: ' + err.message, 'error')
+    }
+  }
+
+  const handleDbFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'eb_photo' | 'bg_guide' | 'rules' | 'study_guide') => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploadingFile(true)
+    try {
+      const folder = selectedRegistryCommitteeId || 'general'
+      const storagePath = `registry/${folder}/${type}/${file.name}`
+      const fileRef = storageRef(firebaseStorage, storagePath)
+      
+      await uploadBytes(fileRef, file)
+      const downloadURL = await getDownloadURL(fileRef)
+      
+      if (type === 'eb_photo') {
+        setDbEbForm(prev => ({ ...prev, photourl: downloadURL }))
+      } else if (type === 'bg_guide') {
+        setDbCommitteeForm(prev => ({ ...prev, backgroundGuide: downloadURL }))
+      } else if (type === 'rules') {
+        setDbCommitteeForm(prev => ({ ...prev, rules: downloadURL }))
+      } else if (type === 'study_guide') {
+        setDbCommitteeForm(prev => ({ ...prev, studyGuide: downloadURL }))
+      }
+      
+      triggerNotification('File uploaded successfully.')
+    } catch (err: any) {
+      triggerNotification('Upload failed: ' + err.message, 'error')
+    } finally {
+      setIsUploadingFile(false)
+    }
+  }
+
   const handleBlacklistDelegate = async (del: any) => {
     const reason = prompt(`Provide administrative reason to blacklist delegate: ${del.name}`)
     if (!reason) return
@@ -1274,7 +1455,8 @@ export default function OasisWorkplace() {
     { id: 'bulletin_board', label: 'Bulletin Board', icon: Megaphone, color: 'text-orange-600' },
     ...(role === 'admin' ? [
       { id: 'payouts', label: 'Prizes & Payouts', icon: Award, color: 'text-purple-600' },
-      { id: 'coupons', label: 'Coupon Engine', icon: Ticket, color: 'text-pink-600' }
+      { id: 'coupons', label: 'Coupon Engine', icon: Ticket, color: 'text-pink-600' },
+      { id: 'registry_manager', label: 'Registry Manager', icon: Sliders, color: 'text-blue-600' }
     ] : [])
   ]
   return (
@@ -3449,11 +3631,823 @@ export default function OasisWorkplace() {
               </motion.div>
             )}
 
+            {/* 11. REGISTRY MANAGER (Admin only) */}
+            {activeMenuTab === 'registry_manager' && role === 'admin' && (
+              <motion.div
+                key="registry_manager"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                      <Sliders className="w-5 h-5 text-indigo-600" />
+                      Registry Manager
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-1">Manage database records for committees, country portfolios, and EB members</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {selectedRegistryCommitteeId && (
+                      <button
+                        onClick={() => setSelectedRegistryCommitteeId(null)}
+                        className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                      >
+                        ← Back to Committees
+                      </button>
+                    )}
+                    {!selectedRegistryCommitteeId ? (
+                      <button
+                        onClick={() => {
+                          setEditingDbCommittee(null)
+                          setDbCommitteeForm({ id: '', name: '', description: '', category: 'Premium Single', topics: '', backgroundGuide: '', rules: '', studyGuide: '' })
+                          setShowDbCommitteeModal(true)
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Committee
+                      </button>
+                    ) : (
+                      registryTab === 'portfolios' ? (
+                        <button
+                          onClick={() => {
+                            setEditingDbPortfolio(null)
+                            setDbPortfolioForm({ id: '', country: '', countryCode: '', isDoubleDelAllowed: false, isVacant: true, minExperience: 0, email: '' })
+                            setShowDbPortfolioModal(true)
+                          }}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Add Portfolio
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditingDbEb(null)
+                            setDbEbForm({ id: '', name: '', role: 'Chairperson', email: '', photourl: '', instagram: '', bio: '' })
+                            setShowDbEbModal(true)
+                          }}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Add EB Member
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                {/* Sub-sections rendering */}
+                {!selectedRegistryCommitteeId ? (
+                  /* --- 1. COMMITTEES LISTING --- */
+                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                    <div className="p-4 bg-slate-50/50 border-b border-slate-200/60 flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Database Committees ({dbCommittees.length})</span>
+                      <div className="relative w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search committees..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full bg-slate-50 border rounded-xl pl-9 pr-4 py-1.5 text-xs outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                            <th className="py-3 px-4 font-bold">ID / Slug</th>
+                            <th className="py-3 px-4 font-bold">Classification</th>
+                            <th className="py-3 px-4 font-bold">Committee Name</th>
+                            <th className="py-3 px-4 text-center">Portfolios</th>
+                            <th className="py-3 px-4 text-center">EB Members</th>
+                            <th className="py-3 px-4 text-center">Guides</th>
+                            <th className="py-3 px-4 text-center">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {dbCommittees
+                            .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.id.toLowerCase().includes(searchQuery.toLowerCase()))
+                            .map(c => {
+                              const portfoliosCount = c.portfolios ? c.portfolios.length : 0
+                              const ebCount = c.eb ? Object.keys(c.eb).length : 0
+                              return (
+                                <tr key={c.id} className="hover:bg-indigo-50/20 transition-all group">
+                                  <td className="py-3.5 px-4 text-slate-500 font-mono font-bold">{c.id}</td>
+                                  <td className="py-3.5 px-4">
+                                    <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 text-[9px] font-bold">
+                                      {c.category}
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5 px-4 font-semibold text-slate-800 text-sm">{c.name}</td>
+                                  <td className="py-3.5 px-4 text-center">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedRegistryCommitteeId(c.id)
+                                        setRegistryTab('portfolios')
+                                      }}
+                                      className="font-bold text-indigo-600 hover:underline cursor-pointer"
+                                    >
+                                      {portfoliosCount} slots
+                                    </button>
+                                  </td>
+                                  <td className="py-3.5 px-4 text-center">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedRegistryCommitteeId(c.id)
+                                        setRegistryTab('eb')
+                                      }}
+                                      className="font-bold text-amber-600 hover:underline cursor-pointer"
+                                    >
+                                      {ebCount} members
+                                    </button>
+                                  </td>
+                                  <td className="py-3.5 px-4">
+                                    <div className="flex justify-center gap-1.5">
+                                      {c.backgroundGuide ? (
+                                        <a href={c.backgroundGuide} target="_blank" rel="noopener noreferrer" className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-medium hover:bg-slate-200">
+                                          BG
+                                        </a>
+                                      ) : <span className="text-slate-300 text-[9px]">-</span>}
+                                      {c.rules ? (
+                                        <a href={c.rules} target="_blank" rel="noopener noreferrer" className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-medium hover:bg-slate-200">
+                                          Rules
+                                        </a>
+                                      ) : null}
+                                    </div>
+                                  </td>
+                                  <td className="py-3.5 px-4">
+                                    <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button
+                                        onClick={() => {
+                                          setEditingDbCommittee(c)
+                                          setDbCommitteeForm({
+                                            id: c.id,
+                                            name: c.name,
+                                            description: c.description || '',
+                                            category: c.category || '',
+                                            topics: c.topics ? (Array.isArray(c.topics) ? c.topics.join(', ') : Object.values(c.topics).join(', ')) : '',
+                                            backgroundGuide: c.backgroundGuide || '',
+                                            rules: c.rules || '',
+                                            studyGuide: c.studyGuide || ''
+                                          })
+                                          setShowDbCommitteeModal(true)
+                                        }}
+                                        className="p-1.5 bg-white border border-slate-200 text-slate-650 hover:bg-indigo-50 hover:border-indigo-300 rounded-lg transition-all cursor-pointer"
+                                        title="Edit Committee"
+                                      >
+                                        <Edit2 className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => setDeleteConfirm({ type: 'db_committees', id: c.id, name: c.name })}
+                                        className="p-1.5 bg-white border border-slate-200 text-slate-500 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-lg transition-all cursor-pointer"
+                                        title="Delete Committee"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  /* --- 2. DRILL-DOWN SUB-TAB (PORTFOLIOS & EB) --- */
+                  <div className="space-y-4">
+                    {/* Committee Summary Banner */}
+                    {(() => {
+                      const comm = dbCommittees.find(c => c.id === selectedRegistryCommitteeId)
+                      if (!comm) return null
+                      return (
+                        <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-sm relative overflow-hidden">
+                          <div className="absolute right-0 top-0 translate-x-1/4 -translate-y-1/4 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+                          <div className="relative z-10 flex flex-col md:flex-row justify-between md:items-center gap-4">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="bg-indigo-600 text-indigo-100 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider">{comm.id}</span>
+                                <span className="text-slate-450 text-xs font-semibold">{comm.category}</span>
+                              </div>
+                              <h3 className="text-xl font-bold mt-1 text-white">{comm.name}</h3>
+                              {comm.description && <p className="text-slate-300 text-xs mt-1.5 max-w-2xl">{comm.description}</p>}
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <button
+                                onClick={() => {
+                                  setEditingDbCommittee(comm)
+                                  setDbCommitteeForm({
+                                    id: comm.id,
+                                    name: comm.name,
+                                    description: comm.description || '',
+                                    category: comm.category || '',
+                                    topics: comm.topics ? (Array.isArray(comm.topics) ? comm.topics.join(', ') : Object.values(comm.topics).join(', ')) : '',
+                                    backgroundGuide: comm.backgroundGuide || '',
+                                    rules: comm.rules || '',
+                                    studyGuide: comm.studyGuide || ''
+                                  })
+                                  setShowDbCommitteeModal(true)
+                                }}
+                                className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Edit2 className="w-3.5 h-3.5 text-indigo-400" /> Edit Committee
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    {/* Sub-tab navigation */}
+                    <div className="flex border-b border-slate-200">
+                      <button
+                        onClick={() => setRegistryTab('portfolios')}
+                        className={`py-3 px-6 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+                          registryTab === 'portfolios'
+                            ? 'border-indigo-600 text-indigo-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-850'
+                        }`}
+                      >
+                        Portfolios Registry
+                      </button>
+                      <button
+                        onClick={() => setRegistryTab('eb')}
+                        className={`py-3 px-6 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+                          registryTab === 'eb'
+                            ? 'border-indigo-600 text-indigo-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-850'
+                        }`}
+                      >
+                        Executive Board (EB)
+                      </button>
+                    </div>
+
+                    {/* --- PORTFOLIOS LIST --- */}
+                    {registryTab === 'portfolios' && (
+                      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                        {(() => {
+                          const comm = dbCommittees.find(c => c.id === selectedRegistryCommitteeId)
+                          const portfolios = comm?.portfolios || []
+                          return (
+                            <>
+                              <div className="p-4 bg-slate-50/50 border-b border-slate-200/60 flex items-center justify-between">
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Portfolios ({portfolios.length})</span>
+                                <div className="relative w-64">
+                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                  <input
+                                    type="text"
+                                    placeholder="Search portfolios..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full bg-slate-50 border rounded-xl pl-9 pr-4 py-1.5 text-xs outline-none"
+                                  />
+                                </div>
+                              </div>
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse text-xs">
+                                  <thead>
+                                    <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                                      <th className="py-3 px-4 font-bold">Portfolio ID / Slug</th>
+                                      <th className="py-3 px-4 font-bold">Country / Position</th>
+                                      <th className="py-3 px-4 text-center">Flag</th>
+                                      <th className="py-3 px-4 text-center">Double Delegate</th>
+                                      <th className="py-3 px-4 text-center">Vacancy</th>
+                                      <th className="py-3 px-4 text-center">Min Experience</th>
+                                      <th className="py-3 px-4">Assigned Email</th>
+                                      <th className="py-3 px-4 text-center">Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {portfolios.length === 0 ? (
+                                      <tr>
+                                        <td colSpan={8} className="py-8 text-center text-slate-400">No portfolios registered for this committee. Click "Add Portfolio" to create one.</td>
+                                      </tr>
+                                    ) : (
+                                      portfolios
+                                        .filter((p: any) => p.country.toLowerCase().includes(searchQuery.toLowerCase()) || p.id.toLowerCase().includes(searchQuery.toLowerCase()))
+                                        .map((p: any) => (
+                                          <tr key={p.id} className="hover:bg-slate-50/50 transition-all group">
+                                            <td className="py-3 px-4 text-slate-500 font-mono font-bold">{p.id}</td>
+                                            <td className="py-3 px-4 font-semibold text-slate-800">{p.country}</td>
+                                            <td className="py-3 px-4 text-center font-mono text-slate-650">{p.countryCode || '-'}</td>
+                                            <td className="py-3 px-4 text-center">
+                                              <span className={`inline-block w-2.5 h-2.5 rounded-full ${p.isDoubleDelAllowed ? 'bg-indigo-500' : 'bg-slate-200'}`} title={p.isDoubleDelAllowed ? 'Allowed' : 'Single Only'} />
+                                            </td>
+                                            <td className="py-3 px-4 text-center">
+                                              <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold ${p.isVacant ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                {p.isVacant ? 'Vacant' : 'Allocated'}
+                                              </span>
+                                            </td>
+                                            <td className="py-3 px-4 text-center font-bold">{p.minExperience || 0} MUNs</td>
+                                            <td className="py-3 px-4 font-mono text-slate-600 text-[11px]">{p.email || <span className="text-slate-300 italic">none</span>}</td>
+                                            <td className="py-3 px-4">
+                                              <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                  onClick={() => {
+                                                    setEditingDbPortfolio(p)
+                                                    setDbPortfolioForm({
+                                                      id: p.id,
+                                                      country: p.country,
+                                                      countryCode: p.countryCode || '',
+                                                      isDoubleDelAllowed: p.isDoubleDelAllowed || false,
+                                                      isVacant: p.isVacant !== undefined ? p.isVacant : true,
+                                                      minExperience: p.minExperience || 0,
+                                                      email: p.email || ''
+                                                    })
+                                                    setShowDbPortfolioModal(true)
+                                                  }}
+                                                  className="p-1.5 bg-white border border-slate-200 text-slate-650 hover:bg-indigo-50 hover:border-indigo-300 rounded-lg transition-all cursor-pointer"
+                                                >
+                                                  <Edit2 className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                  onClick={() => setDeleteConfirm({ type: 'db_portfolios', id: selectedRegistryCommitteeId, name: p.country, subId: p.id })}
+                                                  className="p-1.5 bg-white border border-slate-200 text-slate-500 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-lg transition-all cursor-pointer"
+                                                >
+                                                  <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        ))
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </>
+                          )
+                        })()}
+                      </div>
+                    )}
+
+                    {/* --- EB MEMBERS LIST --- */}
+                    {registryTab === 'eb' && (
+                      <div className="space-y-4">
+                        {(() => {
+                          const comm = dbCommittees.find(c => c.id === selectedRegistryCommitteeId)
+                          const ebMembers = comm?.eb ? Object.keys(comm.eb).map(key => ({ id: key, ...comm.eb[key] })) : []
+                          
+                          if (ebMembers.length === 0) {
+                            return (
+                              <div className="bg-white rounded-2xl border border-slate-200/80 p-8 text-center text-slate-400">
+                                No Executive Board members registered for this committee. Click "Add EB Member" to create one.
+                              </div>
+                            )
+                          }
+
+                          return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                              {ebMembers.map(member => (
+                                <motion.div
+                                  key={member.id}
+                                  initial={{ opacity: 0, scale: 0.95 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex gap-4 relative group"
+                                >
+                                  {/* Profile Photo */}
+                                  <div className="w-16 h-16 rounded-full border border-slate-200 overflow-hidden shrink-0 bg-slate-50 flex items-center justify-center">
+                                    {member.photourl ? (
+                                      <img src={member.photourl} alt={member.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <User className="w-8 h-8 text-slate-350" />
+                                    )}
+                                  </div>
+
+                                  {/* Info */}
+                                  <div className="space-y-1 min-w-0 flex-1">
+                                    <h4 className="font-bold text-slate-800 text-sm truncate">{member.name}</h4>
+                                    <p className="text-indigo-650 font-bold text-[10px] uppercase tracking-wider">{member.role}</p>
+                                    <p className="text-[11px] text-slate-500 font-mono truncate">{member.email}</p>
+                                    {member.instagram && (
+                                      <p className="text-[10px] text-slate-450 flex items-center gap-1 font-medium mt-1">
+                                        <Globe className="w-3 h-3 text-slate-400" /> @{member.instagram}
+                                      </p>
+                                    )}
+                                    {member.bio && (
+                                      <p className="text-[11px] text-slate-500 line-clamp-2 mt-2 italic border-t pt-1.5 border-slate-100">
+                                        "{member.bio}"
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {/* Actions */}
+                                  <div className="absolute right-3 top-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      onClick={() => {
+                                        setEditingDbEb(member)
+                                        setDbEbForm({
+                                          id: member.id,
+                                          name: member.name,
+                                          role: member.role || 'Chairperson',
+                                          email: member.email || '',
+                                          photourl: member.photourl || '',
+                                          instagram: member.instagram || '',
+                                          bio: member.bio || ''
+                                        })
+                                        setShowDbEbModal(true)
+                                      }}
+                                      className="p-1 bg-white border border-slate-200 text-slate-650 hover:bg-slate-50 hover:text-indigo-600 rounded-md transition-all cursor-pointer shadow-xs"
+                                    >
+                                      <Edit2 className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      onClick={() => setDeleteConfirm({ type: 'db_eb', id: selectedRegistryCommitteeId, name: member.name, subId: member.id })}
+                                      className="p-1 bg-white border border-slate-200 text-slate-505 hover:bg-rose-50 hover:text-rose-600 rounded-md transition-all cursor-pointer shadow-xs"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* Existing closing brace */}
+
           </AnimatePresence>
         </main>
       </div>
 
       {/* Modals */}
+      {/* 1. Real Database Committee Modal */}
+      {showDbCommitteeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden my-8"
+          >
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-sm">{editingDbCommittee ? 'Edit Database Committee' : 'Add Database Committee'}</h2>
+                <p className="text-indigo-200 text-xs mt-0.5">{editingDbCommittee ? `Editing slug: ${editingDbCommittee.id}` : 'Create a new committee track in Firebase'}</p>
+              </div>
+              <button onClick={() => setShowDbCommitteeModal(false)} className="text-indigo-200 hover:text-white transition-colors cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleSaveDbCommittee} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Committee ID / Slug</label>
+                  <input
+                    type="text"
+                    value={dbCommitteeForm.id}
+                    onChange={e => setDbCommitteeForm(p => ({ ...p, id: e.target.value }))}
+                    placeholder="e.g. UNSC"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500 disabled:opacity-50 disabled:bg-slate-100 uppercase"
+                    disabled={!!editingDbCommittee}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Classification / Category</label>
+                  <input
+                    type="text"
+                    value={dbCommitteeForm.category}
+                    onChange={e => setDbCommitteeForm(p => ({ ...p, category: e.target.value }))}
+                    placeholder="e.g. Premium Single"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Committee Name</label>
+                <input
+                  type="text"
+                  value={dbCommitteeForm.name}
+                  onChange={e => setDbCommitteeForm(p => ({ ...p, name: e.target.value }))}
+                  placeholder="e.g. United Nations Security Council"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Agenda Topics (Comma-separated)</label>
+                <textarea
+                  value={dbCommitteeForm.topics}
+                  onChange={e => setDbCommitteeForm(p => ({ ...p, topics: e.target.value }))}
+                  placeholder="e.g. Cyber Warfare threats, Militarization of Outer Space"
+                  rows={2}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 resize-none"
+                />
+              </div>
+
+              {/* PDF Files and uploads */}
+              <div className="space-y-3 pt-2 border-t border-slate-150">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Background Guide URL</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={dbCommitteeForm.backgroundGuide}
+                      onChange={e => setDbCommitteeForm(p => ({ ...p, backgroundGuide: e.target.value }))}
+                      placeholder="https://..."
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-indigo-500"
+                    />
+                    <label className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold border border-slate-250 cursor-pointer flex items-center justify-center shrink-0">
+                      Upload
+                      <input type="file" accept="application/pdf" className="hidden" onChange={(e) => handleDbFileUpload(e, 'bg_guide')} disabled={isUploadingFile} />
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Rules of Procedure URL</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={dbCommitteeForm.rules}
+                      onChange={e => setDbCommitteeForm(p => ({ ...p, rules: e.target.value }))}
+                      placeholder="https://..."
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-indigo-500"
+                    />
+                    <label className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold border border-slate-250 cursor-pointer flex items-center justify-center shrink-0">
+                      Upload
+                      <input type="file" accept="application/pdf" className="hidden" onChange={(e) => handleDbFileUpload(e, 'rules')} disabled={isUploadingFile} />
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Study Guide URL</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={dbCommitteeForm.studyGuide}
+                      onChange={e => setDbCommitteeForm(p => ({ ...p, studyGuide: e.target.value }))}
+                      placeholder="https://..."
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-indigo-500"
+                    />
+                    <label className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold border border-slate-250 cursor-pointer flex items-center justify-center shrink-0">
+                      Upload
+                      <input type="file" accept="application/pdf" className="hidden" onChange={(e) => handleDbFileUpload(e, 'study_guide')} disabled={isUploadingFile} />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Description / Bio</label>
+                <textarea
+                  value={dbCommitteeForm.description}
+                  onChange={e => setDbCommitteeForm(p => ({ ...p, description: e.target.value }))}
+                  placeholder="Provide a brief introductory description..."
+                  rows={3}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 resize-none"
+                />
+              </div>
+
+              {isUploadingFile && (
+                <div className="text-xs text-indigo-650 font-bold flex items-center gap-1.5 animate-pulse">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" /> Uploading document to Firebase Storage...
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isUploadingFile}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {editingDbCommittee ? 'Save Changes' : 'Create Committee'}
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* 2. Real Database Portfolio Modal */}
+      {showDbPortfolioModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+          >
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-sm">{editingDbPortfolio ? 'Edit Portfolio Slot' : 'Add Portfolio Slot'}</h2>
+                <p className="text-indigo-200 text-xs mt-0.5">Register a country slot under committee {selectedRegistryCommitteeId}</p>
+              </div>
+              <button onClick={() => setShowDbPortfolioModal(false)} className="text-indigo-200 hover:text-white transition-colors cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleSaveDbPortfolio} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Portfolio ID / Slug</label>
+                  <input
+                    type="text"
+                    value={dbPortfolioForm.id}
+                    onChange={e => setDbPortfolioForm(p => ({ ...p, id: e.target.value }))}
+                    placeholder="e.g. usa"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500 disabled:opacity-50 disabled:bg-slate-100"
+                    disabled={!!editingDbPortfolio}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Country Code (2-char flag)</label>
+                  <input
+                    type="text"
+                    value={dbPortfolioForm.countryCode}
+                    onChange={e => setDbPortfolioForm(p => ({ ...p, countryCode: e.target.value }))}
+                    placeholder="e.g. US"
+                    maxLength={2}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500 uppercase"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Country / Position Name</label>
+                <input
+                  type="text"
+                  value={dbPortfolioForm.country}
+                  onChange={e => setDbPortfolioForm(p => ({ ...p, country: e.target.value }))}
+                  placeholder="e.g. United States of America"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Min Experience (MUNs)</label>
+                  <input
+                    type="number"
+                    value={dbPortfolioForm.minExperience}
+                    onChange={e => setDbPortfolioForm(p => ({ ...p, minExperience: Number(e.target.value) }))}
+                    placeholder="e.g. 0"
+                    min={0}
+                    className="w-full bg-slate-50 border border-slate-250 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Assigned Delegate Email</label>
+                  <input
+                    type="email"
+                    value={dbPortfolioForm.email}
+                    onChange={e => setDbPortfolioForm(p => ({ ...p, email: e.target.value }))}
+                    placeholder="deleg@email.com"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-6 py-2">
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-650 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={dbPortfolioForm.isDoubleDelAllowed}
+                    onChange={e => setDbPortfolioForm(p => ({ ...p, isDoubleDelAllowed: e.target.checked }))}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Double Delegate Allowed
+                </label>
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-650 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={dbPortfolioForm.isVacant}
+                    onChange={e => setDbPortfolioForm(p => ({ ...p, isVacant: e.target.checked }))}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Vacant Slot
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all cursor-pointer shadow-xs"
+              >
+                {editingDbPortfolio ? 'Save Changes' : 'Create Portfolio'}
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* 3. Real Database EB Member Modal */}
+      {showDbEbModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden my-8"
+          >
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-bold text-sm">{editingDbEb ? 'Edit EB Member' : 'Add EB Member'}</h2>
+                <p className="text-indigo-200 text-xs mt-0.5">Configure Executive Board role under {selectedRegistryCommitteeId}</p>
+              </div>
+              <button onClick={() => setShowDbEbModal(false)} className="text-indigo-200 hover:text-white transition-colors cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={handleSaveDbEbMember} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">EB Member Name</label>
+                  <input
+                    type="text"
+                    value={dbEbForm.name}
+                    onChange={e => setDbEbForm(p => ({ ...p, name: e.target.value }))}
+                    placeholder="e.g. John Doe"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">EB Role / Designation</label>
+                  <input
+                    type="text"
+                    value={dbEbForm.role}
+                    onChange={e => setDbEbForm(p => ({ ...p, role: e.target.value }))}
+                    placeholder="e.g. Chairperson"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Login Email (assigned)</label>
+                  <input
+                    type="email"
+                    value={dbEbForm.email}
+                    onChange={e => setDbEbForm(p => ({ ...p, email: e.target.value }))}
+                    placeholder="eb.member@kimun.com"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Instagram Handle</label>
+                  <input
+                    type="text"
+                    value={dbEbForm.instagram}
+                    onChange={e => setDbEbForm(p => ({ ...p, instagram: e.target.value }))}
+                    placeholder="e.g. johndoe_mun"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Profile Photo URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={dbEbForm.photourl}
+                    onChange={e => setDbEbForm(p => ({ ...p, photourl: e.target.value }))}
+                    placeholder="https://..."
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-indigo-500"
+                  />
+                  <label className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold border border-slate-250 cursor-pointer flex items-center justify-center shrink-0">
+                    Upload
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleDbFileUpload(e, 'eb_photo')} disabled={isUploadingFile} />
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Short Biography</label>
+                <textarea
+                  value={dbEbForm.bio}
+                  onChange={e => setDbEbForm(p => ({ ...p, bio: e.target.value }))}
+                  placeholder="Enter short bio describing their MUN credentials..."
+                  rows={3}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 resize-none"
+                />
+              </div>
+
+              {isUploadingFile && (
+                <div className="text-xs text-indigo-650 font-bold flex items-center gap-1.5 animate-pulse">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-650" /> Uploading image to Firebase Storage...
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isUploadingFile}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {editingDbEb ? 'Save Changes' : 'Create EB Member'}
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
       {/* Committee Modal */}
       {showCommitteeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
