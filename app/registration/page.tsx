@@ -639,7 +639,10 @@ export default function RegistrationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/40 text-slate-900 antialiased selection:bg-indigo-100">
+    <div 
+      className="min-h-screen bg-slate-50/40 text-slate-900 antialiased selection:bg-indigo-100"
+      onCopy={(e) => e.preventDefault()}
+    >
       {showConfetti && <Confetti recycle={false} numberOfPieces={300} />}
 
       {/* Top Header */}

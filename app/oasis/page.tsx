@@ -201,6 +201,7 @@ export default function OasisWorkplace() {
   const [dbAnnouncements, setDbAnnouncements] = useState<any[]>([])
   const [dbPayouts, setDbPayouts] = useState<any[]>([])
   const [dbCoupons, setDbCoupons] = useState<any[]>([])
+  const [dbActivityLogs, setDbActivityLogs] = useState<any[]>([])
   const [loadingData, setLoadingData] = useState(true)
 
   // Financial Workstation Local State
@@ -358,7 +359,7 @@ export default function OasisWorkplace() {
   // Live CRUD Modals & forms states
   const [showTaskForm, setShowTaskForm] = useState(false)
   const [editingTask, setEditingTask] = useState<any | null>(null)
-  const [taskForm, setTaskForm] = useState({ title: '', description: '', department: 'Secretariat', priority: 'medium', dueDate: '', assignee: '' })
+  const [taskForm, setTaskForm] = useState({ title: '', description: '', department: 'Secretariat', priority: 'medium', dueDate: '', assignee: '', notes: '', remarks: '', attachments: '' })
 
   const [showAssetForm, setShowAssetForm] = useState(false)
   const [editingAsset, setEditingAsset] = useState<any | null>(null)
@@ -674,6 +675,16 @@ export default function OasisWorkplace() {
       } else {
         setDbCoupons([])
       }
+    })
+
+    const logsRef = ref(firebaseDb, 'activity_logs')
+    const unsubLogs = onValue(logsRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        setDbActivityLogs(Object.keys(data).map(k => ({ id: k, ...data[k] })).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()))
+      } else {
+        setDbActivityLogs([])
+      }
       setLoadingData(false)
     })
 
@@ -688,6 +699,7 @@ export default function OasisWorkplace() {
       unsubAnn()
       unsubPayouts()
       unsubCoupons()
+      unsubLogs()
     }
   }, [accessGranted, user])
 
@@ -732,6 +744,7 @@ export default function OasisWorkplace() {
         expenses: exps,
         revenues: revs
       })
+      await logActivity('SAVE_WORKSTATION_BASELINE', 'Synchronized financial config to cloud')
       triggerNotification('Financial configuration workspace metrics synchronized to Firebase.')
     } catch (err: any) {
       triggerNotification('Failed to synchronize config: ' + err.message, 'error')
@@ -941,15 +954,24 @@ export default function OasisWorkplace() {
       if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(workstationCommittees, workstationExpenses, nextRevenues)
     } else if (type === 'tasks') {
       remove(ref(firebaseDb, `oc_tasks/${id}`))
-        .then(() => triggerNotification('Task removed from Board.', 'error'))
+        .then(() => {
+          logActivity('DELETE_RECORD', `Deleted task ID: ${id}`)
+          triggerNotification('Task removed from Board.', 'error')
+        })
         .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
     } else if (type === 'assets') {
       remove(ref(firebaseDb, `oc_assets/${id}`))
-        .then(() => triggerNotification('Asset removed.', 'error'))
+        .then(() => {
+          logActivity('DELETE_RECORD', `Deleted asset ID: ${id}`)
+          triggerNotification('Asset removed.', 'error')
+        })
         .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
     } else if (type === 'announcements') {
       remove(ref(firebaseDb, `oc_announcements/${id}`))
-        .then(() => triggerNotification('Broadcast removed.', 'error'))
+        .then(() => {
+          logActivity('DELETE_RECORD', `Deleted announcement ID: ${id}`)
+          triggerNotification('Broadcast removed.', 'error')
+        })
         .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
     } else if (type === 'db_committees') {
       remove(ref(firebaseDb, `committees/${id}`))
@@ -977,6 +999,7 @@ export default function OasisWorkplace() {
     } else if (type === 'db_committees') {
       remove(ref(firebaseDb, `committees/${id}`))
         .then(() => {
+          logActivity('DELETE_RECORD', `Deleted committee ID: ${id}`)
           triggerNotification('Committee removed from database.', 'error')
           if (selectedRegistryCommitteeId === id) {
             setSelectedRegistryCommitteeId(null)
@@ -987,14 +1010,20 @@ export default function OasisWorkplace() {
       const portfolioId = deleteConfirm.subId
       if (portfolioId) {
         remove(ref(firebaseDb, `committees/${id}/portfolios/${portfolioId}`))
-          .then(() => triggerNotification('Portfolio slot removed.', 'error'))
+          .then(() => {
+            logActivity('DELETE_RECORD', `Deleted portfolio ID: ${portfolioId} from committee ${id}`)
+            triggerNotification('Portfolio slot removed.', 'error')
+          })
           .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
       }
     } else if (type === 'db_eb') {
       const memberId = deleteConfirm.subId
       if (memberId) {
         remove(ref(firebaseDb, `committees/${id}/eb/${memberId}`))
-          .then(() => triggerNotification('EB Member removed.', 'error'))
+          .then(() => {
+            logActivity('DELETE_RECORD', `Deleted EB member ID: ${memberId} from committee ${id}`)
+            triggerNotification('EB Member removed.', 'error')
+          })
           .catch(err => triggerNotification('Delete failed: ' + err.message, 'error'))
       }
     }
@@ -1008,12 +1037,28 @@ export default function OasisWorkplace() {
       setAttendanceRealizationRate(100)
       setSponsorRealizationRate(100)
       setContingencyRate(10)
+      logActivity('RESET_WORKSTATION_CONFIG', 'Reverted workstation to default baseline')
       triggerNotification('Reverted workstation configuration back to baseline defaults.')
       if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(INITIAL_COMMITTEES, INITIAL_EXPENSES, INITIAL_REVENUES)
     }
   }
 
-  const handleExportCSV = () => {
+  const logActivity = async (actionType: string, details: string) => {
+    try {
+      if (!user) return;
+      const logsRef = ref(firebaseDb, 'activity_logs');
+      await push(logsRef, {
+        actionType,
+        details,
+        userEmail: user.email || 'Unknown',
+        timestamp: new Date().toISOString()
+      });
+    } catch (e) {
+      console.error("Failed to log activity:", e);
+    }
+  }
+
+  const handleExportCSV = async () => {
     let csv = "KIMUN 2026 - MODEL UNITED NATIONS FINANCIAL SYSTEM EXPORT\r\n"
     csv += `Compiled Date: ${new Date().toLocaleDateString()} - Multi-Tenant Oasis Workplace\r\n\r\n`
     csv += "--- CONSOLIDATED OVERVIEW METRICS ---\r\n"
@@ -1040,6 +1085,7 @@ export default function OasisWorkplace() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    await logActivity('CSV_EXPORT', 'Oasis Financial System Export')
     triggerNotification('Spreadsheet CSV download initiated!')
   }
 
@@ -1295,6 +1341,7 @@ export default function OasisWorkplace() {
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
+        await logActivity('PDF_DOWNLOAD', `Contract PDF for ${candidateName}`)
         triggerNotification('Contract PDF downloaded successfully!')
         setDownloadingContract(false)
         return
@@ -1309,6 +1356,7 @@ export default function OasisWorkplace() {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
+      await logActivity('PDF_DOWNLOAD', `Contract PDF for ${candidateName}`)
       triggerNotification('Contract PDF generated and downloaded successfully!')
     } catch (e: any) {
       console.error(e)
@@ -1406,6 +1454,7 @@ export default function OasisWorkplace() {
       doc.setFontSize(7.5)
       doc.text("KIMUN DELEGATE DIRECTORY SERVICES", 105, 270, { align: 'center' })
       doc.save(`Delegate_Record_${delegate.displayName.replace(/\s+/g, '_')}.pdf`)
+      logActivity('DOWNLOAD_CITATION_PDF', `Downloaded profile citation for ${delegate.displayName}`)
       triggerNotification('Delegate Profile PDF generated successfully!')
     } catch (e: any) {
       console.error(e)
@@ -1415,13 +1464,30 @@ export default function OasisWorkplace() {
 
 
   // Real-time CRUD Triggers
-  const claimLiveTask = async (taskId: string) => {
+  const claimLiveTask = async (taskId: string, currentAssignee?: string) => {
     if (!user) return
+    const me = user.displayName || user.email || 'Admin'
+    const isClaimedByMe = currentAssignee === me
     try {
-      await update(ref(firebaseDb, `oc_tasks/${taskId}`), { assignee: user.displayName })
-      triggerNotification('Claimed task successfully.')
+      await update(ref(firebaseDb, `oc_tasks/${taskId}`), { assignee: isClaimedByMe ? '' : me })
+      await logActivity('CLAIM_TASK', `${isClaimedByMe ? 'Unclaimed' : 'Claimed'} live task ID: ${taskId}`)
+      triggerNotification(isClaimedByMe ? 'Task unclaimed.' : 'Claimed task successfully.')
     } catch (err: any) {
       triggerNotification('Claim failed: ' + err.message, 'error')
+    }
+  }
+
+  
+  const handleUpdateTaskStatus = async (taskId: string, newStatus: string) => {
+    try {
+      await update(ref(firebaseDb, `oc_tasks/${taskId}`), {
+        status: newStatus,
+        updatedAt: new Date().toISOString()
+      })
+      await logActivity('UPDATE_TASK_STATUS', `Moved task ID: ${taskId} to ${newStatus}`)
+      triggerNotification('Task status updated.')
+    } catch (err: any) {
+      triggerNotification('Failed to update task status: ' + err.message, 'error')
     }
   }
 
@@ -1431,6 +1497,7 @@ export default function OasisWorkplace() {
         status: 'completed',
         completedAt: new Date().toISOString()
       })
+      await logActivity('COMPLETE_TASK', `Completed live task ID: ${taskId}`)
       triggerNotification('Task marked as completed.')
     } catch (err: any) {
       triggerNotification('Failed to complete task: ' + err.message, 'error')
@@ -1445,7 +1512,10 @@ export default function OasisWorkplace() {
       department: defaultDept || 'Secretariat',
       priority: 'medium',
       dueDate: '',
-      assignee: ''
+      assignee: '',
+      notes: '',
+      remarks: '',
+      attachments: ''
     })
     setShowTaskForm(true)
   }
@@ -1458,7 +1528,10 @@ export default function OasisWorkplace() {
       department: task.department || 'Secretariat',
       priority: task.priority || 'medium',
       dueDate: task.dueDate || '',
-      assignee: task.assignee || ''
+      assignee: task.assignee || '',
+      notes: task.notes || '',
+      remarks: task.remarks || '',
+      attachments: task.attachments || ''
     })
     setShowTaskForm(true)
   }
@@ -1472,6 +1545,7 @@ export default function OasisWorkplace() {
           ...taskForm,
           updatedAt: new Date().toISOString()
         })
+        await logActivity('UPDATE_TASK', `Updated task: ${taskForm.title}`)
         triggerNotification('Task updated successfully.')
       } else {
         const tasksRef = ref(firebaseDb, 'oc_tasks')
@@ -1481,6 +1555,7 @@ export default function OasisWorkplace() {
           createdAt: new Date().toISOString(),
           createdBy: user?.email
         })
+        await logActivity('CREATE_TASK', `Created task: ${taskForm.title}`)
         triggerNotification('Task added to Kanban Board.')
       }
       setShowTaskForm(false)
@@ -1501,6 +1576,7 @@ export default function OasisWorkplace() {
         isCheckedIn: isCheckingIn,
         checkInTime: isCheckingIn ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
       })
+      await logActivity('TOGGLE_CHECKIN', `Toggled checkin status for ${flatDel.name} to ${isCheckingIn}`)
       triggerNotification(`${flatDel.name} check-in status updated.`)
     } catch (err: any) {
       triggerNotification('Failed to toggle checkin: ' + err.message, 'error')
@@ -1534,6 +1610,7 @@ export default function OasisWorkplace() {
         isCheckedIn: true,
         checkInTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       })
+      await logActivity('BARCODE_CHECKIN', `Scanned barcode and checked in ${match.name}`)
       triggerNotification(`Verified & checked in ${match.name}!`)
       setBarcodeInput('')
     } catch (err: any) {
@@ -1545,6 +1622,7 @@ export default function OasisWorkplace() {
     if (role !== 'admin') return
     try {
       await update(ref(firebaseDb, `resources/${resId}`), { isApproved: !current })
+      await logActivity('TOGGLE_RESOURCE_APPROVAL', `Toggled resource approval for ID: ${resId} to ${!current}`)
       triggerNotification('Resource approval log updated.')
     } catch (err: any) {
       triggerNotification('Update failed: ' + err.message, 'error')
@@ -1564,6 +1642,7 @@ export default function OasisWorkplace() {
         updatesObj[`marksheets/${committeeId}/marks/${item.id}/isApproved`] = true
       })
       await update(ref(firebaseDb), updatesObj)
+      await logActivity('BULK_APPROVE_MARKSHEETS', `Approved marksheets for committee ID: ${committeeId}`)
       triggerNotification(`Approved all marksheets for this committee.`)
     } catch (err: any) {
       triggerNotification('Bulk approval failed: ' + err.message, 'error')
@@ -1574,6 +1653,7 @@ export default function OasisWorkplace() {
     if (role !== 'admin') return
     try {
       await update(ref(firebaseDb, `oc_applications/${uid}`), { status: nextStatus })
+      await logActivity('UPDATE_APP_STATUS', `Updated application status for ${name} to ${nextStatus}`)
       triggerNotification(`Applicant status updated to ${nextStatus}.`)
     } catch (err: any) {
       triggerNotification('Failed to update: ' + err.message, 'error')
@@ -1649,6 +1729,7 @@ export default function OasisWorkplace() {
           cost: Number(assetForm.cost),
           updatedAt: new Date().toISOString()
         })
+        await logActivity('UPDATE_ASSET', `Updated asset: ${assetForm.name}`)
         triggerNotification('Asset record updated.')
       } else {
         const assetsRef = ref(firebaseDb, 'oc_assets')
@@ -1658,6 +1739,7 @@ export default function OasisWorkplace() {
           cost: Number(assetForm.cost),
           updatedAt: new Date().toISOString()
         })
+        await logActivity('CREATE_ASSET', `Created asset: ${assetForm.name}`)
         triggerNotification('Infrastructure asset added.')
       }
       setShowAssetForm(false)
@@ -1704,6 +1786,7 @@ export default function OasisWorkplace() {
           ...announcementForm,
           updatedAt: new Date().toISOString()
         })
+        await logActivity('UPDATE_ANNOUNCEMENT', `Updated announcement: ${announcementForm.title}`)
         triggerNotification('Announcement updated.')
       } else {
         const annRef = ref(firebaseDb, 'oc_announcements')
@@ -1712,6 +1795,7 @@ export default function OasisWorkplace() {
           createdAt: new Date().toISOString(),
           createdBy: user?.email
         })
+        await logActivity('CREATE_ANNOUNCEMENT', `Created announcement: ${announcementForm.title}`)
         triggerNotification('Announcement bulletin broadcasted.')
       }
       setShowAnnouncementForm(false)
@@ -1747,6 +1831,7 @@ export default function OasisWorkplace() {
             bankName: payoutBank.bankName,
             phone: payoutBank.phone
           })
+          await logActivity('INITIATE_PAYOUT', `Initiated payout of ${payoutAmount} for delegate ${payoutDelegateId}`)
           triggerNotification(`Transferred ${formatINR(payoutAmount)} payout to recipient bank account.`)
           setPayoutStatus('idle')
           setShowPayoutModal(false)
@@ -1773,6 +1858,7 @@ export default function OasisWorkplace() {
         usedBy: null,
         assignedAt: null
       })
+      await logActivity('CREATE_COUPON', `Created coupon: ${newCoupon.code}`)
       setNewCoupon({ code: '', title: '', description: '', discount: '', expiry: '', partner: '', terms: '' })
       setShowCouponModal(false)
       triggerNotification('Created new partner promotional coupon.')
@@ -1810,6 +1896,7 @@ export default function OasisWorkplace() {
       }
 
       await update(commRef, payload)
+      await logActivity('SAVE_COMMITTEE', `${editingDbCommittee ? 'Updated' : 'Created'} committee: ${commId}`)
       setShowDbCommitteeModal(false)
       setEditingDbCommittee(null)
       setDbCommitteeForm({ id: '', name: '', description: '', category: '', topics: '', backgroundGuide: '', rules: '', studyGuide: '' })
@@ -1846,6 +1933,7 @@ export default function OasisWorkplace() {
         email: dbPortfolioForm.email.trim()
       }
       await set(portRef, payload)
+      await logActivity('SAVE_PORTFOLIO', `${editingDbPortfolio ? 'Updated' : 'Created'} portfolio: ${portId}`)
       setShowDbPortfolioModal(false)
       setEditingDbPortfolio(null)
       setDbPortfolioForm({ id: '', country: '', countryCode: '', isDoubleDelAllowed: false, isVacant: true, minExperience: 0, email: '' })
@@ -1876,6 +1964,7 @@ export default function OasisWorkplace() {
         bio: dbEbForm.bio.trim()
       }
       await set(ebRef, payload)
+      await logActivity('SAVE_EB_MEMBER', `${editingDbEb ? 'Updated' : 'Created'} EB member: ${dbEbForm.name}`)
       setShowDbEbModal(false)
       setEditingDbEb(null)
       setDbEbForm({ id: '', name: '', role: 'Chairperson', email: '', photourl: '', instagram: '', bio: '' })
@@ -1940,6 +2029,7 @@ export default function OasisWorkplace() {
         reason,
         timestamp: Date.now()
       })
+      await logActivity('BLACKLIST_DELEGATE', `Blacklisted delegate: ${del.name}`)
       triggerNotification(`${del.name} added to security blacklist ledger.`, 'error')
     } catch (err: any) {
       triggerNotification('Blacklist failed: ' + err.message, 'error')
@@ -2067,11 +2157,16 @@ export default function OasisWorkplace() {
     { id: 'help_docs', label: 'Help and Doc', icon: Info, color: 'text-blue-600' },
     ...(role === 'admin' ? [
       { id: 'coupons', label: 'Coupons', icon: Ticket, color: 'text-pink-600' },
-      { id: 'registry_manager', label: 'Committee Management', icon: Sliders, color: 'text-teal-600' }
+      { id: 'registry_manager', label: 'Committee Management', icon: Sliders, color: 'text-teal-600' },
+      { id: 'logs', label: 'Activity Logs', icon: Activity, color: 'text-rose-600' }
     ] : [])
   ]
   return (
-    <div className="min-h-screen bg-[#F1F5F9] text-[#1C2434] flex flex-col antialiased relative" style={{ fontFamily: '"Outfit", "Inter", sans-serif' }}>
+    <div 
+      className="min-h-screen bg-[#F1F5F9] text-[#1C2434] flex flex-col antialiased relative" 
+      style={{ fontFamily: '"Outfit", "Inter", sans-serif' }}
+      onCopy={(e) => e.preventDefault()}
+    >
       <style dangerouslySetInnerHTML={{
         __html: `
         /* ═══════════════════════════════════════════════ */
@@ -3668,28 +3763,67 @@ export default function OasisWorkplace() {
                                               </span>
                                             </div>
                                             <p className="text-[11px] text-slate-500 mt-2 line-clamp-3">{task.description}</p>
+                                            {(task.attachments || task.notes || task.remarks) && (
+                                              <div className="mt-2.5 space-y-1.5 border-t border-slate-100 pt-2.5">
+                                                {task.attachments && (
+                                                  <div className="text-[10px]">
+                                                    <span className="font-bold text-slate-500 block mb-0.5">Attachments:</span>
+                                                    <a href={task.attachments.startsWith('http') ? task.attachments : `https://${task.attachments}`} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline break-all block max-w-full truncate">{task.attachments}</a>
+                                                  </div>
+                                                )}
+                                                {task.notes && (
+                                                  <div className="text-[10px]">
+                                                    <span className="font-bold text-slate-500 block mb-0.5">Notes:</span>
+                                                    <p className="text-slate-600 line-clamp-2">{task.notes}</p>
+                                                  </div>
+                                                )}
+                                                {task.remarks && (
+                                                  <div className="text-[10px]">
+                                                    <span className="font-bold text-slate-500 block mb-0.5">Remarks:</span>
+                                                    <p className="text-slate-600 italic">{task.remarks}</p>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
                                             <div className="flex justify-between items-center text-[9px] text-slate-400 border-t border-slate-100 pt-2.5 mt-2.5">
                                               <span>Due: {task.dueDate}</span>
                                               <span>Assignee: <span className="font-semibold text-slate-600">{task.assignee || 'Unassigned'}</span></span>
                                             </div>
-                                            <div className="flex gap-2 justify-end mt-2 pt-2 border-t border-slate-100/60">
-                                              {column.status !== 'completed' && (
-                                                <button onClick={() => claimLiveTask(task.id)} className="px-2.5 py-1 bg-slate-50 border rounded-lg text-[9px] font-bold hover:bg-slate-100 transition-all">
-                                                  Claim
+                                            <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-slate-100/60">
+                                              {column.status === 'todo' && (
+                                                <button onClick={() => handleUpdateTaskStatus(task.id, 'in_progress')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg text-[9px] font-bold hover:bg-amber-100 transition-all text-center">
+                                                  Start Progress
                                                 </button>
                                               )}
                                               {column.status === 'in_progress' && (
-                                                <button onClick={() => completeLiveTask(task.id)} className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[9px] font-bold hover:bg-emerald-100 transition-all">
-                                                  Complete
+                                                <>
+                                                  <button onClick={() => handleUpdateTaskStatus(task.id, 'todo')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-[9px] font-bold hover:bg-slate-100 transition-all text-center">
+                                                    Revert to To Do
+                                                  </button>
+                                                  <button onClick={() => handleUpdateTaskStatus(task.id, 'completed')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[9px] font-bold hover:bg-emerald-100 transition-all text-center">
+                                                    Complete Task
+                                                  </button>
+                                                </>
+                                              )}
+                                              {column.status === 'completed' && (
+                                                <button onClick={() => handleUpdateTaskStatus(task.id, 'in_progress')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-[9px] font-bold hover:bg-slate-100 transition-all text-center">
+                                                  Reopen Task
                                                 </button>
                                               )}
-                                              <div className="flex items-center gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => openEditTaskModal(task)} className="p-1 text-slate-400 hover:text-indigo-600 transition-all" title="Edit Task">
-                                                  <Edit2 className="w-3.5 h-3.5" />
-                                                </button>
-                                                <button onClick={() => handleDeleteLiveTask(task.id, task.title)} className="p-1 text-slate-400 hover:text-rose-500 transition-all" title="Delete Task">
-                                                  <Trash2 className="w-3.5 h-3.5" />
-                                                </button>
+                                              <div className="flex items-center justify-between gap-1 w-full mt-1">
+                                                {column.status !== 'completed' && (
+                                                  <button onClick={() => claimLiveTask(task.id, task.assignee)} className={`px-2.5 py-1 border rounded-lg text-[9px] font-bold transition-all ${task.assignee === (user?.displayName || user?.email || 'Admin') ? 'bg-rose-50 text-rose-700 border-rose-100 hover:bg-rose-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100'}`}>
+                                                    {task.assignee === (user?.displayName || user?.email || 'Admin') ? 'Unclaim' : 'Claim Task'}
+                                                  </button>
+                                                )}
+                                                <div className="flex items-center gap-1 ml-auto">
+                                                  <button onClick={() => openEditTaskModal(task)} className="p-1 text-slate-400 hover:text-indigo-600 transition-all bg-slate-50 rounded" title="Edit Task">
+                                                    <Edit2 className="w-3.5 h-3.5" />
+                                                  </button>
+                                                  <button onClick={() => handleDeleteLiveTask(task.id, task.title)} className="p-1 text-slate-400 hover:text-rose-500 transition-all bg-slate-50 rounded" title="Delete Task">
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                  </button>
+                                                </div>
                                               </div>
                                             </div>
                                           </motion.div>
@@ -3891,18 +4025,16 @@ export default function OasisWorkplace() {
                           {filteredTasks.filter(t => t.status === column.status).length}
                         </span>
                       </div>
-                      <div className="space-y-3">
+                      <div className="space-y-3 min-h-[100px] transition-colors rounded-xl">
                         {filteredTasks.filter(t => t.status === column.status).length === 0 ? (
                           <div className="text-center py-8 bg-slate-50/50 rounded-xl border border-dashed border-slate-200 text-slate-400 text-xs">
                             No tasks
                           </div>
                         ) : (
                           filteredTasks.filter(t => t.status === column.status).map(task => (
-                            <motion.div
+                            <div
                               key={task.id}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group"
+                              className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group animate-in fade-in slide-in-from-bottom-2 duration-300 relative"
                             >
                               <div className="flex justify-between items-start gap-2">
                                 <div className="flex-1 min-w-0">
@@ -3916,31 +4048,70 @@ export default function OasisWorkplace() {
                                 </span>
                               </div>
                               <p className="text-[11px] text-slate-500 mt-2 line-clamp-3">{task.description}</p>
+                              {(task.attachments || task.notes || task.remarks) && (
+                                <div className="mt-2.5 space-y-1.5 border-t border-slate-100 pt-2.5">
+                                  {task.attachments && (
+                                    <div className="text-[10px]">
+                                      <span className="font-bold text-slate-500 block mb-0.5">Attachments:</span>
+                                      <a href={task.attachments.startsWith('http') ? task.attachments : `https://${task.attachments}`} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline break-all block max-w-full truncate">{task.attachments}</a>
+                                    </div>
+                                  )}
+                                  {task.notes && (
+                                    <div className="text-[10px]">
+                                      <span className="font-bold text-slate-500 block mb-0.5">Notes:</span>
+                                      <p className="text-slate-600 line-clamp-2">{task.notes}</p>
+                                    </div>
+                                  )}
+                                  {task.remarks && (
+                                    <div className="text-[10px]">
+                                      <span className="font-bold text-slate-500 block mb-0.5">Remarks:</span>
+                                      <p className="text-slate-600 italic">{task.remarks}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                               <div className="flex justify-between items-center text-[9px] text-slate-400 border-t border-slate-100 pt-2.5 mt-2.5">
                                 <span>Due: {task.dueDate}</span>
                                 <span>Assignee: <span className="font-semibold text-slate-600">{task.assignee || 'Unassigned'}</span></span>
                               </div>
-                              <div className="flex gap-2 justify-end mt-2 pt-2 border-t border-slate-100/60">
-                                {column.status !== 'completed' && (
-                                  <button onClick={() => claimLiveTask(task.id)} className="px-2.5 py-1 bg-slate-50 border rounded-lg text-[9px] font-bold hover:bg-slate-100 transition-all">
-                                    Claim
+                              <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-slate-100/60">
+                                {column.status === 'todo' && (
+                                  <button onClick={() => handleUpdateTaskStatus(task.id, 'in_progress')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg text-[9px] font-bold hover:bg-amber-100 transition-all text-center">
+                                    Start Progress
                                   </button>
                                 )}
                                 {column.status === 'in_progress' && (
-                                  <button onClick={() => completeLiveTask(task.id)} className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[9px] font-bold hover:bg-emerald-100 transition-all">
-                                    Complete
+                                  <>
+                                    <button onClick={() => handleUpdateTaskStatus(task.id, 'todo')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-[9px] font-bold hover:bg-slate-100 transition-all text-center">
+                                      Revert to To Do
+                                    </button>
+                                    <button onClick={() => handleUpdateTaskStatus(task.id, 'completed')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[9px] font-bold hover:bg-emerald-100 transition-all text-center">
+                                      Complete Task
+                                    </button>
+                                  </>
+                                )}
+                                {column.status === 'completed' && (
+                                  <button onClick={() => handleUpdateTaskStatus(task.id, 'in_progress')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-[9px] font-bold hover:bg-slate-100 transition-all text-center">
+                                    Reopen Task
                                   </button>
                                 )}
-                                <div className="flex items-center gap-1 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button onClick={() => openEditTaskModal(task)} className="p-1 text-slate-400 hover:text-indigo-600 transition-all" title="Edit Task">
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button onClick={() => handleDeleteLiveTask(task.id, task.title)} className="p-1 text-slate-400 hover:text-rose-500 transition-all" title="Delete Task">
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                                <div className="flex items-center justify-between gap-1 w-full mt-1">
+                                  {column.status !== 'completed' && (
+                                    <button onClick={() => claimLiveTask(task.id, task.assignee)} className={`px-2.5 py-1 border rounded-lg text-[9px] font-bold transition-all ${task.assignee === (user?.displayName || user?.email || 'Admin') ? 'bg-rose-50 text-rose-700 border-rose-100 hover:bg-rose-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100'}`}>
+                                      {task.assignee === (user?.displayName || user?.email || 'Admin') ? 'Unclaim' : 'Claim Task'}
+                                    </button>
+                                  )}
+                                  <div className="flex items-center gap-1 ml-auto">
+                                    <button onClick={() => openEditTaskModal(task)} className="p-1 text-slate-400 hover:text-indigo-600 transition-all bg-slate-50 rounded" title="Edit Task">
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button onClick={() => handleDeleteLiveTask(task.id, task.title)} className="p-1 text-slate-400 hover:text-rose-500 transition-all bg-slate-50 rounded" title="Delete Task">
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
-                            </motion.div>
+                            </div>
                           ))
                         )}
                       </div>
@@ -5161,7 +5332,62 @@ export default function OasisWorkplace() {
               </motion.div>
             )}
 
-            {/* Help & Documentation Tab */}
+            {/* Activity Logs (Admin only) */}
+            {activeMenuTab === 'logs' && role === 'admin' && (
+              <motion.div
+                key="logs"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-800 tracking-tight">System Activity Logs</h2>
+                    <p className="text-xs text-slate-505 mt-1">Audit trail for all administrative actions.</p>
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                    <table className="w-full text-left border-collapse text-xs relative">
+                      <thead className="sticky top-0 bg-slate-50 z-10 shadow-sm border-b border-slate-200 text-slate-500 uppercase text-[9px] tracking-wider font-semibold">
+                        <tr>
+                          <th className="py-3 px-4">Timestamp</th>
+                          <th className="py-3 px-4">User</th>
+                          <th className="py-3 px-4">Action Type</th>
+                          <th className="py-3 px-4">Details</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {dbActivityLogs.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="text-center py-12 text-slate-400">No activity logs found.</td>
+                          </tr>
+                        ) : (
+                          dbActivityLogs.map(log => (
+                            <tr key={log.id} className="hover:bg-slate-50 transition-all">
+                              <td className="py-3 px-4 text-slate-500 font-mono whitespace-nowrap">
+                                {new Date(log.timestamp).toLocaleString()}
+                              </td>
+                              <td className="py-3 px-4 font-semibold text-slate-800">{log.userEmail}</td>
+                              <td className="py-3 px-4">
+                                <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase border border-slate-200">
+                                  {log.actionType}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-slate-600">{log.details}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+                        {/* Help & Documentation Tab */}
             {activeMenuTab === 'help_docs' && (
               <motion.div
                 key="help_docs"
@@ -6375,8 +6601,38 @@ export default function OasisWorkplace() {
                 <textarea
                   value={taskForm.description}
                   onChange={(e) => setTaskForm(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 h-24 resize-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 h-20 resize-none"
                   required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Notes</label>
+                  <textarea
+                    value={taskForm.notes}
+                    onChange={(e) => setTaskForm(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Internal notes..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 h-16 resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Remarks</label>
+                  <textarea
+                    value={taskForm.remarks}
+                    onChange={(e) => setTaskForm(prev => ({ ...prev, remarks: e.target.value }))}
+                    placeholder="Final remarks..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-500 h-16 resize-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Attachments (Link)</label>
+                <input
+                  type="text"
+                  value={taskForm.attachments}
+                  onChange={(e) => setTaskForm(prev => ({ ...prev, attachments: e.target.value }))}
+                  placeholder="https://drive.google.com/..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -6418,13 +6674,26 @@ export default function OasisWorkplace() {
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Assignee</label>
-                  <input
-                    type="text"
-                    value={taskForm.assignee}
-                    onChange={(e) => setTaskForm(prev => ({ ...prev, assignee: e.target.value }))}
-                    placeholder="Optional Name"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
-                  />
+                  {role === 'admin' ? (
+                    <select
+                      value={taskForm.assignee}
+                      onChange={(e) => setTaskForm(prev => ({ ...prev, assignee: e.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                    >
+                      <option value="">-- Unassigned --</option>
+                      {dbApplications.filter(a => a.status === 'welcomed').map(app => (
+                        <option key={app.uid} value={app.name}>{app.name} ({app.department})</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={taskForm.assignee}
+                      onChange={(e) => setTaskForm(prev => ({ ...prev, assignee: e.target.value }))}
+                      placeholder="Optional Name"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
+                    />
+                  )}
                 </div>
               </div>
               <div className="flex gap-3 pt-2">
