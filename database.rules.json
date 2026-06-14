@@ -66,6 +66,10 @@
     "maintenance": {
       ".read": "true",
       ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+    },
+    "blacklisted": {
+      ".read": "true",
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
     }
   }
 }

@@ -58,6 +58,8 @@ type DelegateData = {
   couponCode?: string
   discountApplied?: number
   timestamp?: number
+  isBlacklisted?: boolean
+  blacklistReason?: string
 }
 
 type CommitteeData = {
@@ -201,6 +203,24 @@ function DelegateDashboardContent() {
       const d2Email = foundData?.delegateInfo?.delegate2?.email?.toLowerCase()
       const delegateKey = (d2Email && d2Email === email.toLowerCase()) ? 'delegate2' : 'delegate1'
       const coDelegateKey = delegateKey === 'delegate1' ? 'delegate2' : 'delegate1'
+
+      const blacklistRef = ref(db, `blacklisted/${foundKey}_${delegateKey}`)
+      const blacklistSnap = await get(blacklistRef)
+      if (blacklistSnap.exists()) {
+        const blData = blacklistSnap.val()
+        setDelegate({
+          id: foundKey,
+          name: foundData.delegateInfo[delegateKey]?.name || '',
+          email: foundData.delegateInfo[delegateKey]?.email || '',
+          committeeId: foundData.committeeId || '',
+          portfolioId: foundData.portfolioId || '',
+          isCheckedIn: false,
+          isBlacklisted: true,
+          blacklistReason: blData.reason
+        })
+        setLoading(prev => ({ ...prev, data: false }))
+        return
+      }
 
       setDelegate({
         id: foundKey,
@@ -480,6 +500,42 @@ function DelegateDashboardContent() {
           <p className="text-center text-slate-400 text-xs mt-6">
             Use the Google account associated with your KIMUN registration.
           </p>
+        </motion.div>
+      </div>
+    )
+  }
+
+  if (delegate?.isBlacklisted) {
+    return (
+      <div className="min-h-screen bg-rose-50/40 flex items-center justify-center p-4">
+        <Toaster position="top-center" richColors />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="bg-white border border-rose-200 p-8 rounded-2xl shadow-sm w-full max-w-md text-center"
+        >
+          <div className="flex justify-center mb-6">
+            <div className="h-16 w-16 bg-rose-100 rounded-full flex items-center justify-center">
+              <AlertCircle className="h-8 w-8 text-rose-600" />
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">Access Denied</h1>
+          <p className="text-sm text-slate-600 mb-6">Your delegate account has been suspended from accessing the portal.</p>
+          
+          <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 mb-8 text-left">
+            <p className="text-xs font-bold uppercase tracking-wider text-rose-800 mb-1">Administrative Reason</p>
+            <p className="text-sm text-rose-900 font-medium">{delegate.blacklistReason || 'Violation of conference policies.'}</p>
+          </div>
+
+          <Button
+            onClick={handleLogout}
+            variant="outline"
+            className="w-full border-slate-200 hover:bg-slate-50"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
         </motion.div>
       </div>
     )

@@ -202,6 +202,7 @@ export default function OasisWorkplace() {
   const [dbPayouts, setDbPayouts] = useState<any[]>([])
   const [dbCoupons, setDbCoupons] = useState<any[]>([])
   const [dbActivityLogs, setDbActivityLogs] = useState<any[]>([])
+  const [dbBlacklisted, setDbBlacklisted] = useState<Record<string, any>>({})
   const [dbSiteSettings, setDbSiteSettings] = useState<any>({
     maintenanceEnabled: false,
     registrationMode: 'Auto',
@@ -704,6 +705,15 @@ export default function OasisWorkplace() {
       setLoadingData(false)
     })
 
+    const blacklistRef = ref(firebaseDb, 'blacklisted')
+    const unsubBlacklist = onValue(blacklistRef, (snap) => {
+      if (snap.exists()) {
+        setDbBlacklisted(snap.val())
+      } else {
+        setDbBlacklisted({})
+      }
+    })
+
     return () => {
       unsubComms()
       unsubRegs()
@@ -717,6 +727,7 @@ export default function OasisWorkplace() {
       unsubCoupons()
       unsubLogs()
       unsubSettings()
+      unsubBlacklist()
     }
   }, [accessGranted, user])
 
@@ -1383,8 +1394,9 @@ export default function OasisWorkplace() {
     }
   }
 
-  const handleDownloadCitationPDF = (delegate: any) => {
+  const handleDownloadCitationPDF = async (delegate: any) => {
     try {
+      const { jsPDF } = await import('jspdf')
       const doc = new jsPDF()
 
       // Page Frame
@@ -2036,20 +2048,57 @@ export default function OasisWorkplace() {
   }
 
   const handleBlacklistDelegate = async (del: any) => {
-    const reason = prompt(`Provide administrative reason to blacklist delegate: ${del.name}`)
+    const delegateName = del.displayName || del.name
+    const delegateEmail = del.displayEmail || del.email
+    const reason = prompt(`Provide administrative reason to blacklist delegate: ${delegateName}`)
     if (!reason) return
     try {
-      const blRef = ref(firebaseDb, `blacklisted/${del.id}`)
-      await update(blRef, {
-        name: del.name,
-        email: del.email,
-        reason,
-        timestamp: Date.now()
-      })
-      await logActivity('BLACKLIST_DELEGATE', `Blacklisted delegate: ${del.name}`)
-      triggerNotification(`${del.name} added to security blacklist ledger.`, 'error')
+      if (del.sourceType === 'supabase') {
+        const id = del.uniqueId.replace('sb-', '')
+        const response = await fetch('/api/supabase-blacklist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, isBlacklisted: true, reason })
+        })
+        if (!response.ok) throw new Error('Failed to update Supabase record')
+      } else {
+        const fbId = del.sourceType === 'firebase' ? del.uniqueId.replace('fb-', '') : del.id
+        const blRef = ref(firebaseDb, `blacklisted/${fbId}`)
+        await update(blRef, {
+          name: delegateName,
+          email: delegateEmail,
+          reason,
+          timestamp: Date.now()
+        })
+      }
+      await logActivity('BLACKLIST_DELEGATE', `Blacklisted delegate: ${delegateName}`)
+      triggerNotification(`${delegateName} added to security blacklist ledger.`, 'error')
     } catch (err: any) {
       triggerNotification('Blacklist failed: ' + err.message, 'error')
+    }
+  }
+
+  const handleRemoveBlacklistDelegate = async (del: any) => {
+    const delegateName = del.displayName || del.name
+    if (!confirm(`Are you sure you want to remove the blacklist status for ${delegateName}?`)) return
+    try {
+      if (del.sourceType === 'supabase') {
+        const id = del.uniqueId.replace('sb-', '')
+        const response = await fetch('/api/supabase-blacklist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, isBlacklisted: false, reason: null })
+        })
+        if (!response.ok) throw new Error('Failed to update Supabase record')
+      } else {
+        const fbId = del.sourceType === 'firebase' ? del.uniqueId.replace('fb-', '') : del.id
+        const blRef = ref(firebaseDb, `blacklisted/${fbId}`)
+        await remove(blRef)
+      }
+      await logActivity('REMOVE_BLACKLIST_DELEGATE', `Removed blacklist for delegate: ${delegateName}`)
+      triggerNotification(`Removed blacklist status for ${delegateName}.`, 'success')
+    } catch (err: any) {
+      triggerNotification('Remove blacklist failed: ' + err.message, 'error')
     }
   }
 
@@ -3339,7 +3388,10 @@ export default function OasisWorkplace() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {filteredLiveDelegates.map(del => (
+                        {filteredLiveDelegates.map(del => {
+                          const isBlacklisted = !!dbBlacklisted[del.id] || !!dbBlacklisted[`${del.id}_delegate1`] || !!dbBlacklisted[`${del.id}_delegate2`]
+                          
+                          return (
                           <tr key={del.id} className="hover:bg-slate-50/50 transition-all">
                             <td className="py-3 px-4 font-semibold text-slate-800">{del.name}</td>
                             <td className="py-3 px-4 text-slate-600">{del.institution}</td>
@@ -3348,33 +3400,51 @@ export default function OasisWorkplace() {
                               <span className="block text-[10px] text-slate-400">{del.phone}</span>
                             </td>
                             <td className="py-3 px-4 text-center">
-                              <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${del.isCheckedIn ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                                }`}>
-                                {del.isCheckedIn ? 'Checked-In' : 'Pending'}
-                              </span>
+                              {isBlacklisted ? (
+                                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700">
+                                  Banned
+                                </span>
+                              ) : (
+                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${del.isCheckedIn ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                                  }`}>
+                                  {del.isCheckedIn ? 'Checked-In' : 'Pending'}
+                                </span>
+                              )}
                             </td>
                             <td className="py-3 px-4 text-center text-slate-500 text-xs">{del.checkInTime || '-'}</td>
                             <td className="py-3 px-4 text-center">
                               <div className="flex items-center justify-center gap-2">
                                 <button
                                   onClick={() => toggleDelegateCheckinStatus(del)}
-                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${del.isCheckedIn
+                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${isBlacklisted ? 'opacity-50 cursor-not-allowed bg-slate-100 text-slate-400' : del.isCheckedIn
                                     ? 'bg-rose-50 text-rose-700 hover:bg-rose-100'
                                     : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                                     }`}
+                                  disabled={isBlacklisted}
                                 >
                                   {del.isCheckedIn ? 'Check-Out' : 'Check-In'}
                                 </button>
-                                <button
-                                  onClick={() => handleBlacklistDelegate(del)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 transition-all"
-                                >
-                                  <Ban className="w-4 h-4" />
-                                </button>
+                                {isBlacklisted ? (
+                                  <button
+                                    onClick={() => handleRemoveBlacklistDelegate(del)}
+                                    className="p-1.5 text-slate-400 hover:text-emerald-600 transition-all"
+                                    title="Remove Blacklist"
+                                  >
+                                    <ShieldCheck className="w-4 h-4" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleBlacklistDelegate(del)}
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 transition-all"
+                                    title="Blacklist Delegate"
+                                  >
+                                    <Ban className="w-4 h-4" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
-                        ))}
+                        )})}
                       </tbody>
                     </table>
                   </div>
@@ -5135,6 +5205,8 @@ export default function OasisWorkplace() {
                           const port = comm?.portfolios?.find(p => p.id === d.portfolioId)
                           const portName = port ? port.country : 'Unallocated'
 
+                          const isBlacklisted = !!dbBlacklisted[d.id] || !!dbBlacklisted[`${d.id}_delegate1`] || !!dbBlacklisted[`${d.id}_delegate2`]
+
                           return {
                             uniqueId: `fb-${d.id}`,
                             sourceType: 'firebase',
@@ -5145,10 +5217,10 @@ export default function OasisWorkplace() {
                             displayPortfolio: portName,
                             displayEmail: d.email,
                             displayPhone: d.phone,
-                            displayPayment: d.paymentStatus || 'pending',
-                            displayStatus: d.isCheckedIn ? 'Checked-In' : 'Pending',
+                            displayPayment: isBlacklisted ? 'Blacklisted' : (d.paymentStatus || 'pending'),
+                            displayStatus: isBlacklisted ? 'Banned' : (d.isCheckedIn ? 'Checked-In' : 'Pending'),
                             displayExperience: d.experience || '0 (Active Session)',
-                            displayVettingStatus: 'Active Delegate - Cleared',
+                            displayVettingStatus: isBlacklisted ? 'BLACKLISTED - ACTIVE BAN' : 'Active Delegate - Cleared',
                             displayPreviousAllotments: 'No archive history (Current session only)'
                           }
                         })
@@ -5324,13 +5396,28 @@ export default function OasisWorkplace() {
                                 </div>
                               </div>
 
-                              <div className="pt-2">
+                              <div className="pt-2 space-y-2">
                                 <button
                                   onClick={() => handleDownloadCitationPDF(selectedDele)}
                                   className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#3C50E0] hover:bg-[#2B3EB2] text-white text-[11px] rounded-[4px] transition-colors border-none uppercase font-bold cursor-pointer"
                                 >
                                   <Download className="w-3.5 h-3.5" /> Download Delegate Record (PDF)
                                 </button>
+                                {isBanned ? (
+                                  <button
+                                    onClick={() => handleRemoveBlacklistDelegate(selectedDele)}
+                                    className="w-full flex items-center justify-center gap-1.5 px-4 py-2 bg-white hover:bg-slate-50 text-[#1C2434] text-[11px] rounded-[4px] transition-colors border border-slate-200 uppercase font-bold cursor-pointer"
+                                  >
+                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Remove Blacklist
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleBlacklistDelegate(selectedDele)}
+                                    className="w-full flex items-center justify-center gap-1.5 px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] rounded-[4px] transition-colors border border-rose-200 uppercase font-bold cursor-pointer"
+                                  >
+                                    <Ban className="w-3.5 h-3.5" /> Blacklist Delegate
+                                  </button>
+                                )}
                               </div>
                             </div>
                           )

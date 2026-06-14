@@ -162,6 +162,7 @@ function EBPortalContent() {
   });
   const [couponError, setCouponError] = useState<string | null>(null);
   const [siteSettings, setSiteSettings] = useState<any>(null)
+  const [blacklistedDelegates, setBlacklistedDelegates] = useState<Record<string, any>>({})
   const [editingMark, setEditingMark] = useState<Mark | null>(null)
   const [tempMark, setTempMark] = useState<Partial<Mark>>({})
   const [showFilters, setShowFilters] = useState(false)
@@ -206,8 +207,31 @@ function EBPortalContent() {
         setSiteSettings(snap.val())
       }
     })
-    return () => unsub()
+
+    const blacklistRef = ref(firebaseDb, 'blacklisted')
+    const unsubBlacklist = onValue(blacklistRef, (snap) => {
+      if (snap.exists()) {
+        setBlacklistedDelegates(snap.val())
+      } else {
+        setBlacklistedDelegates({})
+      }
+    })
+
+    return () => {
+      unsub()
+      unsubBlacklist()
+    }
   }, [])
+
+  const isPortfolioBlacklisted = (portfolioId: string) => {
+    const linkedDelegates = delegates.filter(d => d.portfolioId === portfolioId)
+    for (const d of linkedDelegates) {
+      if (blacklistedDelegates[`${d.id}_delegate1`] || blacklistedDelegates[`${d.id}_delegate2`]) {
+        return true
+      }
+    }
+    return false
+  }
 
   // Firebase Auth listener – persistent session
   useEffect(() => {
@@ -658,6 +682,11 @@ function EBPortalContent() {
 
   const saveMark = async () => {
     if (!editingMark || !selectedCommittee) return
+
+    if (isPortfolioBlacklisted(tempMark.portfolioId || editingMark.portfolioId || '')) {
+      toast.error('Cannot save marks. This portfolio is associated with a blacklisted delegate.')
+      return
+    }
 
     try {
       setLoading(prev => ({ ...prev, saving: true }))
@@ -1404,7 +1433,11 @@ function EBPortalContent() {
                           </td>
                         </tr>
                       ) : filteredMarks.length > 0 ? (
-                        filteredMarks.map((mark) => (
+                        filteredMarks.map((mark) => {
+                          const isBlacklisted = isPortfolioBlacklisted(mark.portfolioId || '')
+                          const disabledState = siteSettings?.marksEntryLocked || isBlacklisted
+                          
+                          return (
                           <tr key={mark.id} className="hover:bg-slate-50">
                             <td className="px-3 py-2 text-slate-800 font-medium">{mark.country}</td>
                             <td className="px-3 py-2 text-slate-600">{mark.alt}</td>
@@ -1419,34 +1452,40 @@ function EBPortalContent() {
                             <td className="px-3 py-2 text-slate-600">{mark.doc}</td>
                             <td className="px-3 py-2 font-bold text-indigo-600">{mark.total}</td>
                             <td className="px-3 py-2">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                mark.isApproved
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-amber-100 text-amber-700'
-                              }`}>
-                                {mark.isApproved ? 'Approved' : 'Pending'}
-                              </span>
+                              {isBlacklisted ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-700">
+                                  Blacklisted
+                                </span>
+                              ) : (
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                  mark.isApproved
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-amber-100 text-amber-700'
+                                }`}>
+                                  {mark.isApproved ? 'Approved' : 'Pending'}
+                                </span>
+                              )}
                             </td>
                             <td className="px-3 py-2">
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => startEditingMark(mark)}
-                                  className={`p-1 rounded ${siteSettings?.marksEntryLocked ? 'text-slate-400 cursor-not-allowed' : 'text-indigo-500 hover:bg-indigo-50'}`}
-                                  disabled={siteSettings?.marksEntryLocked}
+                                  className={`p-1 rounded ${disabledState ? 'text-slate-400 cursor-not-allowed' : 'text-indigo-500 hover:bg-indigo-50'}`}
+                                  disabled={disabledState}
                                 >
                                   <Edit className="h-4 w-4" />
                                 </button>
                                 <button
                                   onClick={() => deleteMark(mark.id!, mark.country)}
-                                  className={`p-1 rounded ${siteSettings?.marksEntryLocked ? 'text-slate-400 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'}`}
-                                  disabled={siteSettings?.marksEntryLocked}
+                                  className={`p-1 rounded ${disabledState ? 'text-slate-400 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'}`}
+                                  disabled={disabledState}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </button>
                               </div>
                             </td>
                           </tr>
-                        ))
+                        )})
                       ) : (
                         <tr>
                           <td colSpan={13} className="text-center py-8 text-slate-500">
