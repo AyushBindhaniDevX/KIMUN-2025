@@ -79,6 +79,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [underMaintenance, setUnderMaintenance] = useState(false)
   const [countdown, setCountdown] = useState(600)
+  const [siteSettings, setSiteSettings] = useState<any>(null)
 
   const [ref1, inView1] = useInView({ triggerOnce: true, threshold: 0.1 })
   const [ref2, inView2] = useInView({ triggerOnce: true, threshold: 0.1 })
@@ -92,17 +93,19 @@ export default function Home() {
         const app = initializeApp(firebaseConfig)
         const db = getDatabase(app)
         
-        const maintenanceRef = ref(db, 'maintenance')
-        const maintenanceSnapshot = await get(maintenanceRef)
+        const siteSettingsRef = ref(db, 'site_settings')
+        const siteSettingsSnapshot = await get(siteSettingsRef)
         
-        if (!maintenanceSnapshot.exists()) {
-          await set(maintenanceRef, { enabled: false })
-          setUnderMaintenance(false)
-        } else {
-          const maintenanceData = maintenanceSnapshot.val()
-          setUnderMaintenance(maintenanceData.enabled)
-          
-          if (maintenanceData.enabled) {
+        let maintenanceEnabled = false
+        if (siteSettingsSnapshot.exists()) {
+          const settingsData = siteSettingsSnapshot.val()
+          setSiteSettings(settingsData)
+          maintenanceEnabled = settingsData.maintenanceEnabled || false
+        }
+
+        setUnderMaintenance(maintenanceEnabled)
+        
+        if (maintenanceEnabled) {
             const timer = setInterval(() => {
               setCountdown(prev => {
                 if (prev <= 1) {
@@ -116,7 +119,7 @@ export default function Home() {
             
             return () => clearInterval(timer)
           }
-        }
+
 
         if (!underMaintenance) {
           const committeesRef = ref(db, 'committees')
@@ -211,13 +214,13 @@ export default function Home() {
         <div className="container mx-auto px-6 max-w-7xl grid lg:grid-cols-12 gap-12 items-center relative z-20">
           <div className="lg:col-span-7 space-y-6 text-left">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-full text-xs font-semibold text-indigo-700">
-              <Sparkles className="h-3 w-3" /> Annual Conference 2026
+              <Sparkles className="h-3 w-3" /> Annual Conference {siteSettings?.eventDate || '2026'}
             </div>
             <h1 className="text-4xl md:text-6xl font-bold text-slate-900 tracking-tight leading-[1.1]">
               The Premier Platform For <span className="text-indigo-600">Global Diplomacy</span> & Debate
             </h1>
             <p className="text-base md:text-lg text-slate-600 max-w-xl leading-relaxed">
-              Join hundreds of delegates at Kalinga International MUN 2026. Engage in professional discussions, solve global challenges, and build institutional leadership skills.
+              Join hundreds of delegates at Kalinga International MUN {siteSettings?.eventDate || '2026'}. Engage in professional discussions, solve global challenges, and build institutional leadership skills.
             </p>
             <div className="pt-2 flex flex-wrap gap-4">
               <Link href="/registration">
@@ -298,7 +301,7 @@ export default function Home() {
                   Kalinga International MUN is a recognized conference dedicated to international diplomacy, consensus-building, and academic debate. We offer an environment where students can assume the roles of global policymakers to address pressing international problems.
                 </p>
                 <p>
-                  Our 2026 session brings together diverse student delegates from multiple regions for a rigorous, educational, two-day experience focused on standard United Nations procedures.
+                  Our {siteSettings?.eventDate || '2026'} session brings together diverse student delegates from multiple regions for a rigorous, educational, two-day experience focused on standard United Nations procedures.
                 </p>
               </div>
 
@@ -307,14 +310,14 @@ export default function Home() {
                   <Calendar className="text-indigo-600 h-5 w-5 shrink-0" />
                   <div>
                     <h4 className="text-xs font-bold text-slate-400 uppercase">Duration</h4>
-                    <p className="text-sm font-semibold text-slate-800">2-Day Conference</p>
+                    <p className="text-sm font-semibold text-slate-800">{siteSettings?.eventDuration || '2-Day Conference'}</p>
                   </div>
                 </div>
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-3">
                   <Users className="text-indigo-600 h-5 w-5 shrink-0" />
                   <div>
                     <h4 className="text-xs font-bold text-slate-400 uppercase">Attendance</h4>
-                    <p className="text-sm font-semibold text-slate-800">300+ Delegates</p>
+                    <p className="text-sm font-semibold text-slate-800">{siteSettings?.attendanceTarget || '300+ Delegates'}</p>
                   </div>
                 </div>
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-3">
@@ -329,7 +332,7 @@ export default function Home() {
                     <MapPin className="text-indigo-600 h-5 w-5 shrink-0" />
                     <div>
                       <h4 className="text-xs font-bold text-slate-400 uppercase">Venue</h4>
-                      <p className="text-sm font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">ASBMU, India</p>
+                      <p className="text-sm font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">{siteSettings?.eventVenue || 'ASBMU, India'}</p>
                     </div>
                   </div>
                 </a>
@@ -510,7 +513,7 @@ export default function Home() {
           </div>
         </div>
         <div className="mt-16 pt-8 border-t border-slate-100 text-center text-slate-400 font-semibold">
-          <p>© 2026 Kalinga International MUN Secretariat. All rights reserved.</p>
+          <p>© {siteSettings?.eventDate || '2026'} Kalinga International MUN Secretariat. All rights reserved.</p>
         </div>
       </footer>
     </div>

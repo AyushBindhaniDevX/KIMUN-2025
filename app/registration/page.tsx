@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import Confetti from 'react-confetti'
 import { Sparkles, CheckCircle, Globe, Users, AlertCircle, ChevronRight, Calendar, Clock, Lock, Unlock, ArrowLeft } from 'lucide-react'
 import * as Flags from 'country-flag-icons/react/3x2'
-import { ref, get, push, update } from 'firebase/database'
+import { ref, get, push, update, onValue } from 'firebase/database'
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import Image from 'next/image'
 import Link from "next/link"
@@ -162,6 +162,7 @@ export default function RegistrationPage() {
   const [discount, setDiscount] = useState(0)
   const [couponApplied, setCouponApplied] = useState(false)
   const [couponError, setCouponError] = useState('')
+  const [siteSettings, setSiteSettings] = useState<any>(null)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user: any) => {
@@ -259,7 +260,34 @@ export default function RegistrationPage() {
   }
 
   useEffect(() => {
+    const settingsRef = ref(firebaseDb, 'site_settings')
+    const unsub = onValue(settingsRef, (snap) => {
+      if (snap.exists()) {
+        setSiteSettings(snap.val())
+      }
+    })
+    return () => unsub()
+  }, [])
+
+  useEffect(() => {
     const checkRegistrationPhase = () => {
+      let mode = siteSettings?.registrationMode || 'Auto'
+      
+      if (mode === 'Closed') {
+        setCurrentPhase(null)
+        setRegistrationOpen(false)
+        return
+      }
+
+      if (mode !== 'Auto') {
+        const manualPhase = REGISTRATION_PHASES.find(p => p.name === mode)
+        if (manualPhase) {
+          setCurrentPhase(manualPhase)
+          setRegistrationOpen(true)
+          return
+        }
+      }
+
       const now = new Date()
       let activePhase = null
 
@@ -281,7 +309,7 @@ export default function RegistrationPage() {
     checkRegistrationPhase()
     const interval = setInterval(checkRegistrationPhase, 3600000)
     return () => clearInterval(interval)
-  }, [])
+  }, [siteSettings])
 
   useEffect(() => {
     const fetchCommittees = async () => {

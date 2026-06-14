@@ -187,7 +187,7 @@ export default function OasisWorkplace() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Workspace Navigation
-  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'dept_boards' | 'registry_manager' | 'delegate_search' | 'help_docs'>('dashboard')
+  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'dept_boards' | 'registry_manager' | 'delegate_search' | 'help_docs' | 'site_settings' | 'logs'>('dashboard')
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All Departments')
 
   // Live Database Datasets
@@ -202,6 +202,15 @@ export default function OasisWorkplace() {
   const [dbPayouts, setDbPayouts] = useState<any[]>([])
   const [dbCoupons, setDbCoupons] = useState<any[]>([])
   const [dbActivityLogs, setDbActivityLogs] = useState<any[]>([])
+  const [dbSiteSettings, setDbSiteSettings] = useState<any>({
+    maintenanceEnabled: false,
+    registrationMode: 'Auto',
+    marksEntryLocked: false,
+    eventDate: '2026',
+    eventVenue: 'ASBMU, India',
+    eventDuration: '2-Day Conference',
+    attendanceTarget: '300+ Delegates'
+  })
   const [loadingData, setLoadingData] = useState(true)
 
   // Financial Workstation Local State
@@ -677,6 +686,13 @@ export default function OasisWorkplace() {
       }
     })
 
+    const settingsRef = ref(firebaseDb, 'site_settings')
+    const unsubSettings = onValue(settingsRef, (snap) => {
+      if (snap.exists()) {
+        setDbSiteSettings(snap.val())
+      }
+    })
+
     const logsRef = ref(firebaseDb, 'activity_logs')
     const unsubLogs = onValue(logsRef, (snap) => {
       if (snap.exists()) {
@@ -700,6 +716,7 @@ export default function OasisWorkplace() {
       unsubPayouts()
       unsubCoupons()
       unsubLogs()
+      unsubSettings()
     }
   }, [accessGranted, user])
 
@@ -2158,6 +2175,7 @@ export default function OasisWorkplace() {
     ...(role === 'admin' ? [
       { id: 'coupons', label: 'Coupons', icon: Ticket, color: 'text-pink-600' },
       { id: 'registry_manager', label: 'Committee Management', icon: Sliders, color: 'text-teal-600' },
+      { id: 'site_settings', label: 'Global Config', icon: Settings, color: 'text-indigo-600' },
       { id: 'logs', label: 'Activity Logs', icon: Activity, color: 'text-rose-600' }
     ] : [])
   ]
@@ -5333,6 +5351,106 @@ export default function OasisWorkplace() {
             )}
 
             {/* Activity Logs (Admin only) */}
+            {activeMenuTab === 'site_settings' && role === 'admin' && (
+              <motion.div
+                key="site_settings"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="space-y-6 max-w-4xl mx-auto pb-20"
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl font-bold text-[#1C2434] tracking-tight">Global Site Configuration</h1>
+                    <p className="text-sm text-[#AEB7C0] mt-1">Manage maintenance mode, registration phases, and event details.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Maintenance & Security */}
+                  <div className="bg-white rounded-[10px] shadow-sm border border-[#E2E8F0] overflow-hidden">
+                    <div className="px-6 py-4 border-b border-[#E2E8F0] bg-slate-50 flex items-center gap-3">
+                      <Shield className="w-5 h-5 text-indigo-600" />
+                      <h3 className="text-md font-bold text-slate-800">Security & Access</h3>
+                    </div>
+                    <div className="p-6 space-y-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-semibold text-slate-800">Maintenance Mode</h4>
+                          <p className="text-xs text-slate-500">Brings down the landing page with a maintenance message.</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" checked={dbSiteSettings?.maintenanceEnabled || false} onChange={(e) => {
+                            update(ref(firebaseDb, 'site_settings'), { maintenanceEnabled: e.target.checked })
+                            triggerNotification('Maintenance mode updated')
+                          }} />
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                        </label>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-semibold text-slate-800">Lock Marks Entry</h4>
+                          <p className="text-xs text-slate-500">Prevents EBs from adding or editing marks.</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" checked={dbSiteSettings?.marksEntryLocked || false} onChange={(e) => {
+                            update(ref(firebaseDb, 'site_settings'), { marksEntryLocked: e.target.checked })
+                            triggerNotification('Marks entry lock updated')
+                          }} />
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-800 mb-2">Registration Mode</h4>
+                        <select 
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          value={dbSiteSettings?.registrationMode || 'Auto'}
+                          onChange={(e) => {
+                            update(ref(firebaseDb, 'site_settings'), { registrationMode: e.target.value })
+                            triggerNotification('Registration mode updated')
+                          }}
+                        >
+                          <option value="Auto">Auto (Date-based)</option>
+                          <option value="Phase 1">Force: Phase 1</option>
+                          <option value="Phase 2">Force: Phase 2</option>
+                          <option value="Final Phase">Force: Final Phase</option>
+                          <option value="Closed">Force: Closed</option>
+                        </select>
+                        <p className="text-xs text-slate-500 mt-2">Override the automatic date-based phase logic.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Site Info */}
+                  <div className="bg-white rounded-[10px] shadow-sm border border-[#E2E8F0] overflow-hidden">
+                    <div className="px-6 py-4 border-b border-[#E2E8F0] bg-slate-50 flex items-center gap-3">
+                      <Globe className="w-5 h-5 text-indigo-600" />
+                      <h3 className="text-md font-bold text-slate-800">Event Information</h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Event Date</label>
+                        <input type="text" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm" value={dbSiteSettings?.eventDate || ''} onChange={(e) => update(ref(firebaseDb, 'site_settings'), { eventDate: e.target.value })} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Event Duration</label>
+                        <input type="text" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm" value={dbSiteSettings?.eventDuration || ''} onChange={(e) => update(ref(firebaseDb, 'site_settings'), { eventDuration: e.target.value })} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Event Venue</label>
+                        <input type="text" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm" value={dbSiteSettings?.eventVenue || ''} onChange={(e) => update(ref(firebaseDb, 'site_settings'), { eventVenue: e.target.value })} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Attendance Target</label>
+                        <input type="text" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm" value={dbSiteSettings?.attendanceTarget || ''} onChange={(e) => update(ref(firebaseDb, 'site_settings'), { attendanceTarget: e.target.value })} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
             {activeMenuTab === 'logs' && role === 'admin' && (
               <motion.div
                 key="logs"

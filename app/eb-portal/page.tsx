@@ -161,6 +161,7 @@ function EBPortalContent() {
     uploading: false,
   });
   const [couponError, setCouponError] = useState<string | null>(null);
+  const [siteSettings, setSiteSettings] = useState<any>(null)
   const [editingMark, setEditingMark] = useState<Mark | null>(null)
   const [tempMark, setTempMark] = useState<Partial<Mark>>({})
   const [showFilters, setShowFilters] = useState(false)
@@ -197,6 +198,16 @@ function EBPortalContent() {
       localStorage.setItem('ebSelectedCommittee', selectedCommittee)
     }
   }, [selectedCommittee])
+
+  useEffect(() => {
+    const settingsRef = ref(firebaseDb, 'site_settings')
+    const unsub = onValue(settingsRef, (snap) => {
+      if (snap.exists()) {
+        setSiteSettings(snap.val())
+      }
+    })
+    return () => unsub()
+  }, [])
 
   // Firebase Auth listener – persistent session
   useEffect(() => {
@@ -567,6 +578,10 @@ function EBPortalContent() {
 
   // Marks Management Functions
   const startEditingMark = (mark?: Mark) => {
+    if (siteSettings?.marksEntryLocked) {
+      toast.error('Marks entry is currently locked by administrators.')
+      return
+    }
     if (mark) {
       setEditingMark(mark)
       setTempMark({ ...mark })
@@ -687,6 +702,10 @@ function EBPortalContent() {
   }
 
   const deleteMark = async (markId: string, country: string) => {
+    if (siteSettings?.marksEntryLocked) {
+      toast.error('Marks entry is currently locked by administrators.')
+      return
+    }
     if (!confirm(`Are you sure you want to delete marks for ${country}?`)) return
 
     try {
@@ -1318,8 +1337,9 @@ function EBPortalContent() {
                   <Button
                     onClick={() => startEditingMark()}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                    disabled={siteSettings?.marksEntryLocked}
                   >
-                    <Plus className="h-4 w-4 mr-2" />
+                    {siteSettings?.marksEntryLocked ? <Lock className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
                     Add Marks
                   </Button>
                   <Button
@@ -1411,13 +1431,15 @@ function EBPortalContent() {
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => startEditingMark(mark)}
-                                  className="p-1 text-indigo-500 hover:bg-indigo-50 rounded"
+                                  className={`p-1 rounded ${siteSettings?.marksEntryLocked ? 'text-slate-400 cursor-not-allowed' : 'text-indigo-500 hover:bg-indigo-50'}`}
+                                  disabled={siteSettings?.marksEntryLocked}
                                 >
                                   <Edit className="h-4 w-4" />
                                 </button>
                                 <button
                                   onClick={() => deleteMark(mark.id!, mark.country)}
-                                  className="p-1 text-red-500 hover:bg-red-50 rounded"
+                                  className={`p-1 rounded ${siteSettings?.marksEntryLocked ? 'text-slate-400 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'}`}
+                                  disabled={siteSettings?.marksEntryLocked}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </button>
