@@ -356,7 +356,6 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
                 </Button>
               </div>
             )}
-
             {step === 'interview' && (
               <div className="space-y-6 flex flex-col h-full justify-center">
                 
@@ -370,6 +369,25 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
                   </p>
                 </div>
 
+                {/* Applicant's transcript */}
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-5 relative">
+                  <div className="absolute -top-3 left-4 bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Mic className="w-3 h-3" /> You
+                  </div>
+                  <p className="text-sm text-emerald-900 italic mt-2 min-h-[40px]">
+                    {currentTranscript || (isRecording ? "Listening... (Click Submit when done)" : "Wait for the AI to finish...")}
+                  </p>
+                </div>
+
+                {/* Manual override button */}
+                {isRecording && (
+                  <Button 
+                    onClick={handleUserFinishedSpeaking}
+                    className="mt-4 w-full bg-slate-900 hover:bg-slate-800 text-white py-6 rounded-xl font-bold shadow-lg"
+                  >
+                    Done Speaking (Submit Answer)
+                  </Button>
+                )}
               </div>
             )}
 
