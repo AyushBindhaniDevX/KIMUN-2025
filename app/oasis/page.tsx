@@ -6214,6 +6214,25 @@ export default function OasisWorkplace() {
                     </div>
                   </div>
 
+                  {/* AI Interview Results */}
+                  {selectedApplicant.interviewCompleted && (
+                    <div>
+                      <h4 className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> AI Interview Evaluation
+                      </h4>
+                      <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3.5 text-xs text-emerald-900 leading-relaxed space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">AI Score:</span>
+                          <span className="bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-md font-bold">{selectedApplicant.interviewScore}/10</span>
+                        </div>
+                        <div>
+                          <span className="font-bold block mb-1">Feedback Summary:</span>
+                          <p className="italic">"{selectedApplicant.interviewFeedback}"</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Prior Experience */}
                   <div>
                     <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Prior Experience</h4>

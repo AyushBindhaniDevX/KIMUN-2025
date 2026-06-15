@@ -41,6 +41,7 @@ import { ref, get, set, update, onValue } from 'firebase/database'
 import { ref as sRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
 // @ts-ignore
 import confetti from 'canvas-confetti'
+import AIInterviewModal from './AIInterviewModal'
 
 const DEPARTMENTS = [
   "Business Relations & Corporate Strategy",
@@ -98,6 +99,26 @@ export default function OCApplicationPage() {
   const [signingError, setSigningError] = useState('')
   const [signing, setSigning] = useState(false)
   const [downloadingContract, setDownloadingContract] = useState(false)
+  const [showAIInterviewModal, setShowAIInterviewModal] = useState(false)
+
+  const handleAIInterviewComplete = async (score: number, feedback: string) => {
+    if (!user) return;
+    try {
+      const appRef = ref(firebaseDb, `oc_applications/${user.uid}`);
+      const updates = {
+        interviewCompleted: true,
+        interviewScore: score,
+        interviewFeedback: feedback,
+        status: score >= 7 ? 'onboarding' : 'interview' // Automatically move to onboarding if score is good, or leave in interview for manual review
+      };
+      await update(appRef, updates);
+      setApplication((prev: any) => ({ ...prev, ...updates }));
+      setShowAIInterviewModal(false);
+      triggerConfetti();
+    } catch (err) {
+      console.error('Error saving AI interview score:', err);
+    }
+  }
 
   const triggerConfetti = () => {
     if (typeof window !== 'undefined') {
@@ -1188,17 +1209,44 @@ export default function OCApplicationPage() {
                         Stage 2: Shortlisted for Interview
                       </span>
                       <h3 className="text-lg font-bold text-slate-900 mt-3">Congratulations! You are shortlisted for the interview round</h3>
-                      <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                        Our recruitment coordinators are reviewing your credentials. An online interview scheduling invite will be shared via email shortly.
-                      </p>
-                      <div className="mt-4 p-4 bg-white border border-slate-200 rounded-xl space-y-2.5 w-full">
-                        <h4 className="text-xs font-bold text-slate-800">Preparation Guidelines:</h4>
-                        <ul className="space-y-1.5 text-[11px] text-slate-500">
-                          <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-indigo-600" /> Be ready to discuss your preference: <strong className="text-slate-700">{application.pref1}</strong></li>
-                          <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-indigo-600" /> Review your Statement of Purpose (SOP)</li>
-                          <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-indigo-600" /> Ensure a stable audio/video setup for the meeting</li>
-                        </ul>
-                      </div>
+                      
+                      {application.interviewCompleted ? (
+                        <>
+                          <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                            You have successfully completed your AI video interview. Our recruitment coordinators are currently reviewing your results. You will receive an update shortly.
+                          </p>
+                          <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-3">
+                            <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                            <div>
+                              <h4 className="text-sm font-bold text-emerald-800">Interview Recorded Successfully</h4>
+                              <p className="text-xs text-emerald-600">Your AI evaluation score has been submitted for review.</p>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                            You have been selected to complete a fast-track AI video interview. This will only take 5-10 minutes. Please ensure you are in a quiet room and have your camera and microphone ready.
+                          </p>
+                          <div className="mt-6 flex flex-col sm:flex-row gap-4 w-full">
+                            <Button 
+                              onClick={() => setShowAIInterviewModal(true)}
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-6 px-8 rounded-xl shadow-md w-full sm:w-auto"
+                            >
+                              Start AI Video Interview
+                            </Button>
+                          </div>
+                          
+                          <div className="mt-6 p-4 bg-white border border-slate-200 rounded-xl space-y-2.5 w-full">
+                            <h4 className="text-xs font-bold text-slate-800">Preparation Guidelines:</h4>
+                            <ul className="space-y-1.5 text-[11px] text-slate-500">
+                              <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-indigo-600" /> Ensure a stable internet connection</li>
+                              <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-indigo-600" /> Be ready to discuss your preference: <strong className="text-slate-700">{application.pref1}</strong></li>
+                              <li className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-indigo-600" /> Speak clearly into your microphone</li>
+                            </ul>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1941,6 +1989,14 @@ export default function OCApplicationPage() {
           </p>
         </motion.section>
       </main>
+
+      <AIInterviewModal 
+        isOpen={showAIInterviewModal} 
+        onClose={() => setShowAIInterviewModal(false)} 
+        application={application} 
+        onComplete={handleAIInterviewComplete} 
+      />
+
     </div>
   )
 }
