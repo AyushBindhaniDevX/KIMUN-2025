@@ -31,6 +31,13 @@
         ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
       }
     },
+    "eb_applications": {
+      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+      }
+    },
     "oc_tasks": {
       ".read": "auth != null",
       ".write": "auth != null"
