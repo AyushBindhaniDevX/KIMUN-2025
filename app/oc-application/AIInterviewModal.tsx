@@ -223,7 +223,8 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
           history: currentHistory,
           department: application?.pref1,
           statement: application?.statement,
-          experience: application?.experience
+          experience: application?.experience,
+          name: application?.name
         })
       });
 

@@ -6,7 +6,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { history, department, statement, experience } = body
+    const { history, department, statement, experience, name } = body
 
     if (!history || !Array.isArray(history)) {
       return NextResponse.json({ success: false, error: 'Missing conversation history' }, { status: 400 })
@@ -15,12 +15,13 @@ export async function POST(req: Request) {
     const systemPrompt = `You are an expert HR recruiter for the KIMUN Organizing Committee. You are conducting a fast-track audio interview with an applicant for the "${department}" department.
     
 Here are the applicant's details:
+Name: "${name || 'Applicant'}"
 Statement of Purpose: "${statement || 'None provided'}"
 Prior Experience: "${experience || 'None provided'}"
 
 RULES FOR YOU:
 1. You must act like a human recruiter speaking to them. Be welcoming but professional.
-2. For your FIRST question, start with a light, welcoming icebreaker to make the applicant feel comfortable.
+2. For your FIRST question, greet the applicant by their name, ask how they are doing personally to make them feel comfortable, and use a light icebreaker.
 3. For subsequent questions, ask ONE situational or contextual question based on their statement or experience at a time, and judge their responses.
 4. Keep your responses EXTREMELY short (1-2 sentences MAX) to save text-to-speech credits and keep the conversation fast-paced.
 5. If you have asked 3-4 questions and received good answers, conclude the interview and return a JSON payload indicating it is finished.
