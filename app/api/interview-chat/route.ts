@@ -42,14 +42,17 @@ Respond strictly in the following JSON format:
       formattedContents.push({ role: 'user', parts: [{ text: 'Hello, I am ready to start my interview.' }] });
     }
 
-    const maxRetries = 3;
+    const maxRetries = 5;
     let responseText = '';
     let attempt = 0;
 
     while (attempt < maxRetries) {
       try {
+        // Use gemini-2.5-flash initially, but fallback to 1.5-flash if traffic is too high
+        const modelName = attempt < 3 ? 'gemini-2.5-flash' : 'gemini-1.5-flash';
+        
         const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: modelName,
           contents: formattedContents,
           config: {
             systemInstruction: systemPrompt,
@@ -66,7 +69,7 @@ Respond strictly in the following JSON format:
         if (attempt >= maxRetries) {
           throw new Error('Failed to generate response after multiple attempts. Traffic might be high.');
         }
-        // Exponential backoff: 1s, 2s
+        // Exponential backoff: 1s, 2s, 4s, 8s
         await new Promise(res => setTimeout(res, Math.pow(2, attempt - 1) * 1000));
       }
     }

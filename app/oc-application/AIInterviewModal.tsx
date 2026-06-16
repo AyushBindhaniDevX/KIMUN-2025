@@ -40,7 +40,7 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(() => {
         handleUserFinishedSpeaking();
-      }, 1000);
+      }, 2000);
     }
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
