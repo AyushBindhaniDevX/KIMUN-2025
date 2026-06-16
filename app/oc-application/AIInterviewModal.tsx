@@ -18,6 +18,7 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
   
   const [history, setHistory] = useState<{role: 'user' | 'model', text: string}[]>([]);
   const [currentTranscript, setCurrentTranscript] = useState('');
+  const [interimTranscript, setInterimTranscript] = useState('');
   
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
@@ -27,6 +28,34 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
   const isRecordingRef = useRef(false);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const mainVideoRef = useRef<HTMLVideoElement>(null);
+
+  const stateRef = useRef({ history, currentTranscript, interimTranscript });
+  useEffect(() => {
+    stateRef.current = { history, currentTranscript, interimTranscript };
+  }, [history, currentTranscript, interimTranscript]);
+
+  useEffect(() => {
+    if (isRecording && (currentTranscript || interimTranscript)) {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = setTimeout(() => {
+        handleUserFinishedSpeaking();
+      }, 1000);
+    }
+    return () => {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    }
+  }, [currentTranscript, interimTranscript, isRecording]);
+
+  useEffect(() => {
+    if (mainVideoRef.current) {
+      if (isRecording) {
+        mainVideoRef.current.pause();
+      } else {
+        mainVideoRef.current.play().catch(e => console.error(e));
+      }
+    }
+  }, [isRecording]);
 
   // Load from localStorage if available
   useEffect(() => {
@@ -64,6 +93,7 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
       setStep('intro');
       setHistory([]);
       setCurrentTranscript('');
+      setInterimTranscript('');
       setIsRecording(false);
       setIsAiSpeaking(false);
       setConnectionError(null);
@@ -116,22 +146,19 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
 
       recognition.onresult = (event: any) => {
         let interim = '';
+        let finalT = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
-            setCurrentTranscript(prev => prev + event.results[i][0].transcript + ' ');
+            finalT += event.results[i][0].transcript + ' ';
           } else {
             interim += event.results[i][0].transcript;
           }
         }
         
-        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-        
-        const fullText = (currentTranscript + interim).trim();
-        if (fullText.length > 0) {
-          silenceTimerRef.current = setTimeout(() => {
-            handleUserFinishedSpeaking();
-          }, 3500);
+        if (finalT) {
+          setCurrentTranscript(prev => prev + finalT);
         }
+        setInterimTranscript(interim);
       };
 
       recognition.onerror = (event: any) => {
@@ -245,17 +272,20 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
     }
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
 
-    const userText = currentTranscript.trim() || '(Nodded/Silence)';
+    const { history: latestHistory, currentTranscript: latestTrans, interimTranscript: latestInterim } = stateRef.current;
+    const userText = (latestTrans + ' ' + latestInterim).trim() || '(Nodded/Silence)';
     
-    const newHistory = [...history, { role: 'user', text: userText }] as {role: 'user'|'model', text: string}[];
+    const newHistory = [...latestHistory, { role: 'user', text: userText }] as {role: 'user'|'model', text: string}[];
     setHistory(newHistory);
     setCurrentTranscript('');
+    setInterimTranscript('');
     
     getNextAIResponse(newHistory);
   };
 
   const startRecording = () => {
     setCurrentTranscript('');
+    setInterimTranscript('');
     setIsRecording(true);
     isRecordingRef.current = true;
     if (recognitionRef.current) {
@@ -324,10 +354,11 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
           )}
 
           {/* Left Side: Video Feed / Google Meet Style */}
-          <div className="w-full md:w-2/3 bg-black relative flex flex-col items-center justify-center overflow-hidden">
+          <div className="w-full md:w-2/3 min-h-[50vh] md:min-h-0 bg-black relative flex flex-col items-center justify-center overflow-hidden">
             
             {/* Recruiter Video (Main) */}
             <video 
+              ref={mainVideoRef}
               src="/images/recruitervideo.mp4"
               autoPlay 
               loop
@@ -394,7 +425,7 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
 
             {/* Applicant PiP (Picture in Picture) */}
             {step === 'interview' && (
-              <div className="absolute bottom-6 right-6 w-48 aspect-video bg-zinc-800 rounded-2xl overflow-hidden shadow-2xl border-2 border-zinc-700/50 z-20">
+              <div className="absolute bottom-20 right-4 md:bottom-6 md:right-6 w-32 md:w-48 aspect-video bg-zinc-800 rounded-2xl overflow-hidden shadow-2xl border-2 border-zinc-700/50 z-20">
                 <video 
                   ref={videoRef} 
                   autoPlay 
@@ -431,7 +462,7 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
 
             {/* Bottom Controls Bar (Google Meet style) */}
             {step === 'interview' && (
-              <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-4 z-20">
+              <div className="absolute bottom-4 md:bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-4 z-20">
                 <button 
                   className={`w-14 h-14 rounded-full flex items-center justify-center backdrop-blur-md transition-all ${isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300'}`}
                   onClick={isRecording ? handleUserFinishedSpeaking : undefined}
@@ -455,7 +486,7 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
 
           {/* Right Side: Details & Chat Panel */}
           {step === 'interview' && (
-            <div className="w-full md:w-1/3 bg-zinc-900 border-l border-zinc-800 flex flex-col h-full z-30">
+            <div className="w-full md:w-1/3 bg-zinc-900 border-t md:border-t-0 md:border-l border-zinc-800 flex flex-col flex-1 md:h-full z-30">
               
               {/* Applicant Details Header */}
               <div className="p-6 border-b border-zinc-800 bg-zinc-900/50">
@@ -491,7 +522,7 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
                    <div className="flex flex-col items-end">
                      <span className="text-xs text-zinc-500 mb-1.5 font-medium mr-1">You</span>
                      <div className="p-4 rounded-2xl max-w-[85%] text-sm leading-relaxed bg-indigo-600/50 border border-indigo-500/30 text-indigo-100 rounded-tr-sm italic">
-                       {currentTranscript || "Listening..."}
+                       {(currentTranscript + ' ' + interimTranscript).trim() || "Listening..."}
                      </div>
                    </div>
                 )}
