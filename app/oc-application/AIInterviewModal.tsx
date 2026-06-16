@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mic, Video, Loader2, CheckCircle2, Volume2 } from 'lucide-react';
+import { X, Mic, Video, Loader2, CheckCircle2, Volume2, AlertCircle, RefreshCw, Briefcase, GraduationCap, User as UserIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface AIInterviewModalProps {
@@ -19,12 +19,44 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
   const [history, setHistory] = useState<{role: 'user' | 'model', text: string}[]>([]);
   const [currentTranscript, setCurrentTranscript] = useState('');
   
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<any>(null);
   const isRecordingRef = useRef(false);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Load from localStorage if available
+  useEffect(() => {
+    if (isOpen && application?.name) {
+      const savedStateStr = localStorage.getItem(`ai_interview_${application.name}`);
+      if (savedStateStr) {
+        try {
+          const savedState = JSON.parse(savedStateStr);
+          if (savedState.step !== 'done' && savedState.step !== 'evaluating') {
+             setHistory(savedState.history || []);
+             if (savedState.step === 'interview') {
+               setStep('interview');
+             }
+          }
+        } catch (e) {
+          console.error("Failed to parse saved interview state", e);
+        }
+      }
+    }
+  }, [isOpen, application]);
+
+  // Save to localStorage when history or step changes
+  useEffect(() => {
+    if (isOpen && application?.name && (history.length > 0 || step !== 'intro')) {
+       localStorage.setItem(`ai_interview_${application.name}`, JSON.stringify({
+         step,
+         history
+       }));
+    }
+  }, [history, step, isOpen, application]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -34,6 +66,7 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
       setCurrentTranscript('');
       setIsRecording(false);
       setIsAiSpeaking(false);
+      setConnectionError(null);
       isRecordingRef.current = false;
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       if (audioRef.current) {
@@ -79,7 +112,7 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = 'en-IN'; // Using Indian English profile for better detection
+      recognition.lang = 'en-IN';
 
       recognition.onresult = (event: any) => {
         let interim = '';
@@ -91,31 +124,25 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
           }
         }
         
-        // Reset silence timer on every new word
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         
-        // If we have some transcript, start a silence timer to detect when they stop speaking
         const fullText = (currentTranscript + interim).trim();
         if (fullText.length > 0) {
           silenceTimerRef.current = setTimeout(() => {
             handleUserFinishedSpeaking();
-          }, 3500); // 3.5 seconds of silence means they are done
+          }, 3500);
         }
       };
 
       recognition.onerror = (event: any) => {
-        if (event.error === 'no-speech') {
-          // just ignore, wait for speech
-        } else {
+        if (event.error !== 'no-speech') {
           console.error('Speech recognition error', event.error);
         }
       };
 
       recognition.onend = () => {
         if (isRecordingRef.current) {
-          try {
-            recognition.start();
-          } catch (e) {}
+          try { recognition.start(); } catch (e) {}
         }
       };
 
@@ -143,12 +170,11 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
         audio.onended = () => resolve();
         audio.play().catch(e => {
           console.error('Audio play blocked:', e);
-          resolve(); // If browser blocks autoplay, we just move on
+          resolve();
         });
       });
     } catch (err) {
       console.error('TTS Error:', err);
-      // Fallback to browser TTS if ElevenLabs fails or runs out of credits
       await new Promise<void>((resolve) => {
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.onend = () => resolve();
@@ -161,15 +187,16 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
 
   const getNextAIResponse = async (currentHistory: {role: 'model' | 'user', text: string}[]) => {
     try {
-      setIsAiSpeaking(true); // show thinking state
+      setIsAiSpeaking(true);
+      setConnectionError(null);
       const res = await fetch('/api/interview-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           history: currentHistory,
-          department: application.pref1,
-          statement: application.statement,
-          experience: application.experience
+          department: application?.pref1,
+          statement: application?.statement,
+          experience: application?.experience
         })
       });
 
@@ -179,11 +206,9 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
       const aiReply = data.reply;
       const isFinished = data.isFinished;
 
-      // Update history
       const updatedHistory = [...currentHistory, { role: 'model', text: aiReply }] as {role: 'model'|'user', text: string}[];
       setHistory(updatedHistory);
 
-      // Play audio
       await playElevenLabsAudio(aiReply);
 
       if (isFinished) {
@@ -192,23 +217,27 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
       } else {
         startRecording();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Error connecting to AI recruiter.');
-      onClose();
+      setIsAiSpeaking(false);
+      setConnectionError(err.message || 'Error connecting to AI recruiter.');
     }
   };
 
   const startInterview = async () => {
     setStep('interview');
-    // Start the chat with empty history, which triggers the AI's first greeting & question
-    await getNextAIResponse([]);
+    if (history.length === 0) {
+      await getNextAIResponse([]);
+    } else if (history[history.length - 1].role === 'model') {
+      startRecording();
+    } else {
+      await getNextAIResponse(history);
+    }
   };
 
   const handleUserFinishedSpeaking = () => {
     if (!isRecordingRef.current) return;
     
-    // Stop recording
     setIsRecording(false);
     isRecordingRef.current = false;
     if (recognitionRef.current) {
@@ -216,15 +245,13 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
     }
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
 
-    // Save their transcript and send to AI
-    setHistory(prev => {
-      const newHistory = [...prev, { role: 'user', text: currentTranscript.trim() || '(Nodded/Silence)' }] as {role: 'user'|'model', text: string}[];
-      // Immediately fetch next response using the new state
-      getNextAIResponse(newHistory);
-      return newHistory;
-    });
+    const userText = currentTranscript.trim() || '(Nodded/Silence)';
     
+    const newHistory = [...history, { role: 'user', text: userText }] as {role: 'user'|'model', text: string}[];
+    setHistory(newHistory);
     setCurrentTranscript('');
+    
+    getNextAIResponse(newHistory);
   };
 
   const startRecording = () => {
@@ -238,8 +265,6 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
 
   const evaluateFinal = async (finalHistory: {role: 'model' | 'user', text: string}[]) => {
     stopMedia();
-    
-    // Combine history into a readable format for the evaluator
     const combinedTranscript = finalHistory.map(h => `${h.role === 'model' ? 'Recruiter' : 'Applicant'}: ${h.text}`).join('\n\n');
 
     try {
@@ -248,26 +273,34 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           transcript: combinedTranscript,
-          department: application.pref1 || 'Secretariat'
+          department: application?.pref1 || 'Secretariat'
         })
       });
 
       const data = await res.json();
       if (data.success) {
+        localStorage.removeItem(`ai_interview_${application?.name}`);
         onComplete(data.score, data.feedback);
         setStep('done');
       } else {
-        alert('Failed to evaluate interview: ' + data.error);
-        onClose();
+        setConnectionError('Failed to evaluate interview: ' + data.error);
+        setIsAiSpeaking(false);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Error evaluating interview.');
-      onClose();
+      setConnectionError('Error evaluating interview.');
+      setIsAiSpeaking(false);
     }
   };
 
-  // Get the last spoken text for display
+  const retryLastAction = () => {
+    if (step === 'evaluating') {
+      evaluateFinal(history);
+    } else {
+      getNextAIResponse(history);
+    }
+  };
+
   const displayModelText = history.length > 0 && history[history.length - 1].role === 'model' 
     ? history[history.length - 1].text 
     : "Listening...";
@@ -276,150 +309,236 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950/90 backdrop-blur-md p-2 md:p-6">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="bg-white rounded-2xl shadow-2xl overflow-hidden w-full max-w-4xl flex flex-col md:flex-row relative"
+          className="bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden w-full h-full max-h-[900px] max-w-7xl flex flex-col md:flex-row relative border border-zinc-800"
         >
           {/* Close button for intro step */}
           {step === 'intro' && (
-            <button onClick={onClose} className="absolute top-4 right-4 z-10 p-2 bg-black/10 hover:bg-black/20 rounded-full text-slate-600 transition-colors">
+            <button onClick={onClose} className="absolute top-4 right-4 z-20 p-2.5 bg-zinc-800/80 hover:bg-zinc-700 rounded-full text-zinc-300 transition-colors backdrop-blur-sm">
               <X className="w-5 h-5" />
             </button>
           )}
 
-          {/* Left Side: Video Feed */}
-          <div className="w-full md:w-1/2 bg-slate-900 relative aspect-video md:aspect-auto min-h-[300px]">
+          {/* Left Side: Video Feed / Google Meet Style */}
+          <div className="w-full md:w-2/3 bg-black relative flex flex-col items-center justify-center overflow-hidden">
+            
+            {/* Recruiter Video (Main) */}
             <video 
-              ref={videoRef} 
+              src="/images/recruitervideo.mp4"
               autoPlay 
+              loop
               playsInline 
               muted 
-              className={`w-full h-full object-cover ${(step === 'evaluating' || step === 'done') ? 'opacity-0' : 'opacity-100'}`}
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${(step === 'evaluating' || step === 'done' || step === 'intro') ? 'opacity-0' : 'opacity-100'}`}
             />
+            
+            {/* Intro / Done State Overlay */}
+            {(step === 'intro' || step === 'evaluating' || step === 'done') && (
+               <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/40 to-black/80 flex flex-col items-center justify-center z-10 p-8">
+                 {step === 'intro' && (
+                    <div className="text-center max-w-lg">
+                      <div className="w-20 h-20 bg-indigo-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Video className="w-10 h-10 text-indigo-400" />
+                      </div>
+                      <h2 className="text-3xl font-bold text-white mb-4">AI Video Interview</h2>
+                      <p className="text-zinc-300 text-lg mb-8 leading-relaxed">
+                        You're about to join a Google Meet style conversational interview. Our AI recruiter will review your application and ask situational questions dynamically.
+                      </p>
+                      {!hasPermissions ? (
+                        <div className="flex items-center justify-center gap-3 text-zinc-400 bg-zinc-800/50 py-4 px-6 rounded-2xl">
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Requesting camera access...</span>
+                        </div>
+                      ) : (
+                        <Button 
+                          onClick={startInterview} 
+                          className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-6 px-10 rounded-2xl text-lg shadow-xl shadow-indigo-900/50 transition-all hover:scale-105"
+                        >
+                          {history.length > 0 ? "Resume Interview" : "Join Interview"}
+                        </Button>
+                      )}
+                    </div>
+                 )}
+                 {step === 'evaluating' && (
+                    <div className="text-center">
+                      <Loader2 className="w-16 h-16 text-indigo-500 animate-spin mx-auto mb-6" />
+                      <h3 className="text-2xl font-bold text-white">Evaluating your responses...</h3>
+                      <p className="text-zinc-400 mt-3 max-w-md mx-auto text-lg">
+                        Our AI is analyzing your interview transcript to generate a final score.
+                      </p>
+                    </div>
+                 )}
+                 {step === 'done' && (
+                    <div className="text-center">
+                      <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <CheckCircle2 className="w-12 h-12 text-emerald-400" />
+                      </div>
+                      <h3 className="text-3xl font-bold text-white mb-4">Interview Complete!</h3>
+                      <p className="text-zinc-300 text-lg mb-8 max-w-md mx-auto">
+                        Your interview has been successfully evaluated. The recruitment team will review the results.
+                      </p>
+                      <Button 
+                        onClick={onClose} 
+                        className="bg-white hover:bg-zinc-200 text-black font-bold py-6 px-10 rounded-2xl text-lg transition-all hover:scale-105"
+                      >
+                        Return to Dashboard
+                      </Button>
+                    </div>
+                 )}
+               </div>
+            )}
+
+            {/* Applicant PiP (Picture in Picture) */}
             {step === 'interview' && (
-              <div className="absolute top-4 left-4 flex flex-col gap-2">
+              <div className="absolute bottom-6 right-6 w-48 aspect-video bg-zinc-800 rounded-2xl overflow-hidden shadow-2xl border-2 border-zinc-700/50 z-20">
+                <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline 
+                  muted 
+                  className="w-full h-full object-cover transform -scale-x-100" // Mirror effect
+                />
+                <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-xs text-white font-medium flex items-center gap-1.5">
+                  <UserIcon className="w-3 h-3" /> You
+                </div>
                 {isRecording && (
-                  <div className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 animate-pulse shadow-lg">
-                    <div className="w-2 h-2 bg-white rounded-full"></div>
-                    Recording (Speak Now)
-                  </div>
+                   <div className="absolute top-2 right-2 flex items-center justify-center w-6 h-6 bg-red-500/20 rounded-full animate-pulse">
+                     <div className="w-2.5 h-2.5 bg-red-500 rounded-full"></div>
+                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Speaking Status Overlays */}
+            {step === 'interview' && (
+              <div className="absolute top-6 left-6 flex flex-col gap-3 z-20">
+                <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl text-sm text-white font-medium border border-white/10 flex items-center gap-2">
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                  AI Recruiter (Oasis)
+                </div>
                 {isAiSpeaking && (
-                  <div className="bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg">
-                    <Volume2 className="w-3 h-3 animate-pulse" />
-                    AI Recruiter Speaking...
+                  <div className="bg-indigo-600/90 backdrop-blur-md text-white text-sm font-bold px-4 py-2.5 rounded-xl flex items-center gap-2.5 shadow-lg border border-indigo-500/50 animate-pulse">
+                    <Volume2 className="w-4 h-4" />
+                    Speaking...
                   </div>
                 )}
               </div>
             )}
-            {!hasPermissions && step === 'intro' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-white/70">
-                <Loader2 className="w-8 h-8 animate-spin mb-2" />
-                <p className="text-sm">Requesting camera access...</p>
+
+            {/* Bottom Controls Bar (Google Meet style) */}
+            {step === 'interview' && (
+              <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-4 z-20">
+                <button 
+                  className={`w-14 h-14 rounded-full flex items-center justify-center backdrop-blur-md transition-all ${isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300'}`}
+                  onClick={isRecording ? handleUserFinishedSpeaking : undefined}
+                >
+                  <Mic className={`w-6 h-6 ${isRecording ? 'text-white' : 'text-zinc-300'}`} />
+                </button>
+                <button 
+                  className="w-14 h-14 rounded-full bg-zinc-800/80 hover:bg-zinc-700 flex items-center justify-center text-zinc-300 backdrop-blur-md transition-all"
+                >
+                  <Video className="w-6 h-6" />
+                </button>
+                <button 
+                  onClick={onClose}
+                  className="w-16 h-12 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white shadow-lg transition-all"
+                >
+                  <X className="w-6 h-6" />
+                </button>
               </div>
             )}
           </div>
 
-          {/* Right Side: Content */}
-          <div className="w-full md:w-1/2 p-8 flex flex-col justify-center bg-slate-50/50">
-            
-            {step === 'intro' && (
-              <div className="space-y-6">
-                <div>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-full uppercase tracking-wider mb-3">
-                    <Volume2 className="w-3 h-3" /> Conversational AI
-                  </span>
-                  <h2 className="text-2xl font-bold text-slate-900">AI Video Interview</h2>
-                  <p className="text-slate-600 mt-2 text-sm leading-relaxed">
-                    This interview is fully conversational. Our AI recruiter will review your application and ask situational questions dynamically.
-                  </p>
+          {/* Right Side: Details & Chat Panel */}
+          {step === 'interview' && (
+            <div className="w-full md:w-1/3 bg-zinc-900 border-l border-zinc-800 flex flex-col h-full z-30">
+              
+              {/* Applicant Details Header */}
+              <div className="p-6 border-b border-zinc-800 bg-zinc-900/50">
+                <h3 className="text-white font-bold text-lg mb-1">{application?.name || 'Applicant'}</h3>
+                <div className="flex items-center gap-2 text-zinc-400 text-sm mb-3">
+                  <Briefcase className="w-4 h-4" />
+                  <span>{application?.pref1 || 'Secretariat'}</span>
                 </div>
-                
-                <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm space-y-3">
-                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">How it works:</h4>
-                  <ul className="space-y-2.5 text-xs text-slate-600">
-                    <li className="flex items-start gap-2.5"><Volume2 className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" /> <span>The AI will speak first using a realistic human voice.</span></li>
-                    <li className="flex items-start gap-2.5"><Mic className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> <span>Once it finishes, speak naturally to answer.</span></li>
-                    <li className="flex items-start gap-2.5"><CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" /> <span><b>No buttons needed.</b> Just pause when you're done speaking, and the AI will automatically reply.</span></li>
-                  </ul>
+                <div className="flex gap-2">
+                  <span className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs px-2.5 py-1 rounded-full font-medium">Fast-track Interview</span>
                 </div>
-
-                <Button 
-                  onClick={startInterview} 
-                  disabled={!hasPermissions}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-6 rounded-xl text-base shadow-lg shadow-indigo-600/20"
-                >
-                  {hasPermissions ? "I understand, Start Interview" : "Waiting for camera..."}
-                </Button>
               </div>
-            )}
-            {step === 'interview' && (
-              <div className="space-y-6 flex flex-col h-full justify-center">
-                
-                {/* AI Recruiter's latest message */}
-                <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-5 relative">
-                  <div className="absolute -top-3 left-4 bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <Volume2 className="w-3 h-3" /> Recruiter
-                  </div>
-                  <p className="text-sm text-slate-800 leading-relaxed mt-2 font-medium">
-                    {displayModelText}
-                  </p>
-                </div>
 
-                {/* Applicant's transcript */}
-                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-5 relative">
-                  <div className="absolute -top-3 left-4 bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <Mic className="w-3 h-3" /> You
+              {/* Chat Transcript Area */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-zinc-700">
+                {history.map((msg, idx) => (
+                  <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                    <span className="text-xs text-zinc-500 mb-1.5 font-medium ml-1">
+                      {msg.role === 'model' ? 'Recruiter' : 'You'}
+                    </span>
+                    <div className={`p-4 rounded-2xl max-w-[85%] text-sm leading-relaxed ${
+                      msg.role === 'user' 
+                        ? 'bg-indigo-600 text-white rounded-tr-sm' 
+                        : 'bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-tl-sm'
+                    }`}>
+                      {msg.text}
+                    </div>
                   </div>
-                  <p className="text-sm text-emerald-900 italic mt-2 min-h-[40px]">
-                    {currentTranscript || (isRecording ? "Listening... (Click Submit when done)" : "Wait for the AI to finish...")}
-                  </p>
-                </div>
+                ))}
 
-                {/* Manual override button */}
+                {/* Live Transcript Bubble */}
                 {isRecording && (
+                   <div className="flex flex-col items-end">
+                     <span className="text-xs text-zinc-500 mb-1.5 font-medium mr-1">You</span>
+                     <div className="p-4 rounded-2xl max-w-[85%] text-sm leading-relaxed bg-indigo-600/50 border border-indigo-500/30 text-indigo-100 rounded-tr-sm italic">
+                       {currentTranscript || "Listening..."}
+                     </div>
+                   </div>
+                )}
+                
+                {/* AI Thinking Bubble */}
+                {isAiSpeaking && !isRecording && (
+                   <div className="flex flex-col items-start">
+                     <span className="text-xs text-zinc-500 mb-1.5 font-medium ml-1">Recruiter</span>
+                     <div className="p-4 rounded-2xl bg-zinc-800 text-zinc-400 border border-zinc-700 rounded-tl-sm flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce"></div>
+                       <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                       <div className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                     </div>
+                   </div>
+                )}
+              </div>
+
+              {/* Connection Error Banner */}
+              {connectionError && (
+                <div className="p-4 m-4 bg-red-500/10 border border-red-500/20 rounded-xl flex flex-col gap-3">
+                  <div className="flex items-start gap-3 text-red-400">
+                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                    <p className="text-sm leading-relaxed">{connectionError}</p>
+                  </div>
+                  <Button 
+                    onClick={retryLastAction} 
+                    className="w-full bg-red-500/20 hover:bg-red-500/30 text-red-300 font-medium py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <RefreshCw className="w-4 h-4" /> Retry Connection
+                  </Button>
+                </div>
+              )}
+
+              {/* Manual Submission Button (Fallback) */}
+              {isRecording && !connectionError && (
+                <div className="p-4 bg-zinc-900 border-t border-zinc-800">
                   <Button 
                     onClick={handleUserFinishedSpeaking}
-                    className="mt-4 w-full bg-slate-900 hover:bg-slate-800 text-white py-6 rounded-xl font-bold shadow-lg"
+                    className="w-full bg-white hover:bg-zinc-200 text-black font-bold py-5 rounded-xl shadow-lg transition-transform active:scale-95"
                   >
-                    Done Speaking (Submit Answer)
+                    Send Reply
                   </Button>
-                )}
-              </div>
-            )}
-
-            {step === 'evaluating' && (
-              <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-                <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
-                <h3 className="text-xl font-bold text-slate-900">Evaluating your responses...</h3>
-                <p className="text-sm text-slate-500 max-w-xs mx-auto">
-                  Our AI is analyzing your entire interview transcript to generate a final score.
-                </p>
-              </div>
-            )}
-
-            {step === 'done' && (
-              <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-2">
-                  <CheckCircle2 className="w-8 h-8" />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-900">Interview Complete!</h3>
-                <p className="text-sm text-slate-600 max-w-xs mx-auto">
-                  Your dynamic conversational interview has been successfully evaluated and saved to your application file. The recruitment team will review the results.
-                </p>
-                <Button 
-                  onClick={onClose} 
-                  className="mt-6 bg-slate-900 hover:bg-slate-800 text-white w-full py-6 rounded-xl"
-                >
-                  Return to Dashboard
-                </Button>
-              </div>
-            )}
+              )}
+            </div>
+          )}
 
-          </div>
         </motion.div>
       </div>
     </AnimatePresence>
