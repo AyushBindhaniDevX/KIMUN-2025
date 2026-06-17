@@ -189,6 +189,7 @@ export default function OasisWorkplace() {
   // Workspace Navigation
   const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'dept_boards' | 'registry_manager' | 'delegate_search' | 'help_docs' | 'site_settings' | 'logs'>('dashboard')
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All Departments')
+  const [recruitmentView, setRecruitmentView] = useState<'oc' | 'eb'>('oc')
 
   // Live Database Datasets
   const [dbCommittees, setDbCommittees] = useState<any[]>([])
@@ -196,6 +197,7 @@ export default function OasisWorkplace() {
   const [dbResources, setDbResources] = useState<any[]>([])
   const [dbMarksheets, setDbMarksheets] = useState<any[]>([])
   const [dbApplications, setDbApplications] = useState<any[]>([])
+  const [dbEbApplications, setDbEbApplications] = useState<any[]>([])
   const [dbTasks, setDbTasks] = useState<any[]>([])
   const [dbAssets, setDbAssets] = useState<any[]>([])
   const [dbAnnouncements, setDbAnnouncements] = useState<any[]>([])
@@ -637,6 +639,16 @@ export default function OasisWorkplace() {
       }
     })
 
+    const ebAppsRef = ref(firebaseDb, 'eb_applications')
+    const unsubEbApps = onValue(ebAppsRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        setDbEbApplications(Object.keys(data).map(k => ({ uid: k, ...data[k] })))
+      } else {
+        setDbEbApplications([])
+      }
+    })
+
     const tasksRef = ref(firebaseDb, 'oc_tasks')
     const unsubTasks = onValue(tasksRef, (snap) => {
       if (snap.exists()) {
@@ -720,6 +732,7 @@ export default function OasisWorkplace() {
       unsubResources()
       unsubMarks()
       unsubApps()
+      unsubEbApps()
       unsubTasks()
       unsubAssets()
       unsubAnn()
@@ -1678,10 +1691,11 @@ export default function OasisWorkplace() {
     }
   }
 
-  const handleUpdateApplicationStatus = async (uid: string, nextStatus: string, email: string, name: string) => {
+  const handleUpdateApplicationStatus = async (uid: string, nextStatus: string, email: string, name: string, isEb: boolean = false) => {
     if (role !== 'admin') return
     try {
-      await update(ref(firebaseDb, `oc_applications/${uid}`), { status: nextStatus })
+      const dbPath = isEb ? `eb_applications/${uid}` : `oc_applications/${uid}`
+      await update(ref(firebaseDb, dbPath), { status: nextStatus })
       await logActivity('UPDATE_APP_STATUS', `Updated application status for ${name} to ${nextStatus}`)
       triggerNotification(`Applicant status updated to ${nextStatus}.`)
     } catch (err: any) {
@@ -3544,12 +3558,28 @@ export default function OasisWorkplace() {
               >
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div>
-                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">OC Application Vetting</h2>
-                    <p className="text-xs text-slate-500 mt-1">Manage organising committee applications and staff onboarding</p>
+                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">Application Vetting</h2>
+                    <p className="text-xs text-slate-500 mt-1">Manage applications and staff onboarding</p>
                   </div>
-                  <button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all">
-                    <Download className="w-3.5 h-3.5" /> Export Excel
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <div className="bg-slate-100 p-1 rounded-lg flex gap-1">
+                      <button 
+                        onClick={() => setRecruitmentView('oc')} 
+                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${recruitmentView === 'oc' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        OC Applications
+                      </button>
+                      <button 
+                        onClick={() => setRecruitmentView('eb')} 
+                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${recruitmentView === 'eb' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        EB Applications
+                      </button>
+                    </div>
+                    <button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all">
+                      <Download className="w-3.5 h-3.5" /> Export Excel
+                    </button>
+                  </div>
                 </div>
 
                 <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
@@ -3567,13 +3597,12 @@ export default function OasisWorkplace() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {dbApplications.length === 0 ? (
+                        {(recruitmentView === 'oc' ? dbApplications : dbEbApplications).length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="text-center py-12 text-slate-400">No applications found</td>
-                            <td colSpan={6} className="text-center py-12 text-slate-400">No applications found</td>
+                            <td colSpan={7} className="text-center py-12 text-slate-400">No applications found</td>
                           </tr>
                         ) : (
-                          dbApplications.map(app => (
+                          (recruitmentView === 'oc' ? dbApplications : dbEbApplications).map(app => (
                             <tr key={app.uid} className="hover:bg-slate-50/50 transition-all">
                               <td className="py-3 px-4">
                                 <span className="font-semibold text-slate-800">{app.name}</span>
@@ -3583,7 +3612,9 @@ export default function OasisWorkplace() {
                                 <span className="text-slate-600">{app.college}</span>
                                 <span className="block text-[10px] text-slate-400">{app.course} (Year {app.year})</span>
                               </td>
-                              <td className="py-3 px-4 text-sm text-slate-600">{app.pref1}</td>
+                              <td className="py-3 px-4 text-sm text-slate-600">
+                                {recruitmentView === 'eb' ? `${app.committeePref1} (${app.rolePref1})` : app.pref1}
+                              </td>
                               <td className="py-3 px-4 text-center">
                                 <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${app.status === 'welcomed' ? 'bg-emerald-100 text-emerald-700' :
                                   app.status === 'rejected' ? 'bg-rose-100 text-rose-700' :
@@ -3603,17 +3634,9 @@ export default function OasisWorkplace() {
                                 </button>
                               </td>
                               <td className="py-3 px-4 text-center">
-                                <button
-                                  onClick={() => handleOpenAppDetailsModal(app)}
-                                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-semibold text-xs px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-all cursor-pointer"
-                                >
-                                  <Eye className="w-3.5 h-3.5" /> View
-                                </button>
-                              </td>
-                              <td className="py-3 px-4 text-center">
                                 <select
                                   value={app.status}
-                                  onChange={(e) => handleUpdateApplicationStatus(app.uid, e.target.value, app.email, app.name)}
+                                  onChange={(e) => handleUpdateApplicationStatus(app.uid, e.target.value, app.email, app.name, recruitmentView === 'eb')}
                                   className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 outline-none cursor-pointer"
                                 >
                                   <option value="pending">Pending</option>
@@ -6204,11 +6227,15 @@ export default function OasisWorkplace() {
                         </div>
                         <div>
                           <span className="text-slate-400 block font-medium">First Preference</span>
-                          <span className="font-bold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-md border border-violet-100">{selectedApplicant.pref1 || 'N/A'}</span>
+                          <span className="font-bold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-md border border-violet-100">
+                            {recruitmentView === 'eb' ? `${selectedApplicant.committeePref1} (${selectedApplicant.rolePref1})` : selectedApplicant.pref1 || 'N/A'}
+                          </span>
                         </div>
                         <div>
                           <span className="text-slate-400 block font-medium">Second Preference</span>
-                          <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">{selectedApplicant.pref2 || 'N/A'}</span>
+                          <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                            {recruitmentView === 'eb' ? `${selectedApplicant.committeePref2} (${selectedApplicant.rolePref2})` : selectedApplicant.pref2 || 'N/A'}
+                          </span>
                         </div>
                       </div>
                     </div>
