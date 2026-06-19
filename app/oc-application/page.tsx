@@ -30,7 +30,8 @@ import {
   GraduationCap,
   Clock, Sparkles,
   Calendar,
-  Download
+  Download,
+  RotateCcw
 } from 'lucide-react'
 
 import { motion, AnimatePresence } from 'framer-motion'
@@ -1234,6 +1235,17 @@ export default function OCApplicationPage() {
                               className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-6 px-8 rounded-xl shadow-md w-full sm:w-auto"
                             >
                               Start AI Video Interview
+                            </Button>
+                            <Button 
+                              variant="outline"
+                              onClick={() => {
+                                if (window.confirm('Reset your interview progress? You can start fresh.')) {
+                                  localStorage.removeItem(`ai_interview_${application?.name}`)
+                                }
+                              }}
+                              className="border-slate-300 text-slate-600 hover:bg-slate-100 font-medium py-6 px-6 rounded-xl w-full sm:w-auto"
+                            >
+                              <RotateCcw className="h-4 w-4 mr-2" /> Reset Interview
                             </Button>
                           </div>
                           

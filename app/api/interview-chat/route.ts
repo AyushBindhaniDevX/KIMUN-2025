@@ -32,14 +32,25 @@ Respond strictly in the following JSON format:
   "isFinished": false // Set to true ONLY if you are concluding the interview
 }`
 
-    const formattedContents = history.map((msg: any) => ({
+    let formattedContents = history.map((msg: any) => ({
       role: msg.role === 'model' ? 'model' : 'user',
       parts: [{ text: msg.text }]
     }));
 
-    // If history is empty, we act as if the user said "Hello, I am ready." so the AI asks the first question.
+    // If history is empty, add the initial prompt
     if (formattedContents.length === 0) {
       formattedContents.push({ role: 'user', parts: [{ text: 'Hello, I am ready to start my interview.' }] });
+    }
+
+    // Gemini API requires the conversation to strictly start with a 'user' role
+    if (formattedContents[0].role === 'model') {
+      formattedContents.unshift({ role: 'user', parts: [{ text: 'Hello, I am ready to start my interview.' }] });
+    }
+
+    // Gemini API requires the conversation to strictly end with a 'user' role
+    // If it ends with 'model' (which shouldn't happen unless there's a retry bug), we append a dummy user message
+    if (formattedContents[formattedContents.length - 1].role === 'model') {
+      formattedContents.push({ role: 'user', parts: [{ text: 'Please continue.' }] });
     }
 
     const maxRetries = 5;

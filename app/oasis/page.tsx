@@ -71,6 +71,12 @@ import {
   ChevronDown
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, SidebarHeader as ShadcnSidebarHeader } from '@/components/ui/sidebar'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from '@/components/ui/breadcrumb'
+import { Separator } from '@/components/ui/separator'
 import { ref, onValue, update, push, remove, get, set } from 'firebase/database'
 import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth'
 import { firebaseAuth, firebaseDb, googleProvider } from '@/lib/firebase-client'
@@ -109,11 +115,11 @@ const playBeep = (type: 'success' | 'error') => {
 
 // Indian-context master committee configuration list (presets)
 const INITIAL_COMMITTEES = [
-  { id: 'COM-01', name: 'United Nations Security Council (UNSC)', target: 35, fee: 3500, category: 'Premium Single', color: '#4F46E5' },
-  { id: 'COM-02', name: 'Disarmament & International Security Committee (DISEC)', target: 85, fee: 2200, category: 'Double/Single', color: '#0EA5E9' },
-  { id: 'COM-03', name: 'All India Political Parties Meet (AIPPM)', target: 80, fee: 2000, category: 'Regional National', color: '#10B981' },
-  { id: 'COM-04', name: 'United Nations Human Rights Council (UNHRC)', target: 65, fee: 2200, category: 'Double/Single', color: '#F59E0B' },
-  { id: 'COM-05', name: 'International Press (IP)', target: 35, fee: 1800, category: 'Specialized Journalism', color: '#EF4444' },
+  { id: 'COM-01', name: 'United Nations Security Council (UNSC)', target: 35, fee: 3500, category: 'Premium Single', color: '#4F46E5', image: 'https://i.pinimg.com/1200x/3d/b4/c2/3db4c2dfa6abb2fc2cd87626af5a4515.jpg' },
+  { id: 'COM-02', name: 'Disarmament & International Security Committee (DISEC)', target: 85, fee: 2200, category: 'Double/Single', color: '#0EA5E9', image: 'https://i.pinimg.com/736x/5e/01/ef/5e01ef2daaffbc4f956d7c5436d45cae.jpg' },
+  { id: 'COM-03', name: 'All India Political Parties Meet (AIPPM)', target: 80, fee: 2000, category: 'Regional National', color: '#10B981', image: 'https://i.pinimg.com/1200x/9a/a9/29/9aa9293e81a3f58a3b4da36938be8171.jpg' },
+  { id: 'COM-04', name: 'United Nations Human Rights Council (UNHRC)', target: 65, fee: 2200, category: 'Double/Single', color: '#F59E0B', image: 'https://i.pinimg.com/736x/ad/b5/6b/adb56b4847ba793c7ef2f614682abd1f.jpg' },
+  { id: 'COM-05', name: 'International Press (IP)', target: 35, fee: 1800, category: 'Specialized Journalism', color: '#EF4444', image: 'https://i.pinimg.com/736x/73/14/22/731422e15ba9af97ab7bb1d23e563171.jpg' },
 ]
 
 // Indian-context master expense list for KIMUN 2026 in INR (₹)
@@ -177,37 +183,37 @@ const AnimatedCard = ({ children, className = "", delay = 0 }: { children: React
     initial={{ opacity: 0, y: 16 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.5, delay, ease: [0.25, 0.8, 0.25, 1] }}
-    className={className}
   >
-    {children}
+    <Card className={className}>
+      {children}
+    </Card>
   </motion.div>
 )
 
-// KPI Metric Card Component — Apple-inspired
+// KPI Metric Card Component — Shadcn-inspired
 const KPICard = ({ title, value, subtitle, icon: Icon, color, trend, trendValue }: any) => (
-  <motion.div
-    whileHover={{ y: -2, transition: { duration: 0.25, ease: [0.25, 0.8, 0.25, 1] } }}
-    className="bg-white/70 backdrop-blur-xl rounded-2xl border border-white/60 shadow-[0_2px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all duration-300 overflow-hidden"
-  >
-    <div className="p-5">
-      <div className="flex justify-between items-start">
-        <div className="space-y-1">
-          <span className="text-[11px] font-semibold text-[#86868b] tracking-wide">{title}</span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-[22px] font-bold text-[#1d1d1f] tracking-tight">{value}</span>
-            {trend && (
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${trend === 'up' ? 'bg-[#e8f5e9] text-[#2e7d32]' : 'bg-[#fce4ec] text-[#c62828]'}`}>
-                {trendValue}
-              </span>
-            )}
-          </div>
-          <p className="text-[11px] text-[#86868b] font-medium">{subtitle}</p>
+  <motion.div whileHover={{ y: -2, transition: { duration: 0.25 } }}>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">
+          {title}
+        </CardTitle>
+        <div className={`${color} p-2 rounded-md`}>
+          <Icon className="h-4 w-4 text-white" />
         </div>
-        <div className={`${color} p-2.5 rounded-xl`}>
-          <Icon className="w-5 h-5 text-white" />
-        </div>
-      </div>
-    </div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+        <p className="text-xs text-muted-foreground mt-1">
+          {subtitle}
+          {trend && (
+            <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] ${trend === 'up' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+              {trendValue}
+            </span>
+          )}
+        </p>
+      </CardContent>
+    </Card>
   </motion.div>
 )
 
@@ -2295,328 +2301,69 @@ export default function OasisWorkplace() {
       { section: 'Admin Settings', id: 'site_settings', label: 'Global Config', icon: Settings, color: 'text-indigo-600' },
       { section: 'Admin Settings', id: 'logs', label: 'Activity Logs', icon: Activity, color: 'text-rose-600' }
     ] : [])
-  ]
+  ];
   return (
-    <div
-      className="min-h-screen bg-[#F1F5F9] text-[#1C2434] flex flex-col antialiased relative"
-      style={{ fontFamily: '"Outfit", "Inter", sans-serif' }}
-      onCopy={(e) => e.preventDefault()}
-    >
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        /* ═══════════════════════════════════════════════ */
-        /*  TailAdmin Dashboard Theme                      */
-        /*  Professional • High-Contrast • Clean Borders   */
-        /* ═══════════════════════════════════════════════ */
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
-        
-        :root {
-          --tailadmin-bg: #F1F5F9;
-          --tailadmin-sidebar: #1C2434;
-          --tailadmin-sidebar-hover: #333A48;
-          --tailadmin-header: #FFFFFF;
-          --tailadmin-primary: #3C50E0;
-          --tailadmin-primary-hover: #2B3EB2;
-          --tailadmin-stroke: #E2E8F0;
-          --tailadmin-text: #1C2434;
-          --tailadmin-text-secondary: #64748B;
-          --tailadmin-success: #10B981;
-          --tailadmin-warning: #F2994A;
-          --tailadmin-danger: #D34053;
-          --tailadmin-shadow: 0px 8px 13px -3px rgba(0, 0, 0, 0.07);
-        }
-        
-        body {
-          background-color: var(--tailadmin-bg) !important;
-          color: var(--tailadmin-text) !important;
-          font-family: 'Outfit', 'Inter', sans-serif !important;
-        }
-
-        /* Solid White Cards with TailAdmin borders and shadows */
-        .bg-white {
-          background: #FFFFFF !important;
-          backdrop-filter: none !important;
-          -webkit-backdrop-filter: none !important;
-          border: 1px solid var(--tailadmin-stroke) !important;
-          border-radius: 6px !important;
-          color: var(--tailadmin-text) !important;
-          box-shadow: var(--tailadmin-shadow) !important;
-        }
-
-        /* Solid White Header */
-        header {
-          background: #FFFFFF !important;
-          backdrop-filter: none !important;
-          -webkit-backdrop-filter: none !important;
-          border-bottom: 1px solid var(--tailadmin-stroke) !important;
-          border-radius: 0 !important;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
-        }
-
-        /* Solid Dark Sidebar */
-        aside {
-          background: var(--tailadmin-sidebar) !important;
-          backdrop-filter: none !important;
-          -webkit-backdrop-filter: none !important;
-          border-right: 1px solid #2E3A4F !important;
-          border-radius: 0 !important;
-        }
-
-        /* Text hierarchies */
-        .text-slate-900, .text-slate-800 { color: var(--tailadmin-text) !important; }
-        .text-slate-700 { color: #2C3A54 !important; }
-        .text-slate-600 { color: #4A5668 !important; }
-        .text-slate-500 { color: var(--tailadmin-text-secondary) !important; }
-        .text-slate-400 { color: #8A99AD !important; }
-
-        /* Border refinements */
-        .border-slate-200, .border-slate-200\\/80, .border-slate-200\\/60, .border-slate-100 {
-          border-color: var(--tailadmin-stroke) !important;
-        }
-        .divide-slate-100 > * + * { border-color: var(--tailadmin-stroke) !important; }
-
-        /* Background offsets */
-        .bg-slate-50, .bg-slate-50\\/50, .bg-slate-50\\/30, .bg-slate-50\\/80 {
-          background-color: #F8FAFC !important;
-          border-radius: 4px !important;
-          border: 1px solid var(--tailadmin-stroke) !important;
-        }
-
-        /* Form Inputs & Selects - TailAdmin style */
-        input, select, textarea {
-          background: #FFFFFF !important;
-          border: 1px solid var(--tailadmin-stroke) !important;
-          color: var(--tailadmin-text) !important;
-          border-radius: 4px !important;
-          padding: 10px 16px !important;
-          font-size: 14px !important;
-          transition: border-color 0.2s, box-shadow 0.2s !important;
-        }
-        input:focus, select:focus, textarea:focus {
-          border-color: var(--tailadmin-primary) !important;
-          box-shadow: 0 0 0 3px rgba(60, 80, 224, 0.12) !important;
-          outline: none !important;
-        }
-        input::placeholder { color: #8A99AD !important; }
-
-        /* Brand Accent Custom Mapping */
-        .bg-indigo-50 {
-          background: rgba(60, 80, 224, 0.08) !important;
-          color: var(--tailadmin-primary) !important;
-          border-color: rgba(60, 80, 224, 0.15) !important;
-        }
-        .text-indigo-700, .text-indigo-600 { color: var(--tailadmin-primary) !important; }
-        .bg-indigo-600 {
-          background: var(--tailadmin-primary) !important;
-          color: #fff !important;
-          border: none !important;
-        }
-        .bg-indigo-600:hover, .hover\\:bg-indigo-700:hover {
-          background: var(--tailadmin-primary-hover) !important;
-          box-shadow: 0 4px 12px rgba(60, 80, 224, 0.25) !important;
-        }
-
-        /* Table styles */
-        table { border-collapse: collapse !important; width: 100% !important; }
-        thead tr { background: #F7F9FC !important; }
-        tbody tr { border-bottom: 1px solid var(--tailadmin-stroke) !important; }
-        tbody tr:hover { background: #F8FAFC !important; }
-        th {
-          font-weight: 600 !important;
-          color: var(--tailadmin-text) !important;
-          border-bottom: 1px solid var(--tailadmin-stroke) !important;
-        }
-        td {
-          border-bottom: 1px solid var(--tailadmin-stroke) !important;
-        }
-
-        /* Button elements */
-        button {
-          transition: all 0.2s ease-in-out !important;
-        }
-
-        /* Scrollbar styling */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
-
-        /* Tour highlight adjustments */
-        .tour-highlight {
-          position: relative;
-          z-index: 50;
-          box-shadow: 0 0 0 9999px rgba(0,0,0,0.4), 0 0 0 3px var(--tailadmin-primary), 0 0 24px rgba(60, 80, 224, 0.4) !important;
-          border-color: var(--tailadmin-primary) !important;
-        }
-        
-        /* Footer styling */
-        footer { border-radius: 0 !important; background: transparent !important; border-top: 1px solid var(--tailadmin-stroke) !important; }
-        input[type='range'] { padding: 0 !important; }
-        input[type='checkbox'] { border-radius: 2px !important; padding: 0 !important; }
-      ` }} />
-
-      {/* Notifications */}
-      <AnimatePresence>
-        {notification.show && (
-          <motion.div
-            initial={{ opacity: 0, x: 50, scale: 0.9 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 50, scale: 0.9 }}
-            className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4.5 py-3.5 rounded-lg shadow-lg border backdrop-blur-sm ${notification.type === 'error' ? 'bg-rose-50/95 text-rose-800 border-rose-100' :
-              notification.type === 'info' ? 'bg-sky-50/95 text-sky-800 border-sky-100' :
-                'bg-emerald-50/95 text-emerald-800 border-emerald-100'
-              }`}
-          >
-            {notification.type === 'error' ? <AlertCircle className="w-4 h-4 text-rose-600" /> :
-              notification.type === 'info' ? <Info className="w-4 h-4 text-sky-600" /> :
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-            <span className="text-xs font-semibold tracking-wide">{notification.message}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Header — TailAdmin Solid White Navbar */}
-      <header className="sticky top-0 z-40 bg-white border-b border-[#E2E8F0] shadow-sm">
-        <div className="mx-auto px-6 py-4 flex items-center justify-between gap-4">
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden p-2 rounded-md hover:bg-slate-100 active:bg-slate-200 transition-colors"
-            >
-              <Menu className="w-5 h-5 text-[#1C2434]" />
-            </button>
-            <div className="w-9 h-9 rounded-md bg-[#3C50E0] flex items-center justify-center shadow-sm">
-              <Building className="w-5 h-5 text-white" />
+    <SidebarProvider>
+      <Sidebar>
+        <ShadcnSidebarHeader className="h-16 flex items-center px-4 border-b">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-md bg-indigo-600 flex items-center justify-center">
+              <Building className="w-4 h-4 text-white" />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold text-[#3C50E0] tracking-wider">OASIS</span>
-                <span className="text-[10px] text-[#AEB7C0]">•</span>
-                <span className={`text-[10px] font-semibold ${role === 'admin' ? 'text-purple-600' : 'text-emerald-600'}`}>
-                  {role === 'admin' ? 'Admin' : 'Member'}
-                </span>
-              </div>
-              <h1 className="text-[16px] font-bold text-[#1C2434] tracking-tight leading-none mt-0.5">
-                Oasis Dashboard
-              </h1>
-            </div>
+            <span className="font-bold tracking-tight">OASIS</span>
           </div>
+        </ShadcnSidebarHeader>
+        <SidebarContent>
+          {Object.entries(
+            menuItems.reduce((acc, item) => {
+              if (!acc[item.section]) acc[item.section] = [];
+              acc[item.section].push(item);
+              return acc;
+            }, {} as Record<string, typeof menuItems>)
+          ).map(([section, items]) => (
+            <SidebarGroup key={section}>
+              <SidebarGroupLabel>{section}</SidebarGroupLabel>
+              <SidebarMenu>
+                {items.map(item => (
+                  <SidebarMenuItem key={item.id}>
+                    <SidebarMenuButton 
+                      isActive={activeMenuTab === item.id}
+                      onClick={() => { setActiveMenuTab(item.id as any); setSearchQuery(''); setSidebarOpen(false); }}
+                    >
+                      <item.icon className="w-4 h-4" />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroup>
+          ))}
+        </SidebarContent>
+      </Sidebar>
 
-          <div className="flex items-center gap-3">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => { setTourStep(0); setActiveMenuTab('dashboard'); }}
-              className="hidden md:flex items-center gap-1.5 px-4 py-2 bg-[#3C50E0] hover:bg-[#2B3EB2] text-white font-medium text-[12px] rounded-[4px] shadow-sm transition-all cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              Tour
-            </motion.button>
-            <div className="hidden sm:flex items-center gap-2.5 border-l border-[#E2E8F0] pl-4">
-              <div className="w-8 h-8 rounded-full bg-[#3C50E0] text-white flex items-center justify-center text-[12px] font-bold shadow-inner">
-                {user.displayName?.charAt(0) || 'U'}
-              </div>
-              <div className="text-left">
-                <span className="text-[13px] font-semibold text-[#1C2434] block leading-tight">{user.displayName?.split(' ')[0]}</span>
-              </div>
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="p-2 rounded-md hover:bg-slate-100 text-[#64748B] hover:text-[#1C2434] transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+      <main className="flex-1 flex flex-col min-w-0 bg-background text-foreground transition-all duration-300 ease-in-out h-screen overflow-hidden">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-background z-10">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbPage>{menuItems.find(m => m.id === activeMenuTab)?.label || 'Overview'}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+          <div className="ml-auto flex items-center gap-4">
+             <div className="text-right hidden sm:block">
+               <span className="text-sm font-semibold block leading-tight">{user.displayName?.split(' ')[0]}</span>
+               <span className="text-xs text-muted-foreground">{role === 'admin' ? 'Administrator' : 'OC Member'}</span>
+             </div>
+             <Button variant="ghost" size="icon" onClick={handleSignOut}>
+               <LogOut className="w-4 h-4" />
+             </Button>
           </div>
+        </header>
 
-        </div>
-      </header>
-
-      <div className="flex grow overflow-hidden relative">
-
-        {/* Sidebar — TailAdmin Dark Slate Sidebar */}
-        <AnimatePresence>
-          {(sidebarOpen || window.innerWidth >= 1024) && (
-            <motion.aside
-              initial={{ x: -290 }}
-              animate={{ x: 0 }}
-              exit={{ x: -290 }}
-              transition={{ type: "spring", damping: 25 }}
-              className="fixed lg:relative lg:translate-x-0 z-30 w-[290px] shrink-0 h-[calc(100vh-73px)] overflow-y-auto shadow-xl lg:shadow-none bg-[#1C2434] border-r border-[#2E3A4F]"
-            >
-              <div className="py-6 px-4 space-y-6">
-
-                <div className="flex items-center justify-between lg:hidden px-2">
-                  <span className="text-[12px] font-bold text-[#8A99AD] uppercase tracking-wider">NAVIGATION</span>
-                  <button onClick={() => setSidebarOpen(false)} className="p-1.5 rounded-md hover:bg-[#333A48] transition-colors">
-                    <X className="w-4 h-4 text-[#AEB7C0] hover:text-white" />
-                  </button>
-                </div>
-
-                <div>
-                  {Object.entries(
-                    menuItems.reduce((acc, item) => {
-                      if (!acc[item.section]) acc[item.section] = [];
-                      acc[item.section].push(item);
-                      return acc;
-                    }, {} as Record<string, typeof menuItems>)
-                  ).map(([section, items]) => (
-                    <div key={section} className="mb-6">
-                      <h3 className="px-3 mb-3 text-[11px] font-bold text-[#8A99AD] uppercase tracking-wider">{section}</h3>
-                      <div className="space-y-1.5">
-                        <LayoutGroup>
-                          {items.map((item) => {
-                            const Icon = item.icon
-                            const isSelected = activeMenuTab === item.id
-                            return (
-                              <motion.button
-                                key={item.id}
-                                layout
-                                id={`${item.id}-tab`}
-                                onClick={() => { setActiveMenuTab(item.id as any); setSearchQuery(''); setSidebarOpen(false) }}
-                                className={`w-full px-3.5 py-3 rounded-[4px] text-[14px] font-medium transition-all flex items-center gap-3 cursor-pointer relative overflow-hidden ${isSelected
-                                  ? 'text-white bg-[#333A48]'
-                                  : 'text-[#AEB7C0] hover:text-white hover:bg-[#333A48]'
-                                  } ${tourStep >= 0 && TOUR_STEPS[tourStep]?.highlightId === `${item.id}-tab` ? 'tour-highlight' : ''}`}
-                              >
-                                {isSelected && (
-                                  <motion.div
-                                    layoutId="activeBg"
-                                    className="absolute left-0 top-0 bottom-0 w-[4px] bg-[#3C50E0]"
-                                    transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
-                                  />
-                                )}
-                                <div className="relative z-10 flex items-center gap-3 w-full">
-                                  <Icon className="w-[18px] h-[18px] shrink-0" style={{ opacity: isSelected ? 1 : 0.8 }} />
-                                  <span>{item.label}</span>
-                                </div>
-                              </motion.button>
-                            )
-                          })}
-                        </LayoutGroup>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-              </div>
-            </motion.aside>
-          )}
-        </AnimatePresence>
-
-        {/* Overlay for mobile */}
-        {sidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 bg-black/40 z-20 lg:hidden"
-          />
-        )}
-
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 relative">
           <AnimatePresence mode="wait">
 
             {/* 1. OVERVIEW HUB */}
@@ -3086,63 +2833,83 @@ export default function OasisWorkplace() {
                 {/* Committee Registry Tab */}
                 {workstationTab === 'committees' && (
                   <AnimatedCard>
-                    <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
-                      <div className="p-4 bg-slate-50/50 border-b border-slate-200/60 flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Committee Configurator</span>
+                    <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 sm:p-6 mb-6">
+                      <div className="flex items-center justify-between mb-6">
+                        <div>
+                          <h2 className="text-lg font-bold text-slate-900">Committee Showcase</h2>
+                          <p className="text-sm text-slate-500">Manage and preview committee configurations.</p>
+                        </div>
                         <button
                           onClick={openAddCommitteeModal}
-                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer transition-all"
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition-all shadow-sm"
                         >
-                          <Plus className="w-3.5 h-3.5" />
+                          <Plus className="w-4 h-4" />
                           Add Committee
                         </button>
                       </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs">
-                          <thead>
-                            <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
-                              <th className="py-3 px-4 font-bold">ID</th>
-                              <th className="py-3 px-4 font-bold">Classification</th>
-                              <th className="py-3 px-4 font-bold">Committee Name</th>
-                              <th className="py-3 px-4 text-center">Target Seats</th>
-                              <th className="py-3 px-4 text-right">Delegate Fee</th>
-                              <th className="py-3 px-4 text-right">Revenue</th>
-                              <th className="py-3 px-4 text-center">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {workstationCommittees.map(c => (
-                              <tr key={c.id} className="hover:bg-indigo-50/30 transition-all group">
-                                <td className="py-3 px-4 text-slate-400 font-mono font-bold">{c.id}</td>
-                                <td className="py-3 px-4">
-                                  <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 text-[9px] font-bold">
-                                    {c.category}
-                                  </span>
-                                </td>
-                                <td className="py-3 px-4 font-semibold text-slate-800">{c.name}</td>
-                                <td className="py-3 px-4 text-center font-bold">{c.target}</td>
-                                <td className="py-3 px-4 text-right font-bold">{formatINR(c.fee)}</td>
-                                <td className="py-3 px-4 text-right font-bold text-emerald-600">{formatINR(c.target * c.fee)}</td>
-                                <td className="py-3 px-4">
-                                  <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                      onClick={() => openEditCommitteeModal(c)}
-                                      className="p-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:border-indigo-300 rounded-lg transition-all"
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      onClick={() => setDeleteConfirm({ type: 'committees', id: c.id, name: c.name })}
-                                      className="p-1.5 bg-white border border-slate-200 text-slate-500 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-lg transition-all"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {workstationCommittees.map(c => (
+                          <div key={c.id} className="group relative bg-white rounded-2xl overflow-hidden border border-slate-200/60 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col">
+                            {/* Hero Image Section */}
+                            <div className="h-48 w-full relative overflow-hidden bg-slate-100">
+                              <img 
+                                src={c.image || 'https://images.unsplash.com/photo-1575318625902-1262d19213bc?auto=format&fit=crop&q=80&w=800'} 
+                                alt={c.name} 
+                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent"></div>
+                              
+                              {/* Category Badge */}
+                              <div className="absolute top-4 left-4">
+                                <span className="bg-white/95 backdrop-blur-sm text-slate-800 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                                  {c.category}
+                                </span>
+                              </div>
+
+                              {/* Actions (Edit/Delete) */}
+                              <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity translate-y-1 group-hover:translate-y-0 duration-200">
+                                <button
+                                  onClick={() => openEditCommitteeModal(c)}
+                                  className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-slate-700 hover:text-indigo-600 flex items-center justify-center shadow-sm transition-colors"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setDeleteConfirm({ type: 'committees', id: c.id, name: c.name })}
+                                  className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-slate-700 hover:text-rose-600 flex items-center justify-center shadow-sm transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              {/* Title overlay */}
+                              <div className="absolute bottom-4 left-4 right-4">
+                                <h3 className="text-white font-bold text-lg leading-tight line-clamp-2">{c.name}</h3>
+                                <p className="text-slate-300 text-xs mt-1 font-mono">{c.id}</p>
+                              </div>
+                            </div>
+
+                            {/* Content & Stats Section */}
+                            <div className="p-5 flex-1 flex flex-col justify-between">
+                              <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="space-y-1">
+                                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Target Seats</p>
+                                  <p className="text-lg font-black text-slate-800">{c.target}</p>
+                                </div>
+                                <div className="space-y-1">
+                                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Delegate Fee</p>
+                                  <p className="text-lg font-black text-slate-800">{formatINR(c.fee)}</p>
+                                </div>
+                              </div>
+                              
+                              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                                <span className="text-xs font-semibold text-slate-500">Projected Revenue</span>
+                                <span className="text-sm font-black text-emerald-600">{formatINR(c.target * c.fee)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </AnimatedCard>
@@ -3170,18 +2937,18 @@ export default function OasisWorkplace() {
                         </div>
                       </div>
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs">
-                          <thead>
-                            <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
-                              <th className="py-3 px-4">Item</th>
-                              <th className="py-3 px-4">Department</th>
-                              <th className="py-3 px-4 text-right">Budgeted</th>
-                              <th className="py-3 px-4 text-right">Actual</th>
-                              <th className="py-3 px-4 text-center">Status</th>
-                              <th className="py-3 px-4 text-center">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
+                        <Table className="w-full text-left border-collapse text-xs">
+                          <TableHeader>
+                            <TableRow className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                              <TableHead className="py-3 px-4">Item</TableHead>
+                              <TableHead className="py-3 px-4">Department</TableHead>
+                              <TableHead className="py-3 px-4 text-right">Budgeted</TableHead>
+                              <TableHead className="py-3 px-4 text-right">Actual</TableHead>
+                              <TableHead className="py-3 px-4 text-center">Status</TableHead>
+                              <TableHead className="py-3 px-4 text-center">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody className="divide-y divide-slate-100">
                             {workstationExpenses
                               .filter(e => selectedDeptFilter === 'All Departments' || e.dept === selectedDeptFilter)
                               .map(item => {
@@ -3193,17 +2960,17 @@ export default function OasisWorkplace() {
                                   'Partially Paid': 'bg-violet-50 text-violet-700',
                                 }
                                 return (
-                                  <tr key={item.id} className="hover:bg-indigo-50/30 transition-all group">
-                                    <td className="py-3 px-4 font-medium text-slate-800">{item.item}</td>
-                                    <td className="py-3 px-4 text-slate-600">{item.dept}</td>
-                                    <td className="py-3 px-4 text-right font-bold text-indigo-600">{formatINR(budgetedVal)}</td>
-                                    <td className="py-3 px-4 text-right font-bold text-slate-700">{formatINR(item.actualCost)}</td>
-                                    <td className="py-3 px-4 text-center">
+                                  <TableRow key={item.id} className="hover:bg-indigo-50/30 transition-all group">
+                                    <TableCell className="py-3 px-4 font-medium text-slate-800">{item.item}</TableCell>
+                                    <TableCell className="py-3 px-4 text-slate-600">{item.dept}</TableCell>
+                                    <TableCell className="py-3 px-4 text-right font-bold text-indigo-600">{formatINR(budgetedVal)}</TableCell>
+                                    <TableCell className="py-3 px-4 text-right font-bold text-slate-700">{formatINR(item.actualCost)}</TableCell>
+                                    <TableCell className="py-3 px-4 text-center">
                                       <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${statusColors[item.status] || 'bg-slate-100 text-slate-600'}`}>
                                         {item.status}
                                       </span>
-                                    </td>
-                                    <td className="py-3 px-4">
+                                    </TableCell>
+                                    <TableCell className="py-3 px-4">
                                       <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button
                                           onClick={() => openEditExpenseModal(item)}
@@ -3218,12 +2985,12 @@ export default function OasisWorkplace() {
                                           <Trash2 className="w-3.5 h-3.5" />
                                         </button>
                                       </div>
-                                    </td>
-                                  </tr>
+                                    </TableCell>
+                                  </TableRow>
                                 )
                               })}
-                          </tbody>
-                        </table>
+                          </TableBody>
+                        </Table>
                       </div>
                       <div className="p-4 bg-slate-50/50 border-t border-slate-200/60 flex justify-end">
                         <button
@@ -3253,37 +3020,37 @@ export default function OasisWorkplace() {
                         </button>
                       </div>
                       <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs">
-                          <thead>
-                            <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
-                              <th className="py-3 px-4">Source</th>
-                              <th className="py-3 px-4">Category</th>
-                              <th className="py-3 px-4 text-right">Target</th>
-                              <th className="py-3 px-4 text-right">Actual</th>
-                              <th className="py-3 px-4 text-center">Status</th>
-                              <th className="py-3 px-4 text-center">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
+                        <Table className="w-full text-left border-collapse text-xs">
+                          <TableHeader>
+                            <TableRow className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                              <TableHead className="py-3 px-4">Source</TableHead>
+                              <TableHead className="py-3 px-4">Category</TableHead>
+                              <TableHead className="py-3 px-4 text-right">Target</TableHead>
+                              <TableHead className="py-3 px-4 text-right">Actual</TableHead>
+                              <TableHead className="py-3 px-4 text-center">Status</TableHead>
+                              <TableHead className="py-3 px-4 text-center">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody className="divide-y divide-slate-100">
                             {workstationRevenues.map(r => (
-                              <tr key={r.id} className="hover:bg-indigo-50/30 transition-all group">
-                                <td className="py-3 px-4 font-semibold text-slate-800">{r.source}</td>
-                                <td className="py-3 px-4">
+                              <TableRow key={r.id} className="hover:bg-indigo-50/30 transition-all group">
+                                <TableCell className="py-3 px-4 font-semibold text-slate-800">{r.source}</TableCell>
+                                <TableCell className="py-3 px-4">
                                   <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[9px] font-bold">
                                     {r.category}
                                   </span>
-                                </td>
-                                <td className="py-3 px-4 text-right font-bold text-slate-700">{formatINR(r.target)}</td>
-                                <td className="py-3 px-4 text-right font-bold text-emerald-600">{formatINR(r.actual)}</td>
-                                <td className="py-3 px-4 text-center">
+                                </TableCell>
+                                <TableCell className="py-3 px-4 text-right font-bold text-slate-700">{formatINR(r.target)}</TableCell>
+                                <TableCell className="py-3 px-4 text-right font-bold text-emerald-600">{formatINR(r.actual)}</TableCell>
+                                <TableCell className="py-3 px-4 text-center">
                                   <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${r.status === 'Completed' ? 'bg-emerald-50 text-emerald-700' :
                                     r.status === 'Partially Received' ? 'bg-amber-50 text-amber-700' :
                                       'bg-sky-50 text-sky-700'
                                     }`}>
                                     {r.status}
                                   </span>
-                                </td>
-                                <td className="py-3 px-4">
+                                </TableCell>
+                                <TableCell className="py-3 px-4">
                                   <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                       onClick={() => openEditRevenueModal(r)}
@@ -3298,11 +3065,11 @@ export default function OasisWorkplace() {
                                       <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                   </div>
-                                </td>
-                              </tr>
+                                </TableCell>
+                              </TableRow>
                             ))}
-                          </tbody>
-                        </table>
+                          </TableBody>
+                        </Table>
                       </div>
                     </div>
                   </AnimatedCard>
@@ -3461,30 +3228,30 @@ export default function OasisWorkplace() {
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Delegate Registry ({filteredLiveDelegates.length})</h3>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-sm">
-                      <thead>
-                        <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
-                          <th className="py-3 px-4">Name</th>
-                          <th className="py-3 px-4">Institution</th>
-                          <th className="py-3 px-4">Contact</th>
-                          <th className="py-3 px-4 text-center">Status</th>
-                          <th className="py-3 px-4 text-center">Check-in Time</th>
-                          <th className="py-3 px-4 text-center">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
+                    <Table className="w-full text-left border-collapse text-sm">
+                      <TableHeader>
+                        <TableRow className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                          <TableHead className="py-3 px-4">Name</TableHead>
+                          <TableHead className="py-3 px-4">Institution</TableHead>
+                          <TableHead className="py-3 px-4">Contact</TableHead>
+                          <TableHead className="py-3 px-4 text-center">Status</TableHead>
+                          <TableHead className="py-3 px-4 text-center">Check-in Time</TableHead>
+                          <TableHead className="py-3 px-4 text-center">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-slate-100">
                         {filteredLiveDelegates.map(del => {
                           const isBlacklisted = !!dbBlacklisted[del.id] || !!dbBlacklisted[`${del.id}_delegate1`] || !!dbBlacklisted[`${del.id}_delegate2`]
 
                           return (
-                            <tr key={del.id} className="hover:bg-slate-50/50 transition-all">
-                              <td className="py-3 px-4 font-semibold text-slate-800">{del.name}</td>
-                              <td className="py-3 px-4 text-slate-600">{del.institution}</td>
-                              <td className="py-3 px-4">
+                            <TableRow key={del.id} className="hover:bg-slate-50/50 transition-all">
+                              <TableCell className="py-3 px-4 font-semibold text-slate-800">{del.name}</TableCell>
+                              <TableCell className="py-3 px-4 text-slate-600">{del.institution}</TableCell>
+                              <TableCell className="py-3 px-4">
                                 <span className="text-slate-500 text-xs">{del.email}</span>
                                 <span className="block text-[10px] text-slate-400">{del.phone}</span>
-                              </td>
-                              <td className="py-3 px-4 text-center">
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-center">
                                 {isBlacklisted ? (
                                   <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700">
                                     Banned
@@ -3495,9 +3262,9 @@ export default function OasisWorkplace() {
                                     {del.isCheckedIn ? 'Checked-In' : 'Pending'}
                                   </span>
                                 )}
-                              </td>
-                              <td className="py-3 px-4 text-center text-slate-500 text-xs">{del.checkInTime || '-'}</td>
-                              <td className="py-3 px-4 text-center">
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-center text-slate-500 text-xs">{del.checkInTime || '-'}</TableCell>
+                              <TableCell className="py-3 px-4 text-center">
                                 <div className="flex items-center justify-center gap-2">
                                   <button
                                     onClick={() => toggleDelegateCheckinStatus(del)}
@@ -3527,12 +3294,12 @@ export default function OasisWorkplace() {
                                     </button>
                                   )}
                                 </div>
-                              </td>
-                            </tr>
+                              </TableCell>
+                            </TableRow>
                           )
                         })}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
                 <AnimatePresence>
@@ -3712,38 +3479,38 @@ export default function OasisWorkplace() {
 
                 <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-sm">
-                      <thead>
-                        <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
-                          <th className="py-3 px-4">Applicant</th>
-                          <th className="py-3 px-4">College</th>
-                          <th className="py-3 px-4">Preferences</th>
-                          <th className="py-3 px-4 text-center">Status</th>
-                          <th className="py-3 px-4 text-center">Details</th>
-                          <th className="py-3 px-4 text-center">Details</th>
-                          <th className="py-3 px-4 text-center">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
+                    <Table className="w-full text-left border-collapse text-sm">
+                      <TableHeader>
+                        <TableRow className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                          <TableHead className="py-3 px-4">Applicant</TableHead>
+                          <TableHead className="py-3 px-4">College</TableHead>
+                          <TableHead className="py-3 px-4">Preferences</TableHead>
+                          <TableHead className="py-3 px-4 text-center">Status</TableHead>
+                          <TableHead className="py-3 px-4 text-center">Details</TableHead>
+                          <TableHead className="py-3 px-4 text-center">Details</TableHead>
+                          <TableHead className="py-3 px-4 text-center">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-slate-100">
                         {(recruitmentView === 'oc' ? dbApplications : dbEbApplications).length === 0 ? (
-                          <tr>
-                            <td colSpan={7} className="text-center py-12 text-slate-400">No applications found</td>
-                          </tr>
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-12 text-slate-400">No applications found</TableCell>
+                          </TableRow>
                         ) : (
                           (recruitmentView === 'oc' ? dbApplications : dbEbApplications).map(app => (
-                            <tr key={app.uid} className="hover:bg-slate-50/50 transition-all">
-                              <td className="py-3 px-4">
+                            <TableRow key={app.uid} className="hover:bg-slate-50/50 transition-all">
+                              <TableCell className="py-3 px-4">
                                 <span className="font-semibold text-slate-800">{app.name}</span>
                                 <span className="block text-[10px] text-slate-400">{app.email}</span>
-                              </td>
-                              <td className="py-3 px-4">
+                              </TableCell>
+                              <TableCell className="py-3 px-4">
                                 <span className="text-slate-600">{app.college}</span>
                                 <span className="block text-[10px] text-slate-400">{app.course} (Year {app.year})</span>
-                              </td>
-                              <td className="py-3 px-4 text-sm text-slate-600">
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-sm text-slate-600">
                                 {recruitmentView === 'eb' ? `${app.committeePref1} (${app.rolePref1})` : app.pref1}
-                              </td>
-                              <td className="py-3 px-4 text-center">
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-center">
                                 <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${app.status === 'welcomed' ? 'bg-emerald-100 text-emerald-700' :
                                   app.status === 'rejected' ? 'bg-rose-100 text-rose-700' :
                                     app.status === 'interview' ? 'bg-sky-100 text-sky-700' :
@@ -3752,16 +3519,16 @@ export default function OasisWorkplace() {
                                   }`}>
                                   {app.status}
                                 </span>
-                              </td>
-                              <td className="py-3 px-4 text-center">
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-center">
                                 <button
                                   onClick={() => handleOpenAppDetailsModal(app)}
                                   className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-semibold text-xs px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-all cursor-pointer"
                                 >
                                   <Eye className="w-3.5 h-3.5" /> View
                                 </button>
-                              </td>
-                              <td className="py-3 px-4 text-center">
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-center">
                                 <select
                                   value={app.status}
                                   onChange={(e) => handleUpdateApplicationStatus(app.uid, e.target.value, app.email, app.name, recruitmentView === 'eb')}
@@ -3773,12 +3540,12 @@ export default function OasisWorkplace() {
                                   <option value="welcomed">Welcome</option>
                                   <option value="rejected">Reject</option>
                                 </select>
-                              </td>
-                            </tr>
+                              </TableCell>
+                            </TableRow>
                           ))
                         )}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
               </motion.div>
@@ -4090,38 +3857,38 @@ export default function OasisWorkplace() {
 
                               <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
                                 <div className="overflow-x-auto">
-                                  <table className="w-full text-left border-collapse text-xs">
-                                    <thead>
-                                      <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider font-semibold">
-                                        <th className="py-3 px-4 font-bold">Asset Name</th>
-                                        <th className="py-3 px-4 text-center font-bold">Qty</th>
-                                        <th className="py-3 px-4 text-right font-bold">Unit Cost</th>
-                                        <th className="py-3 px-4 text-right font-bold">Total Value</th>
-                                        <th className="py-3 px-4 text-center font-bold">Status</th>
-                                        <th className="py-3 px-4 text-center font-bold">Actions</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
+                                  <Table className="w-full text-left border-collapse text-xs">
+                                    <TableHeader>
+                                      <TableRow className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider font-semibold">
+                                        <TableHead className="py-3 px-4 font-bold">Asset Name</TableHead>
+                                        <TableHead className="py-3 px-4 text-center font-bold">Qty</TableHead>
+                                        <TableHead className="py-3 px-4 text-right font-bold">Unit Cost</TableHead>
+                                        <TableHead className="py-3 px-4 text-right font-bold">Total Value</TableHead>
+                                        <TableHead className="py-3 px-4 text-center font-bold">Status</TableHead>
+                                        <TableHead className="py-3 px-4 text-center font-bold">Actions</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody className="divide-y divide-slate-100">
                                       {dbAssets.filter(a => a.department === selectedDeptWorkspace).length === 0 ? (
-                                        <tr>
-                                          <td colSpan={6} className="text-center py-12 text-slate-400">No assets recorded in this department ledger.</td>
-                                        </tr>
+                                        <TableRow>
+                                          <TableCell colSpan={6} className="text-center py-12 text-slate-400">No assets recorded in this department ledger.</TableCell>
+                                        </TableRow>
                                       ) : (
                                         dbAssets.filter(a => a.department === selectedDeptWorkspace).map(asset => (
-                                          <tr key={asset.id} className="hover:bg-indigo-50/30 transition-all group">
-                                            <td className="py-3 px-4 font-bold text-slate-800">{asset.name}</td>
-                                            <td className="py-3 px-4 text-center font-bold">{asset.quantity}</td>
-                                            <td className="py-3 px-4 text-right font-bold text-slate-700">{formatINR(asset.cost)}</td>
-                                            <td className="py-3 px-4 text-right font-bold text-indigo-600">{formatINR(asset.quantity * asset.cost)}</td>
-                                            <td className="py-3 px-4 text-center">
+                                          <TableRow key={asset.id} className="hover:bg-indigo-50/30 transition-all group">
+                                            <TableCell className="py-3 px-4 font-bold text-slate-800">{asset.name}</TableCell>
+                                            <TableCell className="py-3 px-4 text-center font-bold">{asset.quantity}</TableCell>
+                                            <TableCell className="py-3 px-4 text-right font-bold text-slate-700">{formatINR(asset.cost)}</TableCell>
+                                            <TableCell className="py-3 px-4 text-right font-bold text-indigo-600">{formatINR(asset.quantity * asset.cost)}</TableCell>
+                                            <TableCell className="py-3 px-4 text-center">
                                               <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${asset.status === 'acquired' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
                                                 asset.status === 'ordered' ? 'bg-sky-50 text-sky-700 border border-sky-100' :
                                                   'bg-amber-50 text-amber-700 border border-amber-100'
                                                 }`}>
                                                 {asset.status}
                                               </span>
-                                            </td>
-                                            <td className="py-3 px-4">
+                                            </TableCell>
+                                            <TableCell className="py-3 px-4">
                                               <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                   onClick={() => openEditAssetModal(asset)}
@@ -4136,12 +3903,12 @@ export default function OasisWorkplace() {
                                                   <Trash2 className="w-3.5 h-3.5" />
                                                 </button>
                                               </div>
-                                            </td>
-                                          </tr>
+                                            </TableCell>
+                                          </TableRow>
                                         ))
                                       )}
-                                    </tbody>
-                                  </table>
+                                    </TableBody>
+                                  </Table>
                                 </div>
                               </div>
                             </div>
@@ -4401,40 +4168,40 @@ export default function OasisWorkplace() {
 
                 <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider font-semibold">
-                          <th className="py-3 px-4 font-bold">Asset Name</th>
-                          <th className="py-3 px-4 font-bold">Department</th>
-                          <th className="py-3 px-4 text-center font-bold">Qty</th>
-                          <th className="py-3 px-4 text-right font-bold">Unit Cost</th>
-                          <th className="py-3 px-4 text-right font-bold">Total Value</th>
-                          <th className="py-3 px-4 text-center font-bold">Status</th>
-                          <th className="py-3 px-4 text-center font-bold">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
+                    <Table className="w-full text-left border-collapse text-xs">
+                      <TableHeader>
+                        <TableRow className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider font-semibold">
+                          <TableHead className="py-3 px-4 font-bold">Asset Name</TableHead>
+                          <TableHead className="py-3 px-4 font-bold">Department</TableHead>
+                          <TableHead className="py-3 px-4 text-center font-bold">Qty</TableHead>
+                          <TableHead className="py-3 px-4 text-right font-bold">Unit Cost</TableHead>
+                          <TableHead className="py-3 px-4 text-right font-bold">Total Value</TableHead>
+                          <TableHead className="py-3 px-4 text-center font-bold">Status</TableHead>
+                          <TableHead className="py-3 px-4 text-center font-bold">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-slate-100">
                         {filteredAssets.length === 0 ? (
-                          <tr>
-                            <td colSpan={7} className="text-center py-12 text-slate-400">No assets found</td>
-                          </tr>
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-12 text-slate-400">No assets found</TableCell>
+                          </TableRow>
                         ) : (
                           filteredAssets.map(asset => (
-                            <tr key={asset.id} className="hover:bg-indigo-50/30 transition-all group">
-                              <td className="py-3 px-4 font-bold text-slate-800">{asset.name}</td>
-                              <td className="py-3 px-4 text-slate-600 font-semibold">{asset.department}</td>
-                              <td className="py-3 px-4 text-center font-bold">{asset.quantity}</td>
-                              <td className="py-3 px-4 text-right font-bold text-slate-700">{formatINR(asset.cost)}</td>
-                              <td className="py-3 px-4 text-right font-bold text-indigo-600">{formatINR(asset.quantity * asset.cost)}</td>
-                              <td className="py-3 px-4 text-center">
+                            <TableRow key={asset.id} className="hover:bg-indigo-50/30 transition-all group">
+                              <TableCell className="py-3 px-4 font-bold text-slate-800">{asset.name}</TableCell>
+                              <TableCell className="py-3 px-4 text-slate-600 font-semibold">{asset.department}</TableCell>
+                              <TableCell className="py-3 px-4 text-center font-bold">{asset.quantity}</TableCell>
+                              <TableCell className="py-3 px-4 text-right font-bold text-slate-700">{formatINR(asset.cost)}</TableCell>
+                              <TableCell className="py-3 px-4 text-right font-bold text-indigo-600">{formatINR(asset.quantity * asset.cost)}</TableCell>
+                              <TableCell className="py-3 px-4 text-center">
                                 <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${asset.status === 'acquired' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
                                   asset.status === 'ordered' ? 'bg-sky-50 text-sky-700 border border-sky-100' :
                                     'bg-amber-50 text-amber-700 border border-amber-100'
                                   }`}>
                                   {asset.status}
                                 </span>
-                              </td>
-                              <td className="py-3 px-4">
+                              </TableCell>
+                              <TableCell className="py-3 px-4">
                                 <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button
                                     onClick={() => openEditAssetModal(asset)}
@@ -4449,12 +4216,12 @@ export default function OasisWorkplace() {
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
-                              </td>
-                            </tr>
+                              </TableCell>
+                            </TableRow>
                           ))
                         )}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
               </motion.div>
@@ -4550,43 +4317,43 @@ export default function OasisWorkplace() {
 
                 <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-sm">
-                      <thead>
-                        <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
-                          <th className="py-3 px-4">Recipient</th>
-                          <th className="py-3 px-4">Award</th>
-                          <th className="py-3 px-4 text-right">Amount</th>
-                          <th className="py-3 px-4">Bank Account</th>
-                          <th className="py-3 px-4 text-center">Status</th>
-                          <th className="py-3 px-4 text-center">Date</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
+                    <Table className="w-full text-left border-collapse text-sm">
+                      <TableHeader>
+                        <TableRow className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                          <TableHead className="py-3 px-4">Recipient</TableHead>
+                          <TableHead className="py-3 px-4">Award</TableHead>
+                          <TableHead className="py-3 px-4 text-right">Amount</TableHead>
+                          <TableHead className="py-3 px-4">Bank Account</TableHead>
+                          <TableHead className="py-3 px-4 text-center">Status</TableHead>
+                          <TableHead className="py-3 px-4 text-center">Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-slate-100">
                         {dbPayouts.length === 0 ? (
-                          <tr>
-                            <td colSpan={6} className="text-center py-12 text-slate-400">No payouts processed yet</td>
-                          </tr>
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-12 text-slate-400">No payouts processed yet</TableCell>
+                          </TableRow>
                         ) : (
                           dbPayouts.map(p => (
-                            <tr key={p.id} className="hover:bg-slate-50/50 transition-all">
-                              <td className="py-3 px-4">
+                            <TableRow key={p.id} className="hover:bg-slate-50/50 transition-all">
+                              <TableCell className="py-3 px-4">
                                 <span className="font-semibold text-slate-800">{p.name}</span>
                                 <span className="block text-[10px] text-slate-400">{p.bankName}</span>
-                              </td>
-                              <td className="py-3 px-4 text-slate-600">{p.award}</td>
-                              <td className="py-3 px-4 text-right font-bold text-emerald-600">{formatINR(p.amount)}</td>
-                              <td className="py-3 px-4 font-mono text-xs text-slate-500">{p.accountNumber}</td>
-                              <td className="py-3 px-4 text-center">
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-slate-600">{p.award}</TableCell>
+                              <TableCell className="py-3 px-4 text-right font-bold text-emerald-600">{formatINR(p.amount)}</TableCell>
+                              <TableCell className="py-3 px-4 font-mono text-xs text-slate-500">{p.accountNumber}</TableCell>
+                              <TableCell className="py-3 px-4 text-center">
                                 <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-700">
                                   {p.status}
                                 </span>
-                              </td>
-                              <td className="py-3 px-4 text-center text-slate-500 text-xs">{new Date(p.timestamp).toLocaleDateString()}</td>
-                            </tr>
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-center text-slate-500 text-xs">{new Date(p.timestamp).toLocaleDateString()}</TableCell>
+                            </TableRow>
                           ))
                         )}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
 
@@ -4912,34 +4679,34 @@ export default function OasisWorkplace() {
                       </div>
                     </div>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
-                            <th className="py-3 px-4 font-bold">ID / Slug</th>
-                            <th className="py-3 px-4 font-bold">Classification</th>
-                            <th className="py-3 px-4 font-bold">Committee Name</th>
-                            <th className="py-3 px-4 text-center">Portfolios</th>
-                            <th className="py-3 px-4 text-center">EB Members</th>
-                            <th className="py-3 px-4 text-center">Guides</th>
-                            <th className="py-3 px-4 text-center">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
+                      <Table className="w-full text-left border-collapse text-xs">
+                        <TableHeader>
+                          <TableRow className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                            <TableHead className="py-3 px-4 font-bold">ID / Slug</TableHead>
+                            <TableHead className="py-3 px-4 font-bold">Classification</TableHead>
+                            <TableHead className="py-3 px-4 font-bold">Committee Name</TableHead>
+                            <TableHead className="py-3 px-4 text-center">Portfolios</TableHead>
+                            <TableHead className="py-3 px-4 text-center">EB Members</TableHead>
+                            <TableHead className="py-3 px-4 text-center">Guides</TableHead>
+                            <TableHead className="py-3 px-4 text-center">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-slate-100">
                           {dbCommittees
                             .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.id.toLowerCase().includes(searchQuery.toLowerCase()))
                             .map(c => {
                               const portfoliosCount = c.portfolios ? c.portfolios.length : 0
                               const ebCount = c.eb ? Object.keys(c.eb).length : 0
                               return (
-                                <tr key={c.id} className="hover:bg-indigo-50/20 transition-all group">
-                                  <td className="py-3.5 px-4 text-slate-500 font-mono font-bold">{c.id}</td>
-                                  <td className="py-3.5 px-4">
+                                <TableRow key={c.id} className="hover:bg-indigo-50/20 transition-all group">
+                                  <TableCell className="py-3.5 px-4 text-slate-500 font-mono font-bold">{c.id}</TableCell>
+                                  <TableCell className="py-3.5 px-4">
                                     <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-100 text-[9px] font-bold">
                                       {c.category}
                                     </span>
-                                  </td>
-                                  <td className="py-3.5 px-4 font-semibold text-slate-800 text-sm">{c.name}</td>
-                                  <td className="py-3.5 px-4 text-center">
+                                  </TableCell>
+                                  <TableCell className="py-3.5 px-4 font-semibold text-slate-800 text-sm">{c.name}</TableCell>
+                                  <TableCell className="py-3.5 px-4 text-center">
                                     <button
                                       onClick={() => {
                                         setSelectedRegistryCommitteeId(c.id)
@@ -4949,8 +4716,8 @@ export default function OasisWorkplace() {
                                     >
                                       {portfoliosCount} slots
                                     </button>
-                                  </td>
-                                  <td className="py-3.5 px-4 text-center">
+                                  </TableCell>
+                                  <TableCell className="py-3.5 px-4 text-center">
                                     <button
                                       onClick={() => {
                                         setSelectedRegistryCommitteeId(c.id)
@@ -4960,8 +4727,8 @@ export default function OasisWorkplace() {
                                     >
                                       {ebCount} members
                                     </button>
-                                  </td>
-                                  <td className="py-3.5 px-4">
+                                  </TableCell>
+                                  <TableCell className="py-3.5 px-4">
                                     <div className="flex justify-center gap-1.5">
                                       {c.backgroundGuide ? (
                                         <a href={c.backgroundGuide} target="_blank" rel="noopener noreferrer" className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-medium hover:bg-slate-200">
@@ -4974,8 +4741,8 @@ export default function OasisWorkplace() {
                                         </a>
                                       ) : null}
                                     </div>
-                                  </td>
-                                  <td className="py-3.5 px-4">
+                                  </TableCell>
+                                  <TableCell className="py-3.5 px-4">
                                     <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                       <button
                                         onClick={() => {
@@ -5005,12 +4772,12 @@ export default function OasisWorkplace() {
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
-                                  </td>
-                                </tr>
+                                  </TableCell>
+                                </TableRow>
                               )
                             })}
-                        </tbody>
-                      </table>
+                        </TableBody>
+                      </Table>
                     </div>
                   </div>
                 ) : (
@@ -5102,43 +4869,43 @@ export default function OasisWorkplace() {
                                 </div>
                               </div>
                               <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse text-xs">
-                                  <thead>
-                                    <tr className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
-                                      <th className="py-3 px-4 font-bold">Portfolio ID / Slug</th>
-                                      <th className="py-3 px-4 font-bold">Country / Position</th>
-                                      <th className="py-3 px-4 text-center">Flag</th>
-                                      <th className="py-3 px-4 text-center">Double Delegate</th>
-                                      <th className="py-3 px-4 text-center">Vacancy</th>
-                                      <th className="py-3 px-4 text-center">Min Experience</th>
-                                      <th className="py-3 px-4">Assigned Email</th>
-                                      <th className="py-3 px-4 text-center">Actions</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-100">
+                                <Table className="w-full text-left border-collapse text-xs">
+                                  <TableHeader>
+                                    <TableRow className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                                      <TableHead className="py-3 px-4 font-bold">Portfolio ID / Slug</TableHead>
+                                      <TableHead className="py-3 px-4 font-bold">Country / Position</TableHead>
+                                      <TableHead className="py-3 px-4 text-center">Flag</TableHead>
+                                      <TableHead className="py-3 px-4 text-center">Double Delegate</TableHead>
+                                      <TableHead className="py-3 px-4 text-center">Vacancy</TableHead>
+                                      <TableHead className="py-3 px-4 text-center">Min Experience</TableHead>
+                                      <TableHead className="py-3 px-4">Assigned Email</TableHead>
+                                      <TableHead className="py-3 px-4 text-center">Actions</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody className="divide-y divide-slate-100">
                                     {portfolios.length === 0 ? (
-                                      <tr>
-                                        <td colSpan={8} className="py-8 text-center text-slate-400">No portfolios registered for this committee. Click "Add Portfolio" to create one.</td>
-                                      </tr>
+                                      <TableRow>
+                                        <TableCell colSpan={8} className="py-8 text-center text-slate-400">No portfolios registered for this committee. Click "Add Portfolio" to create one.</TableCell>
+                                      </TableRow>
                                     ) : (
                                       portfolios
                                         .filter((p: any) => p.country.toLowerCase().includes(searchQuery.toLowerCase()) || p.id.toLowerCase().includes(searchQuery.toLowerCase()))
                                         .map((p: any) => (
-                                          <tr key={p.id} className="hover:bg-slate-50/50 transition-all group">
-                                            <td className="py-3 px-4 text-slate-500 font-mono font-bold">{p.id}</td>
-                                            <td className="py-3 px-4 font-semibold text-slate-800">{p.country}</td>
-                                            <td className="py-3 px-4 text-center font-mono text-slate-650">{p.countryCode || '-'}</td>
-                                            <td className="py-3 px-4 text-center">
+                                          <TableRow key={p.id} className="hover:bg-slate-50/50 transition-all group">
+                                            <TableCell className="py-3 px-4 text-slate-500 font-mono font-bold">{p.id}</TableCell>
+                                            <TableCell className="py-3 px-4 font-semibold text-slate-800">{p.country}</TableCell>
+                                            <TableCell className="py-3 px-4 text-center font-mono text-slate-650">{p.countryCode || '-'}</TableCell>
+                                            <TableCell className="py-3 px-4 text-center">
                                               <span className={`inline-block w-2.5 h-2.5 rounded-full ${p.isDoubleDelAllowed ? 'bg-indigo-500' : 'bg-slate-200'}`} title={p.isDoubleDelAllowed ? 'Allowed' : 'Single Only'} />
-                                            </td>
-                                            <td className="py-3 px-4 text-center">
+                                            </TableCell>
+                                            <TableCell className="py-3 px-4 text-center">
                                               <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold ${p.isVacant ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                                                 {p.isVacant ? 'Vacant' : 'Allocated'}
                                               </span>
-                                            </td>
-                                            <td className="py-3 px-4 text-center font-bold">{p.minExperience || 0} MUNs</td>
-                                            <td className="py-3 px-4 font-mono text-slate-600 text-[11px]">{p.email || <span className="text-slate-300 italic">none</span>}</td>
-                                            <td className="py-3 px-4">
+                                            </TableCell>
+                                            <TableCell className="py-3 px-4 text-center font-bold">{p.minExperience || 0} MUNs</TableCell>
+                                            <TableCell className="py-3 px-4 font-mono text-slate-600 text-[11px]">{p.email || <span className="text-slate-300 italic">none</span>}</TableCell>
+                                            <TableCell className="py-3 px-4">
                                               <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                   onClick={() => {
@@ -5165,12 +4932,12 @@ export default function OasisWorkplace() {
                                                   <Trash2 className="w-3.5 h-3.5" />
                                                 </button>
                                               </div>
-                                            </td>
-                                          </tr>
+                                            </TableCell>
+                                          </TableRow>
                                         ))
                                     )}
-                                  </tbody>
-                                </table>
+                                  </TableBody>
+                                </Table>
                               </div>
                             </>
                           )
@@ -5420,21 +5187,21 @@ export default function OasisWorkplace() {
 
                         return (
                           <div className="overflow-x-auto rounded-md border border-[#E2E8F0]">
-                            <table className="w-full text-left border-collapse text-xs">
-                              <thead>
-                                <tr className="bg-[#F7F9FC] border-b border-[#E2E8F0] text-[#64748B] uppercase text-[9px] tracking-wider font-bold">
-                                  <th className="py-2.5 px-3">Source</th>
-                                  <th className="py-2.5 px-3">Name</th>
-                                  <th className="py-2.5 px-3">School/College</th>
-                                  <th className="py-2.5 px-3">Status</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-[#E2E8F0]">
+                            <Table className="w-full text-left border-collapse text-xs">
+                              <TableHeader>
+                                <TableRow className="bg-[#F7F9FC] border-b border-[#E2E8F0] text-[#64748B] uppercase text-[9px] tracking-wider font-bold">
+                                  <TableHead className="py-2.5 px-3">Source</TableHead>
+                                  <TableHead className="py-2.5 px-3">Name</TableHead>
+                                  <TableHead className="py-2.5 px-3">School/College</TableHead>
+                                  <TableHead className="py-2.5 px-3">Status</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody className="divide-y divide-[#E2E8F0]">
                                 {combined.map(d => {
                                   const isBanned = d.displayStatus.toLowerCase().includes('ban') || d.displayPayment.toLowerCase().includes('black')
                                   const isSelected = selectedDele?.uniqueId === d.uniqueId
                                   return (
-                                    <tr
+                                    <TableRow
                                       key={d.uniqueId}
                                       onClick={() => setSelectedDele(d)}
                                       className={`cursor-pointer transition-all border-b border-[#E2E8F0] ${isSelected
@@ -5442,24 +5209,24 @@ export default function OasisWorkplace() {
                                         : 'hover:bg-slate-50 text-[#1C2434]'
                                         }`}
                                     >
-                                      <td className="py-2.5 px-3">
+                                      <TableCell className="py-2.5 px-3">
                                         <span className={`inline-block px-1.5 py-0.5 rounded-[3px] text-[8px] font-bold ${d.sourceType === 'firebase'
                                           ? 'bg-[#3C50E0]/10 text-[#3C50E0]'
                                           : 'bg-[#bf5af2]/10 text-[#bf5af2]'
                                           }`}>
                                           {d.sourceType === 'firebase' ? 'Live' : 'Legacy'}
                                         </span>
-                                      </td>
-                                      <td className="py-2.5 px-3 truncate max-w-[120px] font-medium">{d.displayName}</td>
-                                      <td className="py-2.5 px-3 truncate max-w-[150px] text-[#64748B]">{d.displayInstitution}</td>
-                                      <td className="py-2.5 px-3">
+                                      </TableCell>
+                                      <TableCell className="py-2.5 px-3 truncate max-w-[120px] font-medium">{d.displayName}</TableCell>
+                                      <TableCell className="py-2.5 px-3 truncate max-w-[150px] text-[#64748B]">{d.displayInstitution}</TableCell>
+                                      <TableCell className="py-2.5 px-3">
                                         <span className={`inline-block w-2.5 h-2.5 rounded-full ${isBanned ? 'bg-rose-500' : 'bg-emerald-500'}`} />
-                                      </td>
-                                    </tr>
+                                      </TableCell>
+                                    </TableRow>
                                   )
                                 })}
-                              </tbody>
-                            </table>
+                              </TableBody>
+                            </Table>
                           </div>
                         )
                       })()}
@@ -5853,19 +5620,19 @@ export default function OasisWorkplace() {
                     </Button>
                   </div>
                   <div className="p-0">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-xs font-bold text-[#64748B] uppercase tracking-wider">
-                          <th className="px-5 py-3">Route Name</th>
-                          <th className="px-5 py-3">Description / Pickups</th>
-                          <th className="px-5 py-3">Fee (INR)</th>
-                          <th className="px-5 py-3 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <Table className="w-full text-left border-collapse">
+                      <TableHeader>
+                        <TableRow className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-xs font-bold text-[#64748B] uppercase tracking-wider">
+                          <TableHead className="px-5 py-3">Route Name</TableHead>
+                          <TableHead className="px-5 py-3">Description / Pickups</TableHead>
+                          <TableHead className="px-5 py-3">Fee (INR)</TableHead>
+                          <TableHead className="px-5 py-3 text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {(dbSiteSettings?.transport?.routes || []).map((route: any, index: number) => (
-                          <tr key={route.id} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC]">
-                            <td className="px-5 py-3">
+                          <TableRow key={route.id} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC]">
+                            <TableCell className="px-5 py-3">
                               <input
                                 type="text"
                                 value={route.name}
@@ -5876,8 +5643,8 @@ export default function OasisWorkplace() {
                                 }}
                                 className="w-full bg-transparent border-b border-transparent hover:border-[#E2E8F0] focus:border-[#3C50E0] focus:outline-none font-medium"
                               />
-                            </td>
-                            <td className="px-5 py-3">
+                            </TableCell>
+                            <TableCell className="px-5 py-3">
                               <input
                                 type="text"
                                 value={route.description}
@@ -5888,8 +5655,8 @@ export default function OasisWorkplace() {
                                 }}
                                 className="w-full bg-transparent border-b border-transparent hover:border-[#E2E8F0] focus:border-[#3C50E0] focus:outline-none text-sm text-[#64748B]"
                               />
-                            </td>
-                            <td className="px-5 py-3">
+                            </TableCell>
+                            <TableCell className="px-5 py-3">
                               <div className="flex items-center gap-1">
                                 <span className="text-[#64748B]">₹</span>
                                 <input
@@ -5903,8 +5670,8 @@ export default function OasisWorkplace() {
                                   className="w-20 bg-transparent border-b border-transparent hover:border-[#E2E8F0] focus:border-[#3C50E0] focus:outline-none font-medium"
                                 />
                               </div>
-                            </td>
-                            <td className="px-5 py-3 text-right">
+                            </TableCell>
+                            <TableCell className="px-5 py-3 text-right">
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -5916,18 +5683,18 @@ export default function OasisWorkplace() {
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         ))}
                         {(!dbSiteSettings?.transport?.routes || dbSiteSettings.transport.routes.length === 0) && (
-                          <tr>
-                            <td colSpan={4} className="px-5 py-8 text-center text-[#64748B] italic text-sm">
+                          <TableRow>
+                            <TableCell colSpan={4} className="px-5 py-8 text-center text-[#64748B] italic text-sm">
                               No routes configured yet. Add a route to start offering transport to delegates.
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         )}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
 
@@ -5940,34 +5707,34 @@ export default function OasisWorkplace() {
                     </h3>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-xs font-bold text-[#64748B] uppercase tracking-wider">
-                          <th className="px-5 py-3">Delegate</th>
-                          <th className="px-5 py-3">Route</th>
-                          <th className="px-5 py-3">Fee</th>
-                          <th className="px-5 py-3">Payment Status</th>
-                          <th className="px-5 py-3 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <Table className="w-full text-left border-collapse">
+                      <TableHeader>
+                        <TableRow className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-xs font-bold text-[#64748B] uppercase tracking-wider">
+                          <TableHead className="px-5 py-3">Delegate</TableHead>
+                          <TableHead className="px-5 py-3">Route</TableHead>
+                          <TableHead className="px-5 py-3">Fee</TableHead>
+                          <TableHead className="px-5 py-3">Payment Status</TableHead>
+                          <TableHead className="px-5 py-3 text-right">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {dbDelegates.filter(d => d.transportOptIn).length > 0 ? (
                           dbDelegates.filter(d => d.transportOptIn).map((delegate, idx) => {
                             const routeInfo = dbSiteSettings?.transport?.routes?.find((r: any) => r.id === delegate.transportOptIn.routeId);
                             return (
-                              <tr key={idx} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC]">
-                                <td className="px-5 py-3">
+                              <TableRow key={idx} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC]">
+                                <TableCell className="px-5 py-3">
                                   <div className="font-semibold text-sm text-[#1C2434]">{delegate.name}</div>
                                   <div className="text-xs text-[#64748B]">{delegate.id.split('_')[0].substring(0, 8)}</div>
-                                </td>
-                                <td className="px-5 py-3 text-sm text-[#64748B]">{routeInfo?.name || 'Unknown Route'}</td>
-                                <td className="px-5 py-3 text-sm font-medium">₹{delegate.transportOptIn.fee}</td>
-                                <td className="px-5 py-3">
+                                </TableCell>
+                                <TableCell className="px-5 py-3 text-sm text-[#64748B]">{routeInfo?.name || 'Unknown Route'}</TableCell>
+                                <TableCell className="px-5 py-3 text-sm font-medium">₹{delegate.transportOptIn.fee}</TableCell>
+                                <TableCell className="px-5 py-3">
                                   <span className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md ${delegate.transportOptIn.status === 'paid' ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-[#F2994A]/10 text-[#F2994A]'}`}>
                                     {delegate.transportOptIn.status || 'Pending'}
                                   </span>
-                                </td>
-                                <td className="px-5 py-3 text-right">
+                                </TableCell>
+                                <TableCell className="px-5 py-3 text-right">
                                   {delegate.transportOptIn.status !== 'paid' && (
                                     <Button
                                       size="sm"
@@ -5997,19 +5764,19 @@ export default function OasisWorkplace() {
                                       Revert
                                     </Button>
                                   )}
-                                </td>
-                              </tr>
+                                </TableCell>
+                              </TableRow>
                             );
                           })
                         ) : (
-                          <tr>
-                            <td colSpan={5} className="px-5 py-8 text-center text-[#64748B] italic text-sm">
+                          <TableRow>
+                            <TableCell colSpan={5} className="px-5 py-8 text-center text-[#64748B] italic text-sm">
                               No delegates have opted for transport yet.
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         )}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
               </motion.div>
@@ -6133,38 +5900,38 @@ export default function OasisWorkplace() {
                 </div>
                 <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                   <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-                    <table className="w-full text-left border-collapse text-xs relative">
-                      <thead className="sticky top-0 bg-slate-50 z-10 shadow-sm border-b border-slate-200 text-slate-500 uppercase text-[9px] tracking-wider font-semibold">
-                        <tr>
-                          <th className="py-3 px-4">Timestamp</th>
-                          <th className="py-3 px-4">User</th>
-                          <th className="py-3 px-4">Action Type</th>
-                          <th className="py-3 px-4">Details</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
+                    <Table className="w-full text-left border-collapse text-xs relative">
+                      <TableHeader className="sticky top-0 bg-slate-50 z-10 shadow-sm border-b border-slate-200 text-slate-500 uppercase text-[9px] tracking-wider font-semibold">
+                        <TableRow>
+                          <TableHead className="py-3 px-4">Timestamp</TableHead>
+                          <TableHead className="py-3 px-4">User</TableHead>
+                          <TableHead className="py-3 px-4">Action Type</TableHead>
+                          <TableHead className="py-3 px-4">Details</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-slate-100">
                         {dbActivityLogs.length === 0 ? (
-                          <tr>
-                            <td colSpan={4} className="text-center py-12 text-slate-400">No activity logs found.</td>
-                          </tr>
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center py-12 text-slate-400">No activity logs found.</TableCell>
+                          </TableRow>
                         ) : (
                           dbActivityLogs.map(log => (
-                            <tr key={log.id} className="hover:bg-slate-50 transition-all">
-                              <td className="py-3 px-4 text-slate-500 font-mono whitespace-nowrap">
+                            <TableRow key={log.id} className="hover:bg-slate-50 transition-all">
+                              <TableCell className="py-3 px-4 text-slate-500 font-mono whitespace-nowrap">
                                 {new Date(log.timestamp).toLocaleString()}
-                              </td>
-                              <td className="py-3 px-4 font-semibold text-slate-800">{log.userEmail}</td>
-                              <td className="py-3 px-4">
+                              </TableCell>
+                              <TableCell className="py-3 px-4 font-semibold text-slate-800">{log.userEmail}</TableCell>
+                              <TableCell className="py-3 px-4">
                                 <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase border border-slate-200">
                                   {log.actionType}
                                 </span>
-                              </td>
-                              <td className="py-3 px-4 text-slate-600">{log.details}</td>
-                            </tr>
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-slate-600">{log.details}</TableCell>
+                            </TableRow>
                           ))
                         )}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
               </motion.div>
@@ -6347,7 +6114,7 @@ export default function OasisWorkplace() {
             {/* Existing closing brace */}
 
           </AnimatePresence>
-        </main>
+        </div>
 
         {/* Mobile Bottom Navigation Bar */}
         <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-md border-t border-slate-200 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
@@ -6379,7 +6146,7 @@ export default function OasisWorkplace() {
             })}
           </div>
         </div>
-      </div>
+      </main>
 
       {/* Modals */}
       {/* 1. Real Database Committee Modal */}
@@ -7841,9 +7608,6 @@ export default function OasisWorkplace() {
         </div>
       )}
 
-      <footer className="bg-white border-t border-slate-200 py-5 text-center text-[10px] text-slate-400 font-semibold shrink-0">
-        <p>© 2026 Kalinga International MUN Secretariat — Oasis Command Center</p>
-      </footer>
-    </div>
+    </SidebarProvider>
   )
 }
