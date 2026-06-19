@@ -1,0 +1,21 @@
+{
+  "name": "KIMUN 2025 Oasis",
+  "short_name": "KIMUN",
+  "description": "Kalinga Institute of Model United Nations 2025 Oasis Dashboard",
+  "start_url": "/oasis",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/globe.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/globe.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

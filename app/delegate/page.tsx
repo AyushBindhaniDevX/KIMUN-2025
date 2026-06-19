@@ -137,6 +137,8 @@ function DelegateDashboardContent() {
   const [conferenceDetails, setConferenceDetails] = useState<ConferenceDetails | null>(null)
   const [resources, setResources] = useState<Resource[]>([])
   const [coupons, setCoupons] = useState<Coupon[]>([])
+  const [schedule, setSchedule] = useState<any[]>([])
+  const [transportSettings, setTransportSettings] = useState<any>(null)
   const [loading, setLoading] = useState({
     login: false,
     data: false,
@@ -144,6 +146,7 @@ function DelegateDashboardContent() {
     coupons: false
   })
   const [expandedCard, setExpandedCard] = useState<string | null>('performance')
+  const [showQrModal, setShowQrModal] = useState(false)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user: any) => {
@@ -261,6 +264,19 @@ function DelegateDashboardContent() {
       const conferenceSnapshot = await get(conferenceRef)
       if (conferenceSnapshot.exists()) {
         setConferenceDetails(conferenceSnapshot.val())
+      }
+
+      const scheduleRef = ref(db, 'schedule')
+      const scheduleSnapshot = await get(scheduleRef)
+      if (scheduleSnapshot.exists()) {
+        const scheduleData = scheduleSnapshot.val()
+        setSchedule(Object.keys(scheduleData).map(k => ({ id: k, ...scheduleData[k] })))
+      }
+
+      const siteSettingsRef = ref(db, 'site_settings/transport')
+      const siteSettingsSnapshot = await get(siteSettingsRef)
+      if (siteSettingsSnapshot.exists()) {
+        setTransportSettings(siteSettingsSnapshot.val())
       }
     } catch (error) {
       console.error('Error fetching conference details:', error)
@@ -601,7 +617,10 @@ function DelegateDashboardContent() {
                 <p className="text-xs font-mono font-medium text-slate-700">{delegate?.id?.substring(0, 8)}...</p>
               </div>
               {delegate?.id && (
-                <div className="bg-white p-1.5 rounded-xl border border-slate-200">
+                <div 
+                  className="bg-white p-1.5 rounded-xl border border-slate-200 cursor-pointer hover:shadow-md transition-all active:scale-95"
+                  onClick={() => setShowQrModal(true)}
+                >
                   <Image
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${delegate.id}`}
                     alt="Delegate QR Code"
@@ -1135,7 +1154,7 @@ function DelegateDashboardContent() {
             </div>
             <div className="p-6">
               <div className="space-y-6">
-                {[
+                {(schedule && schedule.length > 0 ? schedule : [
                   {
                     day: "Day 1",
                     date: conferenceDetails?.dates?.split(' ')[0] || "July 5, 2026",
@@ -1163,7 +1182,7 @@ function DelegateDashboardContent() {
                       { time: "17:00 - 18:30", title: "Closing Ceremony & Awards", location: "Auditorium" }
                     ]
                   }
-                ].map((daySchedule, dayIndex) => (
+                ]).map((daySchedule, dayIndex) => (
                   <div key={dayIndex} className="relative pl-5 border-l-2 border-indigo-200">
                     <div className="absolute -left-[9px] top-0 w-3.5 h-3.5 rounded-full bg-indigo-500 border-2 border-white shadow-sm" />
                     <div className="mb-4">
@@ -1171,7 +1190,7 @@ function DelegateDashboardContent() {
                       <p className="text-xs text-slate-500">{daySchedule.date}</p>
                     </div>
                     <div className="space-y-2.5">
-                      {daySchedule.events.map((event, eventIndex) => (
+                      {daySchedule.events && daySchedule.events.map((event: any, eventIndex: number) => (
                         <div key={eventIndex} className="flex items-start gap-4 p-2.5 rounded-lg hover:bg-slate-50 transition-colors">
                           <div className="min-w-[95px]">
                             <p className="text-xs font-semibold text-indigo-600">{event.time}</p>
@@ -1192,6 +1211,145 @@ function DelegateDashboardContent() {
           </div>
         </motion.div>
 
+        {/* Transport Services Section */}
+        {transportSettings?.enabled && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.6 }}
+            className="mt-6"
+          >
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+              <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                  <Car className="h-4 w-4 text-indigo-500" />
+                  Transport Services
+                </h2>
+                {delegate?.transportOptIn && (
+                  <span className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md ${delegate.transportOptIn.status === 'paid' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                    {delegate.transportOptIn.status === 'paid' ? 'Paid' : 'Payment Pending'}
+                  </span>
+                )}
+              </div>
+              <div className="p-6">
+                {delegate?.transportOptIn ? (
+                  <div className="bg-slate-50 rounded-xl p-5 border border-slate-100">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
+                        <CheckCircle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-800">You have opted for transport</h3>
+                        <p className="text-sm text-slate-500">Your seat is reserved. Please show this to the transport coordinator.</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-white p-3 rounded-lg border border-slate-200">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Selected Route</p>
+                        <p className="text-sm font-medium text-slate-700 mt-1">
+                          {transportSettings.routes?.find((r: any) => r.id === delegate.transportOptIn.routeId)?.name || 'Unknown Route'}
+                        </p>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg border border-slate-200">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Fee</p>
+                        <p className="text-sm font-medium text-slate-700 mt-1">₹{delegate.transportOptIn.fee}</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-slate-600 mb-4">Select a transport route below if you need pick-up and drop-off services during the conference days. Additional charges will apply.</p>
+                    <div className="grid gap-4">
+                      {transportSettings.routes?.map((route: any) => (
+                        <div key={route.id} className="border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between hover:border-indigo-300 transition-colors">
+                          <div>
+                            <h3 className="font-bold text-slate-800">{route.name}</h3>
+                            <p className="text-xs text-slate-500 mt-1">{route.description}</p>
+                          </div>
+                          <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                            <span className="font-bold text-slate-700">₹{route.fee}</span>
+                            <Button
+                              onClick={async () => {
+                                try {
+                                  if (route.fee <= 0) {
+                                    const { update } = await import('firebase/database');
+                                    const updatePath = `registrations/${delegate?.id}/transportOptIn`;
+                                    await update(ref(db), {
+                                      [updatePath]: {
+                                        routeId: route.id,
+                                        fee: route.fee,
+                                        status: 'paid',
+                                        paymentId: 'FREE_TRANSPORT'
+                                      }
+                                    });
+                                    setDelegate(prev => prev ? { ...prev, transportOptIn: { routeId: route.id, fee: route.fee, status: 'paid', paymentId: 'FREE_TRANSPORT' } } : prev);
+                                    toast.success('Successfully opted into free transport.');
+                                    return;
+                                  }
+
+                                  const script = document.createElement('script');
+                                  script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+                                  script.async = true;
+                                  
+                                  script.onload = () => {
+                                    const options = {
+                                      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+                                      amount: route.fee * 100,
+                                      currency: 'INR',
+                                      name: 'KIMUN Transport',
+                                      description: `Transport Route: ${route.name}`,
+                                      image: 'https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png',
+                                      handler: async (response: any) => {
+                                        try {
+                                          const { update } = await import('firebase/database');
+                                          const updatePath = `registrations/${delegate?.id}/transportOptIn`;
+                                          await update(ref(db), {
+                                            [updatePath]: {
+                                              routeId: route.id,
+                                              fee: route.fee,
+                                              status: 'paid',
+                                              paymentId: response.razorpay_payment_id
+                                            }
+                                          });
+                                          setDelegate(prev => prev ? { ...prev, transportOptIn: { routeId: route.id, fee: route.fee, status: 'paid', paymentId: response.razorpay_payment_id } } : prev);
+                                          toast.success('Transport fee paid successfully!');
+                                        } catch (error) {
+                                          toast.error('Payment verified but failed to update status. Please contact support.');
+                                        }
+                                      },
+                                      prefill: {
+                                        name: delegate?.name,
+                                        email: delegate?.email,
+                                        contact: delegate?.phone
+                                      },
+                                      theme: { color: '#4f46e5' },
+                                      modal: { ondismiss: () => toast.error('Payment cancelled') }
+                                    };
+                                    
+                                    const rzp = new (window as any).Razorpay(options);
+                                    rzp.open();
+                                  };
+                                  
+                                  document.body.appendChild(script);
+                                } catch (error) {
+                                  toast.error('Failed to initialize payment. Please try again.');
+                                }
+                              }}
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                            >
+                              Opt In
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Footer */}
         <motion.footer
           initial={{ opacity: 0 }}
@@ -1207,6 +1365,45 @@ function DelegateDashboardContent() {
             <a href="mailto:info@kimun.com" className="text-indigo-500 hover:underline">info@kimun.com</a>
           </p>
         </motion.footer>
+        <AnimatePresence>
+          {showQrModal && delegate?.id && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowQrModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="bg-white p-4 rounded-xl border-4 border-indigo-50">
+                  <Image
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${delegate.id}`}
+                    alt="Enlarged QR Code"
+                    width={300}
+                    height={300}
+                    className="rounded-lg"
+                    unoptimized
+                  />
+                </div>
+                <h3 className="mt-6 font-bold text-xl text-slate-800">{delegate.name}</h3>
+                <p className="text-slate-500 font-mono mt-1">{delegate.id.substring(0, 12)}...</p>
+                <p className="text-sm text-indigo-600 font-medium mt-4">Scan for Check-in</p>
+                <Button 
+                  onClick={() => setShowQrModal(false)}
+                  className="mt-6 w-full bg-slate-100 hover:bg-slate-200 text-slate-700"
+                >
+                  Close
+                </Button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   )

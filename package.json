@@ -53,6 +53,7 @@
     "@react-spring/web": "^9.7.5",
     "@supabase/supabase-js": "^2.107.0",
     "@types/html2canvas": "^0.5.35",
+    "@yudiel/react-qr-scanner": "^2.6.0",
     "antd": "^5.24.0",
     "autoprefixer": "^10.4.20",
     "body-parser": "^1.20.3",

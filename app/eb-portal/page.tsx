@@ -162,6 +162,7 @@ function EBPortalContent() {
   });
   const [couponError, setCouponError] = useState<string | null>(null);
   const [siteSettings, setSiteSettings] = useState<any>(null)
+  const [schedule, setSchedule] = useState<any[]>([])
   const [blacklistedDelegates, setBlacklistedDelegates] = useState<Record<string, any>>({})
   const [editingMark, setEditingMark] = useState<Mark | null>(null)
   const [tempMark, setTempMark] = useState<Partial<Mark>>({})
@@ -208,6 +209,15 @@ function EBPortalContent() {
       }
     })
 
+    const scheduleRef = ref(firebaseDb, 'schedule')
+    const unsubSchedule = onValue(scheduleRef, (snap) => {
+      if (snap.exists()) {
+        setSchedule(snap.val())
+      } else {
+        setSchedule([])
+      }
+    })
+
     const blacklistRef = ref(firebaseDb, 'blacklisted')
     const unsubBlacklist = onValue(blacklistRef, (snap) => {
       if (snap.exists()) {
@@ -219,6 +229,7 @@ function EBPortalContent() {
 
     return () => {
       unsub()
+      unsubSchedule()
       unsubBlacklist()
     }
   }, [])
@@ -1142,6 +1153,42 @@ function EBPortalContent() {
                 </div>
               </div>
             </div>
+
+            {/* Conference Schedule */}
+            {schedule && schedule.length > 0 && (
+              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-indigo-500" />
+                  Conference Schedule
+                </h2>
+                <div className="space-y-6">
+                  {schedule.map((daySchedule, dayIndex) => (
+                    <div key={dayIndex} className="relative pl-5 border-l-2 border-indigo-200">
+                      <div className="absolute -left-[9px] top-0 w-3.5 h-3.5 rounded-full bg-indigo-500 border-2 border-white shadow-sm" />
+                      <div className="mb-4">
+                        <h3 className="text-base font-bold text-slate-800">{daySchedule.day}</h3>
+                        <p className="text-xs text-slate-500">{daySchedule.date}</p>
+                      </div>
+                      <div className="space-y-2.5">
+                        {daySchedule.events && daySchedule.events.map((event: any, eventIndex: number) => (
+                          <div key={eventIndex} className="flex items-start gap-4 p-2.5 rounded-lg hover:bg-slate-50 transition-colors">
+                            <div className="min-w-[95px]">
+                              <p className="text-xs font-semibold text-indigo-600">{event.time}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-slate-700">{event.title}</p>
+                              <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                                <MapPin className="h-3 w-3" /> {event.location}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Recent Check-ins */}
             <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">

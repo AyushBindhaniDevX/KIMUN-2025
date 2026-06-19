@@ -12,10 +12,12 @@ import {
   Download,
   RefreshCw,
   Sliders,
+  QrCode,
   CheckCircle2,
   AlertCircle,
   ChevronRight,
   Info,
+  MapPin,
   Layers,
   Building,
   Users,
@@ -64,14 +66,46 @@ import {
   Target,
   Clock,
   Zap,
-  Crown
+  Crown,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ref, onValue, update, push, remove, get, set } from 'firebase/database'
 import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth'
 import { firebaseAuth, firebaseDb, googleProvider } from '@/lib/firebase-client'
+import { Scanner } from '@yudiel/react-qr-scanner'
 import * as XLSX from 'xlsx'
 import 'jspdf-autotable'
+
+const playBeep = (type: 'success' | 'error') => {
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    if (type === 'success') {
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.1);
+    } else {
+      oscillator.type = 'sawtooth';
+      oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.3);
+    }
+  } catch (e) {
+    console.log('Audio not supported', e);
+  }
+}
 
 // Indian-context master committee configuration list (presets)
 const INITIAL_COMMITTEES = [
@@ -187,7 +221,7 @@ export default function OasisWorkplace() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Workspace Navigation
-  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'dept_boards' | 'registry_manager' | 'delegate_search' | 'help_docs' | 'site_settings' | 'logs'>('dashboard')
+  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'dept_boards' | 'registry_manager' | 'delegate_search' | 'schedule_builder' | 'transport_logistics' | 'help_docs' | 'site_settings' | 'logs'>('dashboard')
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All Departments')
   const [recruitmentView, setRecruitmentView] = useState<'oc' | 'eb'>('oc')
 
@@ -203,6 +237,7 @@ export default function OasisWorkplace() {
   const [dbAnnouncements, setDbAnnouncements] = useState<any[]>([])
   const [dbPayouts, setDbPayouts] = useState<any[]>([])
   const [dbCoupons, setDbCoupons] = useState<any[]>([])
+  const [dbSchedule, setDbSchedule] = useState<any[]>([])
   const [dbActivityLogs, setDbActivityLogs] = useState<any[]>([])
   const [dbBlacklisted, setDbBlacklisted] = useState<Record<string, any>>({})
   const [dbSiteSettings, setDbSiteSettings] = useState<any>({
@@ -212,7 +247,11 @@ export default function OasisWorkplace() {
     eventDate: '2026',
     eventVenue: 'ASBMU, India',
     eventDuration: '2-Day Conference',
-    attendanceTarget: '300+ Delegates'
+    attendanceTarget: '300+ Delegates',
+    transport: {
+      enabled: false,
+      routes: []
+    }
   })
   const [loadingData, setLoadingData] = useState(true)
 
@@ -402,6 +441,7 @@ export default function OasisWorkplace() {
   const [fetchingLegacyProfile, setFetchingLegacyProfile] = useState(false)
   const [legacyProfileError, setLegacyProfileError] = useState('')
   const [downloadingContract, setDownloadingContract] = useState(false)
+  const [showQrScanner, setShowQrScanner] = useState(false)
 
   const triggerNotification = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setNotification({ show: true, message, type })
@@ -547,6 +587,7 @@ export default function OasisWorkplace() {
                   paymentId: reg.paymentId || '',
                   paymentStatus: reg.paymentStatus || 'pending',
                   paymentAmount: reg.paymentAmount || 0,
+                  transportOptIn: reg.transportOptIn || null,
                 })
               }
             } else if (reg.delegateInfo.name) {
@@ -717,6 +758,16 @@ export default function OasisWorkplace() {
       setLoadingData(false)
     })
 
+    const scheduleRef = ref(firebaseDb, 'schedule')
+    const unsubSchedule = onValue(scheduleRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        setDbSchedule(Object.keys(data).map(k => ({ id: k, ...data[k] })))
+      } else {
+        setDbSchedule([])
+      }
+    })
+
     const blacklistRef = ref(firebaseDb, 'blacklisted')
     const unsubBlacklist = onValue(blacklistRef, (snap) => {
       if (snap.exists()) {
@@ -738,6 +789,7 @@ export default function OasisWorkplace() {
       unsubAnn()
       unsubPayouts()
       unsubCoupons()
+      unsubSchedule()
       unsubLogs()
       unsubSettings()
       unsubBlacklist()
@@ -1134,16 +1186,16 @@ export default function OasisWorkplace() {
     const { jsPDF } = await import('jspdf')
     const { PDFDocument } = await import('pdf-lib')
     const doc = new jsPDF()
-    
+
     // Page Frame
     doc.setDrawColor(60, 80, 224) // Brand Blue
     doc.setLineWidth(1.5)
     doc.rect(10, 10, 190, 277)
-    
+
     // Header Banner
     doc.setFillColor(60, 80, 224)
     doc.rect(10, 10, 190, 28, 'F')
-    
+
     // Title
     doc.setTextColor(255, 255, 255)
     doc.setFont('Helvetica', 'bold')
@@ -1151,11 +1203,11 @@ export default function OasisWorkplace() {
     doc.text("KIMUN 2026 EXECUTIVE CONTRACT", 105, 20, { align: 'center' })
     doc.setFontSize(8.5)
     doc.text("ORGANIZING COMMITTEE MEMBERSHIP & NON-DISCLOSURE AGREEMENT", 105, 28, { align: 'center' })
-    
+
     // Details
     doc.setTextColor(28, 36, 52)
     doc.setFontSize(10)
-    
+
     let y = 55
     const drawField = (label: string, val: string, isHeader = false) => {
       doc.setFont('Helvetica', 'bold')
@@ -1166,29 +1218,29 @@ export default function OasisWorkplace() {
       doc.text(val, 65, y)
       y += isHeader ? 12 : 8.5
     }
-    
+
     const candidateName = appData.name || 'Candidate'
     const candidateEmail = appData.email || 'N/A'
-    
+
     drawField("CANDIDATE NAME:", (candidateName || '').toUpperCase(), true)
     drawField("ASSIGNED DEPT:", (appData.pref1 || 'Secretariat').toUpperCase())
     drawField("EMAIL ADDRESS:", candidateEmail || 'N/A')
     drawField("CONTACT PHONE:", appData.phone || 'N/A')
     drawField("NDA SIGNED ON:", appData.contractSignedAt ? new Date(appData.contractSignedAt).toLocaleString() : 'PENDING SIGNATURE')
     drawField("SIGNATURE KEY:", (appData.signature || 'PENDING SIGNATURE').toUpperCase())
-    
+
     // Divider
     doc.setDrawColor(226, 232, 240)
     doc.setLineWidth(0.5)
     doc.line(20, y + 2, 190, y + 2)
     y += 10
-    
+
     // Contract Title
     doc.setFont('Helvetica', 'bold')
     doc.setFontSize(10)
     doc.text("TERMS & CONDITIONS AGREEMENT", 20, y)
     y += 6
-    
+
     // NDA Terms paragraph layout
     doc.setFont('Helvetica', 'normal')
     doc.setFontSize(8)
@@ -1198,7 +1250,7 @@ export default function OasisWorkplace() {
       "3. CODE OF CONDUCT: Candidates must maintain a high standard of professional ethics. You are expected to deliver tasks on time as assigned under your respective department parameters. Misconduct or security leaks will result in termination of this appointment and potential legal enforcement.",
       "4. TERM: This agreement is active from the date of digital authorization until the completion of KIMUN 2026 post-event administrative clearance."
     ]
-    
+
     terms.forEach(term => {
       const splitLines = doc.splitTextToSize(term, 170)
       splitLines.forEach((line: string) => {
@@ -1214,7 +1266,7 @@ export default function OasisWorkplace() {
       })
       y += 2.5
     })
-    
+
     // Signature block
     y += 8
     if (y > 230) {
@@ -1224,17 +1276,17 @@ export default function OasisWorkplace() {
       doc.rect(10, 10, 190, 277)
       y = 20
     }
-    
+
     doc.setDrawColor(226, 232, 240)
     doc.setLineWidth(0.5)
     doc.line(20, y, 190, y)
     y += 8
-    
+
     doc.setFont('Helvetica', 'bold')
     doc.setFontSize(9)
     doc.text("AUTHORIZED DIGITAL SIGNATURE", 20, y)
     y += 8
-    
+
     if (appData.signature) {
       doc.setFont('Times', 'italic')
       doc.setFontSize(22)
@@ -1246,27 +1298,27 @@ export default function OasisWorkplace() {
       doc.setTextColor(150, 150, 150)
       doc.text("PENDING SIGNATURE - DRAFT ONLY", 25, y)
     }
-    
+
     doc.setTextColor(148, 163, 184)
     doc.setFont('Helvetica', 'normal')
     doc.setFontSize(7)
     doc.text("SECURE DIGITAL AUTHORIZATION LOCK - KIMUN ADMINISTRATIVE SERVICES", 20, y + 8)
-    
+
     const jsPdfBytes = doc.output('arraybuffer')
     let mergedPdf = await PDFDocument.load(jsPdfBytes)
-    
+
     const docsToMerge = []
     if (appData.documents) {
       if (appData.documents.aadhar) docsToMerge.push({ name: 'Aadhar Card', url: appData.documents.aadhar })
       if (appData.documents.collegeId) docsToMerge.push({ name: 'College ID', url: appData.documents.collegeId })
     }
-    
+
     for (const item of docsToMerge) {
       try {
         if (item.url.startsWith('data:application/pdf') || item.url.includes('.pdf') || item.url.includes('alt=media')) {
           let isPdf = false
           let arrayBuffer: ArrayBuffer | null = null
-          
+
           if (item.url.startsWith('data:application/pdf')) {
             isPdf = true
             const base64 = item.url.split(',')[1]
@@ -1294,7 +1346,7 @@ export default function OasisWorkplace() {
               }
             }
           }
-          
+
           if (isPdf && arrayBuffer) {
             const externalDoc = await PDFDocument.load(arrayBuffer)
             const copiedPages = await mergedPdf.copyPages(externalDoc, externalDoc.getPageIndices())
@@ -1302,7 +1354,7 @@ export default function OasisWorkplace() {
             continue
           }
         }
-        
+
         // Image drawing fallback
         const fetchUrl = item.url.startsWith('http')
           ? `/api/fetch-document?url=${encodeURIComponent(item.url)}`
@@ -1310,21 +1362,21 @@ export default function OasisWorkplace() {
         const imgResponse = await fetch(fetchUrl)
         const imgBuffer = await imgResponse.arrayBuffer()
         const imgUint8 = new Uint8Array(imgBuffer)
-        
+
         let pdfImage
         if (item.url.includes('.png') || item.url.startsWith('data:image/png')) {
           pdfImage = await mergedPdf.embedPng(imgUint8)
         } else {
           pdfImage = await mergedPdf.embedJpg(imgUint8)
         }
-        
+
         const page = mergedPdf.addPage([595, 842])
         const { width, height } = pdfImage.scale(1)
-        
+
         const scaleFactor = Math.min(500 / width, 700 / height, 1)
         const drawWidth = width * scaleFactor
         const drawHeight = height * scaleFactor
-        
+
         page.drawImage(pdfImage, {
           x: (595 - drawWidth) / 2,
           y: (842 - drawHeight) / 2,
@@ -1361,7 +1413,7 @@ export default function OasisWorkplace() {
         })
       }
     }
-    
+
     return await mergedPdf.save()
   }
 
@@ -1519,7 +1571,7 @@ export default function OasisWorkplace() {
     }
   }
 
-  
+
   const handleUpdateTaskStatus = async (taskId: string, newStatus: string) => {
     try {
       await update(ref(firebaseDb, `oc_tasks/${taskId}`), {
@@ -2024,7 +2076,7 @@ export default function OasisWorkplace() {
     setIsUploadingFile(true)
     try {
       const folder = selectedRegistryCommitteeId || 'general'
-      
+
       const formData = new FormData()
       formData.append('file', file)
       formData.append('uid', folder)
@@ -2035,12 +2087,12 @@ export default function OasisWorkplace() {
         method: 'POST',
         body: formData
       })
-      
+
       const data = await response.json()
       if (!data.success || !data.url) {
         throw new Error(data.error || 'Failed to upload document')
       }
-      
+
       const downloadURL = data.url
 
       if (type === 'eb_photo') {
@@ -2227,24 +2279,26 @@ export default function OasisWorkplace() {
     )
   }
   const menuItems = [
-    { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, color: 'text-indigo-600' },
-    { id: 'finance_station', label: 'Finance', icon: FileSpreadsheet, color: 'text-emerald-600' },
-    { id: 'live_allocations', label: 'Registrations', icon: UserCheck, color: 'text-sky-600' },
-    { id: 'academic_vault', label: 'Resources', icon: BookOpen, color: 'text-amber-600' },
-    ...(role === 'admin' ? [{ id: 'recruitment', label: 'Onboarding Hub', icon: Users, color: 'text-violet-600' }] : []),
-    { id: 'dept_boards', label: 'Department Workspace', icon: Layers, color: 'text-purple-600' },
-    { id: 'delegate_search', label: 'DeleOs', icon: Search, color: 'text-indigo-600' },
-    { id: 'help_docs', label: 'Help and Doc', icon: Info, color: 'text-blue-600' },
+    { section: 'Main', id: 'dashboard', label: 'Overview', icon: LayoutDashboard, color: 'text-indigo-600' },
+    { section: 'Main', id: 'finance_station', label: 'Finance', icon: FileSpreadsheet, color: 'text-emerald-600' },
+    { section: 'Main', id: 'live_allocations', label: 'Registrations', icon: UserCheck, color: 'text-sky-600' },
+    { section: 'Main', id: 'academic_vault', label: 'Resources', icon: BookOpen, color: 'text-amber-600' },
+    ...(role === 'admin' ? [{ section: 'Main', id: 'recruitment', label: 'Onboarding Hub', icon: Users, color: 'text-violet-600' }] : []),
+    { section: 'Data Hub', id: 'dept_boards', label: 'Department Workspace', icon: Layers, color: 'text-purple-600' },
+    { section: 'Data Hub', id: 'delegate_search', label: 'DeleOs', icon: Search, color: 'text-indigo-600' },
+    { section: 'Data Hub', id: 'help_docs', label: 'Help and Doc', icon: Info, color: 'text-blue-600' },
     ...(role === 'admin' ? [
-      { id: 'coupons', label: 'Coupons', icon: Ticket, color: 'text-pink-600' },
-      { id: 'registry_manager', label: 'Committee Management', icon: Sliders, color: 'text-teal-600' },
-      { id: 'site_settings', label: 'Global Config', icon: Settings, color: 'text-indigo-600' },
-      { id: 'logs', label: 'Activity Logs', icon: Activity, color: 'text-rose-600' }
+      { section: 'Admin Settings', id: 'schedule_builder', label: 'Schedule Builder', icon: Calendar, color: 'text-sky-500' },
+      { section: 'Admin Settings', id: 'transport_logistics', label: 'Transport Settings', icon: Truck, color: 'text-amber-500' },
+      { section: 'Admin Settings', id: 'coupons', label: 'Coupons', icon: Ticket, color: 'text-pink-600' },
+      { section: 'Admin Settings', id: 'registry_manager', label: 'Committee Management', icon: Sliders, color: 'text-teal-600' },
+      { section: 'Admin Settings', id: 'site_settings', label: 'Global Config', icon: Settings, color: 'text-indigo-600' },
+      { section: 'Admin Settings', id: 'logs', label: 'Activity Logs', icon: Activity, color: 'text-rose-600' }
     ] : [])
   ]
   return (
-    <div 
-      className="min-h-screen bg-[#F1F5F9] text-[#1C2434] flex flex-col antialiased relative" 
+    <div
+      className="min-h-screen bg-[#F1F5F9] text-[#1C2434] flex flex-col antialiased relative"
       style={{ fontFamily: '"Outfit", "Inter", sans-serif' }}
       onCopy={(e) => e.preventDefault()}
     >
@@ -2500,39 +2554,49 @@ export default function OasisWorkplace() {
                 </div>
 
                 <div>
-                  <h3 className="px-3 mb-3 text-[11px] font-bold text-[#8A99AD] uppercase tracking-wider">MENU</h3>
-                  <div className="space-y-1.5">
-                    <LayoutGroup>
-                      {menuItems.map((item) => {
-                        const Icon = item.icon
-                        const isSelected = activeMenuTab === item.id
-                        return (
-                          <motion.button
-                            key={item.id}
-                            layout
-                            id={`${item.id}-tab`}
-                            onClick={() => { setActiveMenuTab(item.id as any); setSearchQuery(''); setSidebarOpen(false) }}
-                            className={`w-full px-3.5 py-3 rounded-[4px] text-[14px] font-medium transition-all flex items-center gap-3 cursor-pointer relative overflow-hidden ${isSelected
-                              ? 'text-white bg-[#333A48]'
-                              : 'text-[#AEB7C0] hover:text-white hover:bg-[#333A48]'
-                              } ${tourStep >= 0 && TOUR_STEPS[tourStep]?.highlightId === `${item.id}-tab` ? 'tour-highlight' : ''}`}
-                          >
-                            {isSelected && (
-                              <motion.div
-                                layoutId="activeBg"
-                                className="absolute left-0 top-0 bottom-0 w-[4px] bg-[#3C50E0]"
-                                transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
-                              />
-                            )}
-                            <div className="relative z-10 flex items-center gap-3 w-full">
-                              <Icon className="w-[18px] h-[18px] shrink-0" style={{ opacity: isSelected ? 1 : 0.8 }} />
-                              <span>{item.label}</span>
-                            </div>
-                          </motion.button>
-                        )
-                      })}
-                    </LayoutGroup>
-                  </div>
+                  {Object.entries(
+                    menuItems.reduce((acc, item) => {
+                      if (!acc[item.section]) acc[item.section] = [];
+                      acc[item.section].push(item);
+                      return acc;
+                    }, {} as Record<string, typeof menuItems>)
+                  ).map(([section, items]) => (
+                    <div key={section} className="mb-6">
+                      <h3 className="px-3 mb-3 text-[11px] font-bold text-[#8A99AD] uppercase tracking-wider">{section}</h3>
+                      <div className="space-y-1.5">
+                        <LayoutGroup>
+                          {items.map((item) => {
+                            const Icon = item.icon
+                            const isSelected = activeMenuTab === item.id
+                            return (
+                              <motion.button
+                                key={item.id}
+                                layout
+                                id={`${item.id}-tab`}
+                                onClick={() => { setActiveMenuTab(item.id as any); setSearchQuery(''); setSidebarOpen(false) }}
+                                className={`w-full px-3.5 py-3 rounded-[4px] text-[14px] font-medium transition-all flex items-center gap-3 cursor-pointer relative overflow-hidden ${isSelected
+                                  ? 'text-white bg-[#333A48]'
+                                  : 'text-[#AEB7C0] hover:text-white hover:bg-[#333A48]'
+                                  } ${tourStep >= 0 && TOUR_STEPS[tourStep]?.highlightId === `${item.id}-tab` ? 'tour-highlight' : ''}`}
+                              >
+                                {isSelected && (
+                                  <motion.div
+                                    layoutId="activeBg"
+                                    className="absolute left-0 top-0 bottom-0 w-[4px] bg-[#3C50E0]"
+                                    transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
+                                  />
+                                )}
+                                <div className="relative z-10 flex items-center gap-3 w-full">
+                                  <Icon className="w-[18px] h-[18px] shrink-0" style={{ opacity: isSelected ? 1 : 0.8 }} />
+                                  <span>{item.label}</span>
+                                </div>
+                              </motion.button>
+                            )
+                          })}
+                        </LayoutGroup>
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
               </div>
@@ -2552,7 +2616,7 @@ export default function OasisWorkplace() {
         )}
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8">
           <AnimatePresence mode="wait">
 
             {/* 1. OVERVIEW HUB */}
@@ -3377,8 +3441,15 @@ export default function OasisWorkplace() {
                       <option value="allocated">Checked-In Only</option>
                     </select>
                     <button
-                      onClick={() => { }}
+                      type="button"
+                      onClick={() => setShowQrScanner(true)}
                       className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
+                    >
+                      <QrCode className="w-3.5 h-3.5" /> Scan QR
+                    </button>
+                    <button
+                      onClick={() => { }}
+                      className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
                     >
                       <Download className="w-3.5 h-3.5" /> Export
                     </button>
@@ -3404,65 +3475,122 @@ export default function OasisWorkplace() {
                       <tbody className="divide-y divide-slate-100">
                         {filteredLiveDelegates.map(del => {
                           const isBlacklisted = !!dbBlacklisted[del.id] || !!dbBlacklisted[`${del.id}_delegate1`] || !!dbBlacklisted[`${del.id}_delegate2`]
-                          
+
                           return (
-                          <tr key={del.id} className="hover:bg-slate-50/50 transition-all">
-                            <td className="py-3 px-4 font-semibold text-slate-800">{del.name}</td>
-                            <td className="py-3 px-4 text-slate-600">{del.institution}</td>
-                            <td className="py-3 px-4">
-                              <span className="text-slate-500 text-xs">{del.email}</span>
-                              <span className="block text-[10px] text-slate-400">{del.phone}</span>
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              {isBlacklisted ? (
-                                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700">
-                                  Banned
-                                </span>
-                              ) : (
-                                <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${del.isCheckedIn ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                                  }`}>
-                                  {del.isCheckedIn ? 'Checked-In' : 'Pending'}
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-center text-slate-500 text-xs">{del.checkInTime || '-'}</td>
-                            <td className="py-3 px-4 text-center">
-                              <div className="flex items-center justify-center gap-2">
-                                <button
-                                  onClick={() => toggleDelegateCheckinStatus(del)}
-                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${isBlacklisted ? 'opacity-50 cursor-not-allowed bg-slate-100 text-slate-400' : del.isCheckedIn
-                                    ? 'bg-rose-50 text-rose-700 hover:bg-rose-100'
-                                    : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                                    }`}
-                                  disabled={isBlacklisted}
-                                >
-                                  {del.isCheckedIn ? 'Check-Out' : 'Check-In'}
-                                </button>
+                            <tr key={del.id} className="hover:bg-slate-50/50 transition-all">
+                              <td className="py-3 px-4 font-semibold text-slate-800">{del.name}</td>
+                              <td className="py-3 px-4 text-slate-600">{del.institution}</td>
+                              <td className="py-3 px-4">
+                                <span className="text-slate-500 text-xs">{del.email}</span>
+                                <span className="block text-[10px] text-slate-400">{del.phone}</span>
+                              </td>
+                              <td className="py-3 px-4 text-center">
                                 {isBlacklisted ? (
-                                  <button
-                                    onClick={() => handleRemoveBlacklistDelegate(del)}
-                                    className="p-1.5 text-slate-400 hover:text-emerald-600 transition-all"
-                                    title="Remove Blacklist"
-                                  >
-                                    <ShieldCheck className="w-4 h-4" />
-                                  </button>
+                                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700">
+                                    Banned
+                                  </span>
                                 ) : (
-                                  <button
-                                    onClick={() => handleBlacklistDelegate(del)}
-                                    className="p-1.5 text-slate-400 hover:text-rose-600 transition-all"
-                                    title="Blacklist Delegate"
-                                  >
-                                    <Ban className="w-4 h-4" />
-                                  </button>
+                                  <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${del.isCheckedIn ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                                    }`}>
+                                    {del.isCheckedIn ? 'Checked-In' : 'Pending'}
+                                  </span>
                                 )}
-                              </div>
-                            </td>
-                          </tr>
-                        )})}
+                              </td>
+                              <td className="py-3 px-4 text-center text-slate-500 text-xs">{del.checkInTime || '-'}</td>
+                              <td className="py-3 px-4 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => toggleDelegateCheckinStatus(del)}
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${isBlacklisted ? 'opacity-50 cursor-not-allowed bg-slate-100 text-slate-400' : del.isCheckedIn
+                                      ? 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                                      : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                      }`}
+                                    disabled={isBlacklisted}
+                                  >
+                                    {del.isCheckedIn ? 'Check-Out' : 'Check-In'}
+                                  </button>
+                                  {isBlacklisted ? (
+                                    <button
+                                      onClick={() => handleRemoveBlacklistDelegate(del)}
+                                      className="p-1.5 text-slate-400 hover:text-emerald-600 transition-all"
+                                      title="Remove Blacklist"
+                                    >
+                                      <ShieldCheck className="w-4 h-4" />
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleBlacklistDelegate(del)}
+                                      className="p-1.5 text-slate-400 hover:text-rose-600 transition-all"
+                                      title="Blacklist Delegate"
+                                    >
+                                      <Ban className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
                 </div>
+                <AnimatePresence>
+                  {showQrScanner && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+                      onClick={() => setShowQrScanner(false)}
+                    >
+                      <motion.div
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.9, opacity: 0 }}
+                        className="bg-white p-6 rounded-3xl shadow-2xl flex flex-col items-center w-full max-w-md"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <h3 className="font-bold text-xl text-slate-800 mb-4">Scan Delegate QR</h3>
+                        <div className="w-full aspect-square bg-black rounded-xl overflow-hidden relative">
+                          <Scanner 
+                            onScan={async (detectedCodes) => {
+                              if (detectedCodes && detectedCodes.length > 0) {
+                                const rawValue = detectedCodes[0].rawValue;
+                                const delegate = filteredLiveDelegates.find(d => d.delId === rawValue || d.regId === rawValue || d.id === rawValue);
+                                
+                                if (delegate) {
+                                  if (delegate.isCheckedIn) {
+                                    toast.info('Delegate already checked in.');
+                                    playBeep('success');
+                                  } else {
+                                    await toggleDelegateCheckinStatus(delegate);
+                                    playBeep('success');
+                                  }
+                                  setShowQrScanner(false);
+                                } else {
+                                  playBeep('error');
+                                  toast.error('Delegate not found!');
+                                }
+                              }
+                            }}
+                            components={{
+                              audio: false,
+                              finder: true,
+                            }}
+                          />
+                        </div>
+                        <p className="text-sm text-slate-500 mt-4 text-center">Center the QR code within the frame to scan.</p>
+                        <Button 
+                          onClick={() => setShowQrScanner(false)}
+                          className="mt-6 w-full bg-slate-100 hover:bg-slate-200 text-slate-700"
+                        >
+                          Cancel
+                        </Button>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             )}
 
@@ -3563,14 +3691,14 @@ export default function OasisWorkplace() {
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="bg-slate-100 p-1 rounded-lg flex gap-1">
-                      <button 
-                        onClick={() => setRecruitmentView('oc')} 
+                      <button
+                        onClick={() => setRecruitmentView('oc')}
                         className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${recruitmentView === 'oc' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                       >
                         OC Applications
                       </button>
-                      <button 
-                        onClick={() => setRecruitmentView('eb')} 
+                      <button
+                        onClick={() => setRecruitmentView('eb')}
                         className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${recruitmentView === 'eb' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                       >
                         EB Applications
@@ -5460,6 +5588,433 @@ export default function OasisWorkplace() {
               </motion.div>
             )}
 
+            {/* Schedule Builder (Admin only) */}
+            {activeMenuTab === 'schedule_builder' && role === 'admin' && (
+              <motion.div
+                key="schedule_builder"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="space-y-6 max-w-5xl mx-auto pb-20"
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-[#1C2434]">Conference Schedule Builder</h2>
+                    <p className="text-[#64748B] text-sm mt-1">Design and manage the day-by-day event schedule that appears in the delegate portal.</p>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      const newId = `day_${Date.now()}`;
+                      const newSchedule = [...dbSchedule, { id: newId, day: `Day ${dbSchedule.length + 1}`, date: '', events: [] }];
+                      set(ref(firebaseDb, 'schedule'), newSchedule);
+                      triggerNotification('New day added to schedule.');
+                    }}
+                    className="bg-[#3C50E0] hover:bg-[#2B3EB2] text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-2" /> Add Day
+                  </Button>
+                </div>
+
+                <div className="space-y-6">
+                  {dbSchedule.map((day, dayIndex) => (
+                    <div key={day.id} className="bg-white rounded-xl border border-[#E2E8F0] shadow-sm overflow-hidden">
+                      <div className="p-4 border-b border-[#E2E8F0] bg-[#F8FAFC] flex justify-between items-center">
+                        <div className="flex gap-4 items-center w-full max-w-2xl">
+                          <input
+                            type="text"
+                            className="font-bold text-lg bg-transparent border-b border-transparent hover:border-[#E2E8F0] focus:border-[#3C50E0] focus:outline-none transition-colors px-1 py-0.5"
+                            value={day.day}
+                            onChange={(e) => {
+                              const newSchedule = [...dbSchedule];
+                              newSchedule[dayIndex].day = e.target.value;
+                              set(ref(firebaseDb, 'schedule'), newSchedule);
+                            }}
+                            placeholder="e.g. Day 1"
+                          />
+                          <input
+                            type="text"
+                            className="text-sm text-[#64748B] bg-transparent border-b border-transparent hover:border-[#E2E8F0] focus:border-[#3C50E0] focus:outline-none transition-colors px-1 py-0.5 w-48"
+                            value={day.date}
+                            onChange={(e) => {
+                              const newSchedule = [...dbSchedule];
+                              newSchedule[dayIndex].date = e.target.value;
+                              set(ref(firebaseDb, 'schedule'), newSchedule);
+                            }}
+                            placeholder="e.g. 10th July 2026"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const newId = `event_${Date.now()}`;
+                              const newSchedule = [...dbSchedule];
+                              if (!newSchedule[dayIndex].events) newSchedule[dayIndex].events = [];
+                              newSchedule[dayIndex].events.push({ id: newId, time: '', title: 'New Event', description: '', location: '' });
+                              set(ref(firebaseDb, 'schedule'), newSchedule);
+                            }}
+                            className="text-[#3C50E0] hover:bg-indigo-50"
+                          >
+                            <PlusCircle className="w-4 h-4 mr-1" /> Event
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const newSchedule = dbSchedule.filter((_, i) => i !== dayIndex);
+                              set(ref(firebaseDb, 'schedule'), newSchedule);
+                            }}
+                            className="text-[#D34053] hover:bg-rose-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="p-4 space-y-3">
+                        {(!day.events || day.events.length === 0) ? (
+                          <div className="text-center py-6 text-[#64748B] text-sm italic bg-[#F1F5F9] rounded-lg">No events scheduled for this day.</div>
+                        ) : (
+                          day.events.map((event: any, eventIndex: number) => (
+                            <div key={event.id} className="flex gap-3 items-start group p-3 hover:bg-[#F8FAFC] rounded-lg border border-transparent hover:border-[#E2E8F0] transition-all">
+                              <div className="flex flex-col gap-1 w-32 shrink-0">
+                                <input
+                                  type="text"
+                                  value={event.time}
+                                  onChange={(e) => {
+                                    const newSchedule = [...dbSchedule];
+                                    newSchedule[dayIndex].events[eventIndex].time = e.target.value;
+                                    set(ref(firebaseDb, 'schedule'), newSchedule);
+                                  }}
+                                  className="text-xs font-bold bg-white border border-[#E2E8F0] rounded px-2 py-1.5 focus:border-[#3C50E0] focus:outline-none"
+                                  placeholder="09:00 AM"
+                                />
+                              </div>
+                              <div className="flex-1 space-y-2">
+                                <input
+                                  type="text"
+                                  value={event.title}
+                                  onChange={(e) => {
+                                    const newSchedule = [...dbSchedule];
+                                    newSchedule[dayIndex].events[eventIndex].title = e.target.value;
+                                    set(ref(firebaseDb, 'schedule'), newSchedule);
+                                  }}
+                                  className="w-full font-semibold text-sm bg-white border border-[#E2E8F0] rounded px-3 py-1.5 focus:border-[#3C50E0] focus:outline-none"
+                                  placeholder="Event Title"
+                                />
+                                <input
+                                  type="text"
+                                  value={event.description}
+                                  onChange={(e) => {
+                                    const newSchedule = [...dbSchedule];
+                                    newSchedule[dayIndex].events[eventIndex].description = e.target.value;
+                                    set(ref(firebaseDb, 'schedule'), newSchedule);
+                                  }}
+                                  className="w-full text-xs text-[#64748B] bg-white border border-[#E2E8F0] rounded px-3 py-1.5 focus:border-[#3C50E0] focus:outline-none"
+                                  placeholder="Short description (optional)"
+                                />
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="w-3 h-3 text-[#64748B]" />
+                                  <input
+                                    type="text"
+                                    value={event.location}
+                                    onChange={(e) => {
+                                      const newSchedule = [...dbSchedule];
+                                      newSchedule[dayIndex].events[eventIndex].location = e.target.value;
+                                      set(ref(firebaseDb, 'schedule'), newSchedule);
+                                    }}
+                                    className="flex-1 text-xs text-[#64748B] bg-transparent border-b border-transparent hover:border-[#E2E8F0] focus:border-[#3C50E0] focus:outline-none px-1"
+                                    placeholder="Location (e.g., Main Hall)"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-[#64748B] hover:text-[#D34053] hover:bg-rose-50"
+                                  onClick={() => {
+                                    const newSchedule = [...dbSchedule];
+                                    newSchedule[dayIndex].events = newSchedule[dayIndex].events.filter((_: any, i: number) => i !== eventIndex);
+                                    set(ref(firebaseDb, 'schedule'), newSchedule);
+                                  }}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-[#64748B] hover:text-[#3C50E0]"
+                                  onClick={() => {
+                                    if (eventIndex > 0) {
+                                      const newSchedule = [...dbSchedule];
+                                      const temp = newSchedule[dayIndex].events[eventIndex];
+                                      newSchedule[dayIndex].events[eventIndex] = newSchedule[dayIndex].events[eventIndex - 1];
+                                      newSchedule[dayIndex].events[eventIndex - 1] = temp;
+                                      set(ref(firebaseDb, 'schedule'), newSchedule);
+                                    }
+                                  }}
+                                  disabled={eventIndex === 0}
+                                >
+                                  <ChevronUp className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-[#64748B] hover:text-[#3C50E0]"
+                                  onClick={() => {
+                                    if (eventIndex < day.events.length - 1) {
+                                      const newSchedule = [...dbSchedule];
+                                      const temp = newSchedule[dayIndex].events[eventIndex];
+                                      newSchedule[dayIndex].events[eventIndex] = newSchedule[dayIndex].events[eventIndex + 1];
+                                      newSchedule[dayIndex].events[eventIndex + 1] = temp;
+                                      set(ref(firebaseDb, 'schedule'), newSchedule);
+                                    }
+                                  }}
+                                  disabled={eventIndex === day.events.length - 1}
+                                >
+                                  <ChevronDown className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {dbSchedule.length === 0 && (
+                    <div className="text-center py-16 bg-white rounded-xl border border-dashed border-[#E2E8F0]">
+                      <Calendar className="w-12 h-12 text-[#AEB7C0] mx-auto mb-3" />
+                      <h3 className="text-lg font-semibold text-[#1C2434]">No Schedule Found</h3>
+                      <p className="text-[#64748B] text-sm mt-1 mb-4">Create your first conference day to get started.</p>
+                      <Button onClick={() => {
+                        const newId = `day_${Date.now()}`;
+                        const newSchedule = [{ id: newId, day: 'Day 1', date: '', events: [] }];
+                        set(ref(firebaseDb, 'schedule'), newSchedule);
+                      }} className="bg-[#3C50E0] text-white hover:bg-[#2B3EB2]">
+                        <Plus className="w-4 h-4 mr-2" /> Add Day 1
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Transport Logistics (Admin only) */}
+            {activeMenuTab === 'transport_logistics' && role === 'admin' && (
+              <motion.div
+                key="transport_logistics"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="space-y-6 max-w-5xl mx-auto pb-20"
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-[#1C2434]">Transport & Logistics</h2>
+                    <p className="text-[#64748B] text-sm mt-1">Manage transport routes and track delegate opt-ins.</p>
+                  </div>
+                  <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-[#E2E8F0] shadow-sm">
+                    <span className="text-sm font-semibold text-[#1C2434]">Enable Transport Module</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={dbSiteSettings?.transport?.enabled || false}
+                        onChange={(e) => {
+                          const newSettings = { ...dbSiteSettings, transport: { ...(dbSiteSettings.transport || {}), enabled: e.target.checked } };
+                          set(ref(firebaseDb, 'site_settings'), newSettings);
+                          triggerNotification(`Transport module ${e.target.checked ? 'enabled' : 'disabled'}.`);
+                        }}
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#10B981]"></div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-sm overflow-hidden">
+                  <div className="p-5 border-b border-[#E2E8F0] flex justify-between items-center">
+                    <h3 className="font-bold text-[#1C2434] flex items-center gap-2">
+                      <MapPin className="w-5 h-5 text-[#3C50E0]" />
+                      Transport Routes & Fees
+                    </h3>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const newRoute = { id: `route_${Date.now()}`, name: 'New Route', fee: 500, description: 'Pickup details' };
+                        const routes = dbSiteSettings?.transport?.routes || [];
+                        const newSettings = { ...dbSiteSettings, transport: { ...(dbSiteSettings.transport || {}), routes: [...routes, newRoute] } };
+                        set(ref(firebaseDb, 'site_settings'), newSettings);
+                      }}
+                      className="bg-[#3C50E0] hover:bg-[#2B3EB2] text-white"
+                    >
+                      <Plus className="w-4 h-4 mr-1" /> Add Route
+                    </Button>
+                  </div>
+                  <div className="p-0">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-xs font-bold text-[#64748B] uppercase tracking-wider">
+                          <th className="px-5 py-3">Route Name</th>
+                          <th className="px-5 py-3">Description / Pickups</th>
+                          <th className="px-5 py-3">Fee (INR)</th>
+                          <th className="px-5 py-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(dbSiteSettings?.transport?.routes || []).map((route: any, index: number) => (
+                          <tr key={route.id} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC]">
+                            <td className="px-5 py-3">
+                              <input
+                                type="text"
+                                value={route.name}
+                                onChange={(e) => {
+                                  const routes = [...dbSiteSettings.transport.routes];
+                                  routes[index].name = e.target.value;
+                                  set(ref(firebaseDb, 'site_settings'), { ...dbSiteSettings, transport: { ...dbSiteSettings.transport, routes } });
+                                }}
+                                className="w-full bg-transparent border-b border-transparent hover:border-[#E2E8F0] focus:border-[#3C50E0] focus:outline-none font-medium"
+                              />
+                            </td>
+                            <td className="px-5 py-3">
+                              <input
+                                type="text"
+                                value={route.description}
+                                onChange={(e) => {
+                                  const routes = [...dbSiteSettings.transport.routes];
+                                  routes[index].description = e.target.value;
+                                  set(ref(firebaseDb, 'site_settings'), { ...dbSiteSettings, transport: { ...dbSiteSettings.transport, routes } });
+                                }}
+                                className="w-full bg-transparent border-b border-transparent hover:border-[#E2E8F0] focus:border-[#3C50E0] focus:outline-none text-sm text-[#64748B]"
+                              />
+                            </td>
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-1">
+                                <span className="text-[#64748B]">₹</span>
+                                <input
+                                  type="number"
+                                  value={route.fee}
+                                  onChange={(e) => {
+                                    const routes = [...dbSiteSettings.transport.routes];
+                                    routes[index].fee = Number(e.target.value);
+                                    set(ref(firebaseDb, 'site_settings'), { ...dbSiteSettings, transport: { ...dbSiteSettings.transport, routes } });
+                                  }}
+                                  className="w-20 bg-transparent border-b border-transparent hover:border-[#E2E8F0] focus:border-[#3C50E0] focus:outline-none font-medium"
+                                />
+                              </div>
+                            </td>
+                            <td className="px-5 py-3 text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  const routes = dbSiteSettings.transport.routes.filter((r: any) => r.id !== route.id);
+                                  set(ref(firebaseDb, 'site_settings'), { ...dbSiteSettings, transport: { ...dbSiteSettings.transport, routes } });
+                                }}
+                                className="text-[#D34053] hover:bg-rose-50"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                        {(!dbSiteSettings?.transport?.routes || dbSiteSettings.transport.routes.length === 0) && (
+                          <tr>
+                            <td colSpan={4} className="px-5 py-8 text-center text-[#64748B] italic text-sm">
+                              No routes configured yet. Add a route to start offering transport to delegates.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Transport Opt-ins Table */}
+                <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-sm overflow-hidden mt-6">
+                  <div className="p-5 border-b border-[#E2E8F0]">
+                    <h3 className="font-bold text-[#1C2434] flex items-center gap-2">
+                      <Users className="w-5 h-5 text-[#3C50E0]" />
+                      Delegate Transport Roster
+                    </h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-xs font-bold text-[#64748B] uppercase tracking-wider">
+                          <th className="px-5 py-3">Delegate</th>
+                          <th className="px-5 py-3">Route</th>
+                          <th className="px-5 py-3">Fee</th>
+                          <th className="px-5 py-3">Payment Status</th>
+                          <th className="px-5 py-3 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dbDelegates.filter(d => d.transportOptIn).length > 0 ? (
+                          dbDelegates.filter(d => d.transportOptIn).map((delegate, idx) => {
+                            const routeInfo = dbSiteSettings?.transport?.routes?.find((r: any) => r.id === delegate.transportOptIn.routeId);
+                            return (
+                              <tr key={idx} className="border-b border-[#E2E8F0] hover:bg-[#F8FAFC]">
+                                <td className="px-5 py-3">
+                                  <div className="font-semibold text-sm text-[#1C2434]">{delegate.name}</div>
+                                  <div className="text-xs text-[#64748B]">{delegate.id.split('_')[0].substring(0, 8)}</div>
+                                </td>
+                                <td className="px-5 py-3 text-sm text-[#64748B]">{routeInfo?.name || 'Unknown Route'}</td>
+                                <td className="px-5 py-3 text-sm font-medium">₹{delegate.transportOptIn.fee}</td>
+                                <td className="px-5 py-3">
+                                  <span className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md ${delegate.transportOptIn.status === 'paid' ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-[#F2994A]/10 text-[#F2994A]'}`}>
+                                    {delegate.transportOptIn.status || 'Pending'}
+                                  </span>
+                                </td>
+                                <td className="px-5 py-3 text-right">
+                                  {delegate.transportOptIn.status !== 'paid' && (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        const updatePath = `registrations/${delegate.regId}/transportOptIn/status`;
+                                        update(ref(firebaseDb), { [updatePath]: 'paid' }).then(() => {
+                                          triggerNotification('Transport fee marked as paid.');
+                                        });
+                                      }}
+                                      className="bg-[#10B981] hover:bg-[#059669] text-white text-xs h-8"
+                                    >
+                                      Mark Paid
+                                    </Button>
+                                  )}
+                                  {delegate.transportOptIn.status === 'paid' && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        const updatePath = `registrations/${delegate.regId}/transportOptIn/status`;
+                                        update(ref(firebaseDb), { [updatePath]: 'pending' }).then(() => {
+                                          triggerNotification('Transport fee reverted to pending.');
+                                        });
+                                      }}
+                                      className="text-[#64748B] hover:text-[#D34053] text-xs h-8"
+                                    >
+                                      Revert
+                                    </Button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td colSpan={5} className="px-5 py-8 text-center text-[#64748B] italic text-sm">
+                              No delegates have opted for transport yet.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             {/* Activity Logs (Admin only) */}
             {activeMenuTab === 'site_settings' && role === 'admin' && (
               <motion.div
@@ -5514,7 +6069,7 @@ export default function OasisWorkplace() {
 
                       <div>
                         <h4 className="text-sm font-semibold text-slate-800 mb-2">Registration Mode</h4>
-                        <select 
+                        <select
                           className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           value={dbSiteSettings?.registrationMode || 'Auto'}
                           onChange={(e) => {
@@ -5615,7 +6170,7 @@ export default function OasisWorkplace() {
               </motion.div>
             )}
 
-                        {/* Help & Documentation Tab */}
+            {/* Help & Documentation Tab */}
             {activeMenuTab === 'help_docs' && (
               <motion.div
                 key="help_docs"
@@ -5793,6 +6348,37 @@ export default function OasisWorkplace() {
 
           </AnimatePresence>
         </main>
+
+        {/* Mobile Bottom Navigation Bar */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-md border-t border-slate-200 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+          <div className="flex justify-around items-center px-2 py-3">
+            {[
+              { id: 'dashboard', label: 'Home', icon: Activity },
+              { id: 'live_allocations', label: 'Check-in', icon: UserCheck },
+              { id: 'task_board', label: 'Tasks', icon: Layers },
+              { id: 'settings', label: 'Menu', icon: Menu }
+            ].map((item) => {
+              const isSelected = activeMenuTab === item.id || (item.id === 'settings' && sidebarOpen);
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    if (item.id === 'settings') {
+                      setSidebarOpen(true);
+                    } else {
+                      setActiveMenuTab(item.id as any);
+                      setSidebarOpen(false);
+                    }
+                  }}
+                  className={`flex flex-col items-center justify-center w-16 gap-1 transition-all ${isSelected ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  <item.icon className={`w-5 h-5 ${isSelected ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                  <span className={`text-[10px] font-medium ${isSelected ? 'font-bold' : ''}`}>{item.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Modals */}

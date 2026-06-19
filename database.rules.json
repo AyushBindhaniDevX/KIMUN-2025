@@ -66,6 +66,10 @@
       ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')",
       ".write": "auth != null"
     },
+    "schedule": {
+      ".read": "true",
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+    },
     "site_settings": {
       ".read": "true",
       ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"

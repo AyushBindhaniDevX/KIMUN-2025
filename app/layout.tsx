@@ -8,7 +8,20 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata = {
   title: "Kalinga International MUN",
   description: "The premier Model United Nations conference in the region",
-    generator: 'v0.dev'
+  generator: 'v0.dev',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'KIMUN',
+  },
+}
+
+export const viewport = {
+  themeColor: '#4f46e5',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 }
 
 export default function RootLayout({

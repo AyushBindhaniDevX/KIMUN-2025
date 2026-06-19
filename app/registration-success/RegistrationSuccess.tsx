@@ -5,7 +5,7 @@ import { getDatabase, ref, get, query, orderByChild, equalTo } from 'firebase/da
 import { initializeApp, getApps } from 'firebase/app'
 import Barcode from 'react-barcode'
 import html2canvas from 'html2canvas'
-import { Download, Loader2, AlertCircle, ChevronRight, Sparkles } from 'lucide-react'
+import { Download, Loader2, AlertCircle, ChevronRight, Sparkles, CreditCard, CircleDot } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import Link from "next/link"
@@ -264,15 +264,79 @@ export default function RegistrationSuccess() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Link href="/" passHref>
+                <Link href="/delegate" passHref>
                   <Button variant="outline" className="border-amber-600 text-amber-300 hover:bg-amber-900/20 hover:text-amber-200 font-bold px-8 py-6 text-lg rounded-lg group shadow-lg shadow-amber-900/10">
-                    Back to Home
+                    Delegate Portal
                     <ChevronRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
                   </Button>
                 </Link>
               </motion.div>
             </div>
           </motion.div>
+
+          {/* Additional Information */}
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* Payment Summary */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+              className="bg-zinc-800/50 backdrop-blur-sm border border-amber-800/30 rounded-2xl p-6 shadow-lg shadow-amber-900/10"
+            >
+              <h3 className="text-xl font-bold text-amber-300 mb-4 flex items-center gap-2">
+                <CreditCard className="w-5 h-5" /> Payment Summary
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center pb-3 border-b border-amber-800/20">
+                  <span className="text-amber-100/70">Registration Fee</span>
+                  <span className="text-amber-100 font-medium">₹{registration.paymentAmount || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between items-center pb-3 border-b border-amber-800/20">
+                  <span className="text-amber-100/70">Payment ID</span>
+                  <span className="text-amber-100 font-medium font-mono text-xs md:text-sm truncate w-32 md:w-48 text-right">{registration.paymentId}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-amber-100/70">Status</span>
+                  <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider">Successful</span>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Next Steps */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+              className="bg-zinc-800/50 backdrop-blur-sm border border-amber-800/30 rounded-2xl p-6 shadow-lg shadow-amber-900/10"
+            >
+              <h3 className="text-xl font-bold text-amber-300 mb-4 flex items-center gap-2">
+                <CircleDot className="w-5 h-5" /> Next Steps
+              </h3>
+              <ul className="space-y-5">
+                <li className="flex gap-4">
+                  <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 text-sm font-bold mt-0.5 border border-amber-500/30">1</div>
+                  <div>
+                    <p className="text-amber-100 font-medium">Download your ID Card</p>
+                    <p className="text-amber-100/60 text-xs md:text-sm mt-1">Save your exclusive delegate credentials. You'll need this at the venue.</p>
+                  </div>
+                </li>
+                <li className="flex gap-4">
+                  <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 text-sm font-bold mt-0.5 border border-amber-500/30">2</div>
+                  <div>
+                    <p className="text-amber-100 font-medium">Access Delegate Portal</p>
+                    <p className="text-amber-100/60 text-xs md:text-sm mt-1">Login to view schedules, study guides, and manage transport settings.</p>
+                  </div>
+                </li>
+                <li className="flex gap-4">
+                  <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 text-sm font-bold mt-0.5 border border-amber-500/30">3</div>
+                  <div>
+                    <p className="text-amber-100 font-medium">Prepare for the Conference</p>
+                    <p className="text-amber-100/60 text-xs md:text-sm mt-1">Read your background guides and prepare your position papers for the sessions.</p>
+                  </div>
+                </li>
+              </ul>
+            </motion.div>
+          </div>
         </div>
       </section>
 
