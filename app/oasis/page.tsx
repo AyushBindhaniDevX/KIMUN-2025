@@ -84,6 +84,31 @@ import { Scanner } from '@yudiel/react-qr-scanner'
 import * as XLSX from 'xlsx'
 import 'jspdf-autotable'
 
+// ── Magic UI imports ──────────────────────────────────────────────────────────
+import { Marquee } from '@/components/magicui/marquee'
+import { AnimatedList } from '@/components/magicui/animated-list'
+import { OrbitingCircles } from '@/components/magicui/orbiting-circles'
+import { AvatarCircles } from '@/components/magicui/avatar-circles'
+import { Terminal } from '@/components/magicui/terminal'
+import { TweetCard } from '@/components/magicui/tweet-card'
+import { Dock, DockIcon } from '@/components/magicui/dock'
+import { IconCloud, DottedMap } from '@/components/magicui/misc'
+import dynamic from 'next/dynamic'
+
+const GlobeComponent = dynamic(
+  () => import('@/components/magicui/globe').then(m => m.Globe),
+  { ssr: false, loading: () => <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Loading globe…</div> }
+)
+
+function GlobeWidget() {
+  return (
+    <div className="relative w-full h-full overflow-hidden">
+      <GlobeComponent className="top-[-30px]" />
+      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+    </div>
+  )
+}
+
 const playBeep = (type: 'success' | 'error') => {
   try {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -1761,6 +1786,25 @@ export default function OasisWorkplace() {
     }
   }
 
+  const handleUpdateAssignment = async (uid: string, field: string, value: string) => {
+    if (role !== 'admin') return
+    try {
+      const isEb = recruitmentView === 'eb'
+      const dbPath = isEb ? `eb_applications/${uid}` : `oc_applications/${uid}`
+      
+      const updatePayload: any = {}
+      updatePayload[field] = value
+
+      await update(ref(firebaseDb, dbPath), updatePayload)
+      await logActivity('UPDATE_APP_ASSIGNMENT', `Updated assigned ${field} for UID ${uid} to ${value}`)
+      
+      setSelectedApplicant((prev: any) => prev ? { ...prev, [field]: value } : null)
+      triggerNotification(`Applicant assignment updated.`)
+    } catch (err: any) {
+      triggerNotification('Failed to update assignment: ' + err.message, 'error')
+    }
+  }
+
   const handleOpenAppDetailsModal = async (app: any) => {
     setSelectedApplicant(app)
     setShowAppDetailsModal(true)
@@ -2303,46 +2347,56 @@ export default function OasisWorkplace() {
     ] : [])
   ];
   return (
-    <SidebarProvider>
-      <Sidebar>
-        <ShadcnSidebarHeader className="h-16 flex items-center px-4 border-b">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-md bg-indigo-600 flex items-center justify-center">
-              <Building className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold tracking-tight">OASIS</span>
-          </div>
-        </ShadcnSidebarHeader>
-        <SidebarContent>
-          {Object.entries(
-            menuItems.reduce((acc, item) => {
-              if (!acc[item.section]) acc[item.section] = [];
-              acc[item.section].push(item);
-              return acc;
-            }, {} as Record<string, typeof menuItems>)
-          ).map(([section, items]) => (
-            <SidebarGroup key={section}>
-              <SidebarGroupLabel>{section}</SidebarGroupLabel>
-              <SidebarMenu>
-                {items.map(item => (
-                  <SidebarMenuItem key={item.id}>
-                    <SidebarMenuButton 
-                      isActive={activeMenuTab === item.id}
-                      onClick={() => { setActiveMenuTab(item.id as any); setSearchQuery(''); setSidebarOpen(false); }}
-                    >
-                      <item.icon className="w-4 h-4" />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroup>
-          ))}
-        </SidebarContent>
-      </Sidebar>
+    <div className="min-h-screen sm:p-4 md:p-6 lg:p-8 flex items-center justify-center relative overflow-hidden bg-slate-900">
+      {/* Dynamic Background */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] bg-blue-600/40 rounded-full blur-[120px]" />
+        <div className="absolute top-[30%] -right-[10%] w-[60%] h-[60%] bg-indigo-600/30 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[0%] left-[20%] w-[40%] h-[40%] bg-violet-600/30 rounded-full blur-[120px]" />
+      </div>
 
-      <main className="flex-1 flex flex-col min-w-0 bg-background text-foreground transition-all duration-300 ease-in-out h-screen overflow-hidden">
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-background z-10">
+      <div className="w-full h-[100dvh] sm:h-[calc(100vh-2rem)] md:h-[calc(100vh-3rem)] lg:h-[calc(100vh-4rem)] max-w-[1600px] bg-white sm:rounded-[2rem] sm:shadow-2xl overflow-hidden relative z-10 flex sm:border border-white/20">
+        <SidebarProvider className="h-full min-h-0">
+          <Sidebar className="h-full border-r border-slate-100 bg-white sm:bg-slate-50 sm:rounded-l-[2rem] overflow-hidden">
+            <ShadcnSidebarHeader className="h-16 flex items-center px-4 border-b border-slate-100/60 bg-transparent">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-md bg-indigo-600 flex items-center justify-center">
+                  <Building className="w-4 h-4 text-white" />
+                </div>
+                <span className="font-bold tracking-tight">OASIS</span>
+              </div>
+            </ShadcnSidebarHeader>
+            <SidebarContent>
+              {Object.entries(
+                menuItems.reduce((acc, item) => {
+                  if (!acc[item.section]) acc[item.section] = [];
+                  acc[item.section].push(item);
+                  return acc;
+                }, {} as Record<string, typeof menuItems>)
+              ).map(([section, items]) => (
+                <SidebarGroup key={section}>
+                  <SidebarGroupLabel>{section}</SidebarGroupLabel>
+                  <SidebarMenu>
+                    {items.map(item => (
+                      <SidebarMenuItem key={item.id}>
+                        <SidebarMenuButton
+                          isActive={activeMenuTab === item.id}
+                          onClick={() => { setActiveMenuTab(item.id as any); setSearchQuery(''); setSidebarOpen(false); }}
+                        >
+                          <item.icon className="w-4 h-4" />
+                          <span>{item.label}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroup>
+              ))}
+            </SidebarContent>
+          </Sidebar>
+
+
+      <main className="flex-1 flex flex-col min-w-0 bg-white text-foreground transition-all duration-300 ease-in-out h-full overflow-hidden sm:rounded-r-[2rem]">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-slate-100/60 px-4 bg-white/50 backdrop-blur-md z-10">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <Breadcrumb>
@@ -2366,7 +2420,7 @@ export default function OasisWorkplace() {
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 relative">
           <AnimatePresence mode="wait">
 
-            {/* 1. OVERVIEW HUB */}
+            {/* 1. OVERVIEW HUB — Magic UI + TailAdmin Redesign */}
             {activeMenuTab === 'dashboard' && (
               <motion.div
                 key="dashboard"
@@ -2374,204 +2428,227 @@ export default function OasisWorkplace() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3 }}
-                className="space-y-6"
+                className="space-y-5 pb-24"
               >
-                {/* Hero Banner — Apple-inspired minimal greeting */}
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, ease: [0.25, 0.8, 0.25, 1] }}
-                  className="relative overflow-hidden rounded-2xl p-6 sm:p-8"
-                  style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
-                >
-                  <div className="absolute inset-0 opacity-20" style={{ background: 'radial-gradient(circle at 80% 20%, rgba(255,255,255,0.3) 0%, transparent 60%)' }} />
-                  <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                      <span className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white/90 text-[10px] px-3 py-1 rounded-full font-medium tracking-wide">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#30d158] animate-pulse" />
-                        Live Session
-                      </span>
-                      <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight mt-3 text-white">
-                        Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user.displayName?.split(' ')[0]}.
-                      </h2>
-                      <p className="text-white/70 text-sm mt-1.5 max-w-md font-normal">
-                        Here's your operations overview for KIMUN 2026.
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
 
-                {/* KPI Cards Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <KPICard
-                    title="Delegates Checked-In"
-                    value={`${dbDelegates.filter(d => d.isCheckedIn).length} / ${dbDelegates.length}`}
-                    subtitle="Total registrations"
-                    icon={UserCheck}
-                    color="bg-gradient-to-br from-emerald-500 to-emerald-600"
-                    trend="up"
-                    trendValue={`${dbDelegates.length > 0 ? Math.round((dbDelegates.filter(d => d.isCheckedIn).length / dbDelegates.length) * 100) : 0}%`}
-                  />
-                  <KPICard
-                    title="Paid Registrations"
-                    value={`${dbDelegates.length}`}
-                    subtitle="Confirmed delegates"
-                    icon={UsersRound}
-                    color="bg-gradient-to-br from-indigo-500 to-indigo-600"
-                  />
-                  <KPICard
-                    title="Task Completion"
-                    value={`${dbTasks.filter(t => t.status === 'completed').length} / ${dbTasks.length}`}
-                    subtitle="Tasks completed"
-                    icon={ClipboardList}
-                    color="bg-gradient-to-br from-amber-500 to-amber-600"
-                    trend={dbTasks.length > 0 && (dbTasks.filter(t => t.status === 'completed').length / dbTasks.length) > 0.7 ? "up" : "down"}
-                    trendValue={`${dbTasks.length > 0 ? Math.round((dbTasks.filter(t => t.status === 'completed').length / dbTasks.length) * 100) : 0}%`}
-                  />
-                  <KPICard
-                    title="Assets Valuation"
-                    value={formatINR(dbAssets.reduce((sum, a) => sum + (a.quantity * a.cost), 0))}
-                    subtitle="Total inventory value"
-                    icon={Package}
-                    color="bg-gradient-to-br from-rose-500 to-rose-600"
-                  />
-                </div>
-
-                {/* Secondary Widgets */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                  {/* Department Performance */}
-                  <AnimatedCard className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-                    <div className="p-5 border-b border-slate-100">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-indigo-500" />
-                        Cross-Department Performance
-                      </h3>
-                    </div>
-                    <div className="p-5 space-y-4">
-                      {DEPARTMENTS.slice(1).map((d, idx) => {
-                        const deptTasks = dbTasks.filter(t => t.department === d.name)
-                        const completedDeptTasks = deptTasks.filter(t => t.status === 'completed').length
-                        const taskRate = deptTasks.length > 0 ? Math.round((completedDeptTasks / deptTasks.length) * 100) : 0
-                        const deptAssetCost = dbAssets.filter(a => a.department === d.name).reduce((sum, a) => sum + (a.quantity * a.cost), 0)
-
-                        return (
-                          <motion.div
-                            key={d.name}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: idx * 0.05 }}
-                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4 last:border-0 last:pb-0"
-                          >
-                            <div className="min-w-36">
-                              <div className="flex items-center gap-2">
-                                <div className={`${d.color} w-2 h-2 rounded-full`} />
-                                <span className="font-bold text-slate-700 text-sm">{d.name}</span>
-                              </div>
-                              <span className="text-[10px] text-slate-400 font-medium">Assets: {formatINR(deptAssetCost)}</span>
-                            </div>
-                            <div className="flex-1 max-w-md">
-                              <div className="flex items-center gap-3">
-                                <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
-                                  <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${taskRate}%` }}
-                                    transition={{ duration: 0.5, delay: idx * 0.05 }}
-                                    className={`${d.color} h-full rounded-full`}
-                                  />
-                                </div>
-                                <span className="text-[11px] font-bold text-slate-600 min-w-10">{taskRate}%</span>
-                              </div>
-                            </div>
-                            <div className="text-[10px] text-slate-500 font-semibold">
-                              {completedDeptTasks}/{deptTasks.length} Tasks
-                            </div>
-                          </motion.div>
-                        )
-                      })}
-                    </div>
-                  </AnimatedCard>
-
-                  {/* Recent Announcements */}
-                  <AnimatedCard className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden" delay={0.1}>
-                    <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                        <Megaphone className="w-4 h-4 text-indigo-500" />
-                        Recent Bulletins
-                      </h3>
-                      <button
-                        onClick={() => setActiveMenuTab('bulletin_board')}
-                        className="text-[10px] font-bold text-indigo-600 hover:underline"
-                      >
-                        View All
-                      </button>
-                    </div>
-                    <div className="p-5 space-y-3 max-h-[320px] overflow-y-auto">
-                      {dbAnnouncements.length === 0 ? (
-                        <div className="text-center py-8">
-                          <Bell className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                          <p className="text-xs text-slate-400">No broadcasts yet</p>
+                {/* ── HERO BANNER ── */}
+                <div className="relative overflow-hidden rounded-2xl p-6 sm:p-8" style={{ background: 'linear-gradient(135deg, #4338ca 0%, #7c3aed 60%, #9333ea 100%)' }}>
+                  <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.4) 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+                  {/* Orbiting Circles decorative */}
+                  <div className="absolute right-8 top-1/2 -translate-y-1/2 w-32 h-32 hidden lg:block opacity-60">
+                    <div className="relative w-full h-full">
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
+                          <Building className="w-5 h-5 text-white" />
                         </div>
-                      ) : (
-                        dbAnnouncements.slice(0, 3).map((ann, idx) => (
-                          <motion.div
-                            key={ann.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: idx * 0.1 }}
-                            className="p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-indigo-100 transition-all"
-                          >
-                            <div className="flex items-start justify-between">
-                              <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                                {ann.isPinned && <Star className="w-3 h-3 text-amber-500 fill-amber-500" />}
-                                {ann.title}
-                              </h4>
-                              <span className="text-[9px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold">
-                                {ann.department}
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-slate-500 mt-1.5 line-clamp-2">{ann.content}</p>
-                            <div className="flex items-center justify-between mt-2">
-                              <span className="text-[9px] text-slate-400">{new Date(ann.createdAt).toLocaleDateString()}</span>
-                              <span className="text-[9px] font-medium text-indigo-500">by {ann.createdBy?.split('@')[0]}</span>
-                            </div>
-                          </motion.div>
-                        ))
-                      )}
-                    </div>
-                  </AnimatedCard>
-                </div>
-
-                {/* Quick Actions */}
-                <AnimatedCard delay={0.2}>
-                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-indigo-500" />
-                      Quick Actions
-                    </h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {[
-                        { label: 'Check-in Delegate', icon: UserCheck, action: () => setActiveMenuTab('live_allocations'), color: 'bg-emerald-50 text-emerald-600' },
-                        { label: 'Add Task', icon: PlusCircle, action: () => setShowTaskForm(true), color: 'bg-indigo-50 text-indigo-600' },
-                        { label: 'Export Report', icon: Download, action: handleExportCSV, color: 'bg-amber-50 text-amber-600' },
-                        { label: 'Sync Database', icon: RefreshCw, action: () => saveWorkstationBaselineToCloud(workstationCommittees, workstationExpenses, workstationRevenues), color: 'bg-slate-100 text-slate-600' },
-                      ].map((action, idx) => (
-                        <motion.button
-                          key={action.label}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={action.action}
-                          className="flex flex-col items-center gap-2 p-3 rounded-xl border border-slate-200 hover:border-indigo-200 hover:shadow-sm transition-all"
-                        >
-                          <div className={`p-2 rounded-lg ${action.color}`}>
-                            <action.icon className="w-4 h-4" />
-                          </div>
-                          <span className="text-[10px] font-semibold text-slate-600">{action.label}</span>
-                        </motion.button>
+                      </div>
+                      {[{ r: 48, d: 12, c: 'bg-violet-400/80', label: '🎓', delay: 0 }, { r: 60, d: 18, c: 'bg-sky-400/80', label: '🌐', delay: -5 }].map((o, i) => (
+                        <OrbitingCircles key={i} radius={o.r} duration={o.d} delay={o.delay} path={false}>
+                          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-white/20 text-xs border border-white/30">{o.label}</span>
+                        </OrbitingCircles>
                       ))}
                     </div>
                   </div>
-                </AnimatedCard>
+                  <div className="relative z-10 max-w-lg">
+                    <span className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white/90 text-[10px] px-3 py-1 rounded-full font-medium tracking-wide mb-4">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#30d158] animate-pulse" />
+                      Live Session — KIMUN 2026
+                    </span>
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                      Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user.displayName?.split(' ')[0]}.
+                    </h2>
+                    <p className="text-white/70 text-sm mt-2 font-normal">
+                      Here's your full operations summary for today.
+                    </p>
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      <AvatarCircles
+                        avatarUrls={dbApplications.slice(0, 5).map((a: any) => ({ imageUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(a.name || 'OC')}&background=818cf8&color=fff&size=40`, name: a.name }))}
+                        numPeople={Math.max(0, dbApplications.length - 5)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── KPI CARDS — TailAdmin Style ── */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    { title: 'Delegates', value: dbDelegates.length, sub: `${dbDelegates.filter(d => d.isCheckedIn).length} checked in`, icon: UserCheck, grad: 'from-emerald-500 to-teal-600', bg: 'bg-emerald-50', tc: 'text-emerald-600' },
+                    { title: 'OC Applicants', value: dbApplications.length, sub: `${dbApplications.filter((a: any) => a.status === 'accepted').length} accepted`, icon: Users, grad: 'from-indigo-500 to-violet-600', bg: 'bg-indigo-50', tc: 'text-indigo-600' },
+                    { title: 'Tasks Done', value: `${dbTasks.filter(t => t.status === 'completed').length}/${dbTasks.length}`, sub: `${dbTasks.length > 0 ? Math.round(dbTasks.filter(t => t.status === 'completed').length / dbTasks.length * 100) : 0}% completion`, icon: ClipboardList, grad: 'from-amber-500 to-orange-600', bg: 'bg-amber-50', tc: 'text-amber-600' },
+                    { title: 'Assets Value', value: formatINR(dbAssets.reduce((s, a) => s + a.quantity * a.cost, 0)), sub: `${dbAssets.length} items`, icon: Package, grad: 'from-rose-500 to-pink-600', bg: 'bg-rose-50', tc: 'text-rose-600' },
+                  ].map((kpi, i) => (
+                    <motion.div key={kpi.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
+                      className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 hover:shadow-md transition-shadow group">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{kpi.title}</p>
+                          <p className="text-xl font-bold text-slate-800 mt-1 truncate">{kpi.value}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5 truncate">{kpi.sub}</p>
+                        </div>
+                        <div className={`p-2.5 rounded-xl ${kpi.bg} shrink-0`}>
+                          <kpi.icon className={`w-5 h-5 ${kpi.tc}`} />
+                        </div>
+                      </div>
+                      <div className={`mt-3 h-1 rounded-full bg-gradient-to-r ${kpi.grad} opacity-0 group-hover:opacity-100 transition-opacity`} />
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* ── BENTO GRID — Main Widgets ── */}
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 auto-rows-auto">
+
+                  {/* Globe Widget */}
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
+                    className="md:col-span-2 lg:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden"
+                    style={{ minHeight: 280 }}>
+                    <div className="p-4 border-b border-slate-100 flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-indigo-500" />
+                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Delegate Distribution</span>
+                    </div>
+                    <div className="relative" style={{ height: 220 }}>
+                      <GlobeWidget />
+                    </div>
+                  </motion.div>
+
+                  {/* Animated Activity Feed */}
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}
+                    className="md:col-span-1 lg:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col"
+                    style={{ minHeight: 280 }}>
+                    <div className="p-4 border-b border-slate-100 flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-indigo-500" />
+                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Live Feed</span>
+                    </div>
+                    <div className="flex-1 overflow-hidden p-3">
+                      <AnimatedList delay={1500}>
+                        {[...dbDelegates.slice(0, 6)].map((d, i) => (
+                          <div key={i} className="flex items-center gap-2.5 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                              {(d.name || '?')[0]}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-semibold text-slate-700 truncate">{d.name}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{d.institution || 'Registered'}</p>
+                            </div>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${d.isCheckedIn ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                              {d.isCheckedIn ? '✓ In' : 'Pending'}
+                            </span>
+                          </div>
+                        ))}
+                        {dbDelegates.length === 0 && (
+                          <div className="text-center py-8 text-xs text-slate-400">No delegates yet</div>
+                        )}
+                      </AnimatedList>
+                    </div>
+                  </motion.div>
+
+
+
+                  {/* Department Performance */}
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.25 }}
+                    className="md:col-span-2 lg:col-span-4 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4 text-indigo-500" />
+                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Department Performance</span>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      {DEPARTMENTS.slice(1, 7).map((d, idx) => {
+                        const deptTasks = dbTasks.filter(t => t.department === d.name)
+                        const rate = deptTasks.length > 0 ? Math.round(deptTasks.filter(t => t.status === 'completed').length / deptTasks.length * 100) : 0
+                        return (
+                          <div key={d.name} className="flex items-center gap-3">
+                            <span className="text-[10px] font-bold text-slate-500 w-20 truncate shrink-0">{d.name}</span>
+                            <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                              <motion.div initial={{ width: 0 }} animate={{ width: `${rate}%` }} transition={{ delay: idx * 0.06, duration: 0.6 }}
+                                className={`h-full rounded-full ${d.color}`} />
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-600 w-8 text-right">{rate}%</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </motion.div>
+
+                  {/* Quick Actions */}
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}
+                    className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-amber-500" />
+                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Quick Actions</span>
+                    </div>
+                    <div className="p-3 grid grid-cols-2 gap-2">
+                      {[
+                        { label: 'Check-In', icon: UserCheck, action: () => setActiveMenuTab('live_allocations'), color: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
+                        { label: 'Add Task', icon: PlusCircle, action: () => setShowTaskForm(true), color: 'bg-indigo-50 text-indigo-600 border-indigo-100' },
+                        { label: 'Export', icon: Download, action: handleExportCSV, color: 'bg-amber-50 text-amber-600 border-amber-100' },
+                        { label: 'Sync DB', icon: RefreshCw, action: () => saveWorkstationBaselineToCloud(workstationCommittees, workstationExpenses, workstationRevenues), color: 'bg-slate-100 text-slate-600 border-slate-200' },
+                      ].map((a) => (
+                        <motion.button key={a.label} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} onClick={a.action}
+                          className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border ${a.color} transition-all`}>
+                          <a.icon className="w-5 h-5" />
+                          <span className="text-[10px] font-bold">{a.label}</span>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </motion.div>
+
+                  {/* Icon Cloud — Departments */}
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.35 }}
+                    className="md:col-span-2 lg:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-indigo-500" />
+                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Departments & Committees</span>
+                    </div>
+                    <IconCloud
+                      iconSlugs={DEPARTMENTS.slice(1).map(d => d.name)}
+                      className="p-3"
+                    />
+                  </motion.div>
+
+                  {/* Dotted Map */}
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }}
+                    className="md:col-span-1 lg:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-indigo-500" />
+                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Delegate Origins</span>
+                    </div>
+                    <div className="p-3">
+                      <DottedMap
+                        className="h-32 rounded-xl"
+                        dots={[
+                          { lat: 20.5937, lng: 78.9629, label: 'India' },
+                          { lat: 28.6139, lng: 77.2090, label: 'Delhi' },
+                          { lat: 19.0760, lng: 72.8777, label: 'Mumbai' },
+                          { lat: 22.5726, lng: 88.3639, label: 'Kolkata' },
+                          { lat: 17.6868, lng: 83.2185, label: 'Vizag' },
+                        ]}
+                      />
+                    </div>
+                  </motion.div>
+
+
+                </div>
+
+                {/* ── DOCK — Mobile Bottom Navigation ── */}
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 sm:hidden">
+                  <Dock className="scale-90">
+                    {[
+                      { icon: LayoutDashboard, label: 'Home', id: 'dashboard' },
+                      { icon: UserCheck, label: 'Check-In', id: 'live_allocations' },
+                      { icon: Layers, label: 'Workspace', id: 'dept_boards' },
+                      { icon: FileSpreadsheet, label: 'Finance', id: 'finance_station' },
+                      { icon: Menu, label: 'More', id: 'help_docs' },
+                    ].map((item) => (
+                      <DockIcon
+                        key={item.id}
+                        label={item.label}
+                        isActive={activeMenuTab === item.id}
+                        onClick={() => setActiveMenuTab(item.id as any)}
+                      >
+                        <item.icon className="w-4 h-4" />
+                      </DockIcon>
+                    ))}
+                  </Dock>
+                </div>
 
               </motion.div>
             )}
@@ -6590,6 +6667,47 @@ export default function OasisWorkplace() {
                             {recruitmentView === 'eb' ? `${selectedApplicant.committeePref2} (${selectedApplicant.rolePref2})` : selectedApplicant.pref2 || 'N/A'}
                           </span>
                         </div>
+                        <div className="col-span-2 pt-2 border-t border-slate-100">
+                          <span className="text-slate-400 block font-medium mb-1">Assigned Unit (Overwrite)</span>
+                          {recruitmentView === 'eb' ? (
+                            <div className="flex gap-2">
+                              <select
+                                value={selectedApplicant.assignedCommittee || ''}
+                                onChange={(e) => handleUpdateAssignment(selectedApplicant.uid, 'assignedCommittee', e.target.value)}
+                                className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 outline-none"
+                              >
+                                <option value="">No Committee Assigned</option>
+                                <option value="UNHRC">UNHRC</option>
+                                <option value="UNSC">UNSC</option>
+                                <option value="UNGA">UNGA</option>
+                                <option value="AIPPM">AIPPM</option>
+                                <option value="IPC">IPC</option>
+                              </select>
+                              <select
+                                value={selectedApplicant.assignedRole || ''}
+                                onChange={(e) => handleUpdateAssignment(selectedApplicant.uid, 'assignedRole', e.target.value)}
+                                className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 outline-none"
+                              >
+                                <option value="">No Role Assigned</option>
+                                <option value="Chairperson">Chairperson</option>
+                                <option value="Vice Chairperson">Vice Chairperson</option>
+                                <option value="Director">Director</option>
+                                <option value="Rapporteur">Rapporteur</option>
+                              </select>
+                            </div>
+                          ) : (
+                            <select
+                              value={selectedApplicant.assignedDepartment || ''}
+                              onChange={(e) => handleUpdateAssignment(selectedApplicant.uid, 'assignedDepartment', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 outline-none"
+                            >
+                              <option value="">Use Primary Preference</option>
+                              {DEPARTMENTS.slice(1).map(d => (
+                                <option key={d.name} value={d.name}>{d.name}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -7608,6 +7726,8 @@ export default function OasisWorkplace() {
         </div>
       )}
 
-    </SidebarProvider>
+        </SidebarProvider>
+      </div>
+    </div>
   )
 }
