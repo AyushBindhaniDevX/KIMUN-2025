@@ -3,6 +3,9 @@ import { GoogleGenAI } from '@google/genai'
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 
+export const maxDuration = 60; // Set max duration to 60 seconds
+
+
 export async function POST(req: Request) {
   try {
     const body = await req.json()

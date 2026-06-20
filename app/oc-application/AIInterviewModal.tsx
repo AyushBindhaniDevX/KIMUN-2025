@@ -316,7 +316,8 @@ export default function AIInterviewModal({ isOpen, onClose, application, onCompl
     audioChunksRef.current = [];
 
     try {
-      const mediaRecorder = new MediaRecorder(streamRef.current);
+      const options = { audioBitsPerSecond: 16000 };
+      const mediaRecorder = new MediaRecorder(streamRef.current, options);
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (event) => {

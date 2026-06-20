@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 
+export const maxDuration = 60; // Set max duration to 60 seconds
+
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
