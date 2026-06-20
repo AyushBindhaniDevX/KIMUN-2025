@@ -5,6 +5,8 @@ import { GoogleGenAI } from '@google/genai'
 // Ensure GEMINI_API_KEY is set in your environment variables
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 
+export const maxDuration = 60; // Prevent 504 timeouts on Vercel
+
 export async function POST(req: Request) {
   try {
     const body = await req.json()

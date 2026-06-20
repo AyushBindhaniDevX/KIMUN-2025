@@ -3,6 +3,8 @@ import { GoogleGenAI } from '@google/genai'
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 
+export const maxDuration = 60; // Prevent 504 timeouts on Vercel
+
 export async function POST(req: Request) {
   try {
     const body = await req.json()
@@ -67,7 +69,7 @@ Respond strictly in the following JSON format:
         attempt++;
         console.error(`Gemini API Attempt ${attempt} failed:`, err.message || err);
         if (attempt >= maxRetries) {
-          throw new Error('Failed to generate response after multiple attempts. Traffic might be high.');
+          throw new Error(`Gemini API Error: ${err.message || 'Unknown error'}`);
         }
         // Exponential backoff: 1s, 2s, 4s, 8s
         await new Promise(res => setTimeout(res, Math.pow(2, attempt - 1) * 1000));
