@@ -1775,7 +1775,7 @@ export default function OasisWorkplace() {
   }
 
   const handleUpdateApplicationStatus = async (uid: string, nextStatus: string, email: string, name: string, isEb: boolean = false) => {
-    if (role !== 'admin') return
+    if (role !== 'admin' && role !== 'oc_member') return
     try {
       const dbPath = isEb ? `eb_applications/${uid}` : `oc_applications/${uid}`
       await update(ref(firebaseDb, dbPath), { status: nextStatus })
@@ -1787,7 +1787,7 @@ export default function OasisWorkplace() {
   }
 
   const handleUpdateAssignment = async (uid: string, field: string, value: string) => {
-    if (role !== 'admin') return
+    if (role !== 'admin' && role !== 'oc_member') return
     try {
       const isEb = recruitmentView === 'eb'
       const dbPath = isEb ? `eb_applications/${uid}` : `oc_applications/${uid}`
