@@ -277,6 +277,7 @@ export default function OasisWorkplace() {
   const [loadingData, setLoadingData] = useState(true)
 
   // Financial Workstation Local State
+  const [globalRegFee, setGlobalRegFee] = useState(1200)
   const [workstationTab, setWorkstationTab] = useState('dashboard')
     const [workstationExpenses, setWorkstationExpenses] = useState<any[]>(INITIAL_EXPENSES)
   const [workstationRevenues, setWorkstationRevenues] = useState<any[]>(INITIAL_REVENUES)
@@ -862,7 +863,7 @@ export default function OasisWorkplace() {
     const targetSeats = dbCommittees.reduce((sum, c) => sum + c.target, 0)
     const actualTurnout = Math.round(targetSeats * (attendanceRealizationRate / 100))
 
-    const targetRegRevenue = dbCommittees.reduce((sum, c) => sum + (c.target * c.fee), 0)
+    const targetRegRevenue = dbCommittees.reduce((sum, c) => sum + (c.target * globalRegFee), 0)
     const actualRegRevenue = Math.round(targetRegRevenue * (attendanceRealizationRate / 100))
 
     let targetNonRegRevenue = 0
@@ -906,7 +907,7 @@ export default function OasisWorkplace() {
     const netProjectedProfit = totalTargetRevenue - finalTargetExpenses
     const netActualProfit = totalActualRevenue - finalActualExpenses
 
-    const avgSeatFee = targetSeats > 0 ? (targetRegRevenue / targetSeats) : 0
+    const avgSeatFee = globalRegFee
     const breakEvenSeats = (avgSeatFee - totalVariableUnitCost) > 0
       ? Math.ceil(totalFixedCosts / (avgSeatFee - totalVariableUnitCost))
       : 'N/A'
@@ -928,6 +929,13 @@ export default function OasisWorkplace() {
       }
     })
 
+    const committeeCashFlows: any = {}
+    dbCommittees.forEach(c => {
+      const inflow = c.target * globalRegFee
+      const outflow = targetSeats > 0 ? finalTargetExpenses * (c.target / targetSeats) : 0
+      committeeCashFlows[c.id] = { inflow, outflow, profit: inflow - outflow }
+    })
+
     return {
       targetSeats,
       actualTurnout,
@@ -946,8 +954,9 @@ export default function OasisWorkplace() {
       breakEvenSeats,
       deptBudgets,
       deptActuals,
+      committeeCashFlows,
     }
-  }, [dbCommittees, workstationExpenses, workstationRevenues, attendanceRealizationRate, sponsorRealizationRate, contingencyRate, excludeSponsors])
+  }, [dbCommittees, workstationExpenses, workstationRevenues, attendanceRealizationRate, sponsorRealizationRate, contingencyRate, excludeSponsors, globalRegFee])
 
   // Modal Handlers
   const openAddCommitteeModal = () => {
@@ -1996,7 +2005,7 @@ export default function OasisWorkplace() {
   // Real Database Registry Manager Handlers
   const handleSaveDbCommittee = async (e: React.FormEvent) => {
     e.preventDefault()
-    const commId = dbCommitteeForm.id.trim().toUpperCase()
+    const commId = editingDbCommittee ? editingDbCommittee.id : dbCommitteeForm.id.trim().toUpperCase()
     if (!commId || !dbCommitteeForm.name.trim()) {
       triggerNotification('Committee ID and Name are required.', 'error')
       return
@@ -2672,12 +2681,108 @@ export default function OasisWorkplace() {
                         No Sponsors Mode
                       </label>
                     </div>
+                    <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+                      {[
+                        { id: 'dashboard', label: 'Models' },
+                        { id: 'expenses', label: 'Outlays' },
+                        { id: 'revenue', label: 'Inflows' }
+                      ].map(tab => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setWorkstationTab(tab.id)}
+                          className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            workstationTab === tab.id 
+                              ? 'bg-white shadow-sm text-indigo-600 border border-slate-200/50' 
+                              : 'text-slate-500 hover:text-slate-700'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
                 {workstationTab === 'dashboard' && (
-                  <AnimatedCard>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  <div className="space-y-6">
+                    {/* Break-Even Hero & Fee Controls */}
+                    <AnimatedCard>
+                      <div className="bg-white rounded-2xl border border-slate-200/60 p-6 flex flex-col md:flex-row items-center justify-between gap-8 shadow-[0_4px_20px_rgba(0,0,0,0.03)] relative overflow-hidden">
+                        <div className="absolute -right-10 -top-10 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                        <div className="flex-1 space-y-2 relative z-10">
+                          <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Global Break-Even Analysis</h3>
+                          <div className="flex items-baseline gap-3">
+                            <span className="text-5xl font-black text-indigo-700 tracking-tighter">{totals.breakEvenSeats}</span>
+                            <span className="text-sm font-bold text-slate-500">delegates required</span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-2 max-w-lg leading-relaxed">
+                            With current fixed costs of <span className="font-bold text-slate-700">{formatINR(totals.totalFixedCosts)}</span> and variable costs of <span className="font-bold text-slate-700">{formatINR(totals.totalVariableUnitCost)}/delegate</span>, you need {totals.breakEvenSeats} delegates to offset expenses at a {formatINR(globalRegFee)} fee.
+                          </p>
+                        </div>
+                        
+                        <div className="w-full md:w-80 space-y-4 bg-slate-50 p-5 rounded-xl border border-slate-200/60 relative z-10">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Global Delegate Fee</span>
+                            <span className="text-lg font-black text-indigo-600">{formatINR(globalRegFee)}</span>
+                          </div>
+                          <input 
+                            type="range" 
+                            min="500" 
+                            max="5000" 
+                            step="100" 
+                            value={globalRegFee} 
+                            onChange={(e) => setGlobalRegFee(Number(e.target.value))}
+                            className="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 hover:accent-indigo-700 transition-all"
+                          />
+                          <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                            <span>₹500</span>
+                            <span>₹5000</span>
+                          </div>
+                        </div>
+                      </div>
+                    </AnimatedCard>
+
+                    {/* Financial Analytics Summary */}
+                    <AnimatedCard>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.02)] transition-all hover:shadow-md">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Total Target Inflow
+                          </p>
+                          <p className="text-2xl font-black text-slate-800">{formatINR(totals.totalTargetRevenue)}</p>
+                          <p className="text-[10px] font-bold text-emerald-600 mt-1">Based on 100% capacity</p>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.02)] transition-all hover:shadow-md">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                            Total Target Outflow
+                          </p>
+                          <p className="text-2xl font-black text-slate-800">{formatINR(totals.budgetedExpenses)}</p>
+                          <p className="text-[10px] font-bold text-slate-400 mt-1">Includes contingencies</p>
+                        </div>
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.02)] transition-all hover:shadow-md relative overflow-hidden group">
+                          <div className={`absolute top-0 right-0 w-1.5 h-full transition-all duration-500 ${totals.projectedProfit >= 0 ? 'bg-emerald-500 group-hover:w-2' : 'bg-rose-500 group-hover:w-2'}`}></div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Projected Net Profit</p>
+                          <p className={`text-2xl font-black ${totals.projectedProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {formatINR(totals.projectedProfit)}
+                          </p>
+                          <p className="text-[10px] font-bold text-slate-400 mt-1">Best case scenario</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-5 rounded-2xl border border-indigo-500 shadow-lg text-white relative overflow-hidden hover:shadow-indigo-500/25 transition-all">
+                          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+                          <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                            Realized Profit
+                          </p>
+                          <p className="text-2xl font-black relative z-10">{formatINR(totals.actualProfit)}</p>
+                          <p className="text-[10px] text-indigo-200 mt-1 font-bold">At {attendanceRealizationRate}% Turnout</p>
+                        </div>
+                      </div>
+                    </AnimatedCard>
+
+                    <AnimatedCard>
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                         {dbCommittees.map(c => (
                           <div key={c.id} className="group relative bg-white rounded-2xl overflow-hidden border border-slate-200/60 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col">
                             {/* Hero Image Section */}
@@ -2727,20 +2832,35 @@ export default function OasisWorkplace() {
                                   <p className="text-lg font-black text-slate-800">{c.target}</p>
                                 </div>
                                 <div className="space-y-1">
-                                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Delegate Fee</p>
-                                  <p className="text-lg font-black text-slate-800">{formatINR(c.fee)}</p>
+                                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Global Fee</p>
+                                  <p className="text-lg font-black text-indigo-600">{formatINR(globalRegFee)}</p>
                                 </div>
                               </div>
                               
-                              <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                                <span className="text-xs font-semibold text-slate-500">Projected Revenue</span>
-                                <span className="text-sm font-black text-emerald-600">{formatINR(c.target * c.fee)}</span>
+                              <div className="pt-3 border-t border-slate-100 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold uppercase text-slate-400">Proj. Inflow</span>
+                                  <span className="text-xs font-black text-emerald-600">{formatINR(totals.committeeCashFlows?.[c.id]?.inflow || 0)}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold uppercase text-slate-400">Proj. Outflow (Allocated)</span>
+                                  <span className="text-xs font-black text-rose-500">{formatINR(totals.committeeCashFlows?.[c.id]?.outflow || 0)}</span>
+                                </div>
+                                <div className="flex items-center justify-between pt-2 border-t border-slate-50">
+                                  <span className="text-[11px] font-bold text-slate-600">Net Profit</span>
+                                  <span className={`text-sm font-black ${
+                                    (totals.committeeCashFlows?.[c.id]?.profit || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                                  }`}>
+                                    {formatINR(totals.committeeCashFlows?.[c.id]?.profit || 0)}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </div>
                         ))}
                       </div>
-                  </AnimatedCard>
+                    </AnimatedCard>
+                  </div>
                 )}
 
                 {/* Expenses Tab */}
@@ -4583,7 +4703,10 @@ export default function OasisWorkplace() {
                                             topics: c.topics ? (Array.isArray(c.topics) ? c.topics.join(', ') : Object.values(c.topics).join(', ')) : '',
                                             backgroundGuide: c.backgroundGuide || '',
                                             rules: c.rules || '',
-                                            studyGuide: c.studyGuide || ''
+                                            studyGuide: c.studyGuide || '',
+                                            image: c.image || '',
+                                            target: c.target || 30,
+                                            fee: c.fee || 1000
                                           })
                                           setShowDbCommitteeModal(true)
                                         }}
@@ -4639,7 +4762,10 @@ export default function OasisWorkplace() {
                                     topics: comm.topics ? (Array.isArray(comm.topics) ? comm.topics.join(', ') : Object.values(comm.topics).join(', ')) : '',
                                     backgroundGuide: comm.backgroundGuide || '',
                                     rules: comm.rules || '',
-                                    studyGuide: comm.studyGuide || ''
+                                    studyGuide: comm.studyGuide || '',
+                                    image: comm.image || '',
+                                    target: comm.target || 30,
+                                    fee: comm.fee || 1000
                                   })
                                   setShowDbCommitteeModal(true)
                                 }}
@@ -6008,14 +6134,19 @@ export default function OasisWorkplace() {
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Classification / Category</label>
-                  <input
-                    type="text"
+                  <select
                     value={dbCommitteeForm.category}
                     onChange={e => setDbCommitteeForm(p => ({ ...p, category: e.target.value }))}
-                    placeholder="e.g. Premium Single"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500 cursor-pointer"
                     required
-                  />
+                  >
+                    <option value="" disabled>Select Type</option>
+                    <option value="General Assembly">General Assembly</option>
+                    <option value="Specialized">Specialized</option>
+                    <option value="Crisis">Crisis</option>
+                    <option value="Premium Single">Premium Single</option>
+                    <option value="Double Delegation">Double Delegation</option>
+                  </select>
                 </div>
               </div>
 
