@@ -2331,6 +2331,15 @@ export default function OasisWorkplace() {
       { section: 'Admin Settings', id: 'logs', label: 'Activity Logs', icon: Activity, color: 'text-rose-600' }
     ] : [])
   ];
+
+  const groupedMenuItems = Object.entries(
+    menuItems.reduce((acc: any, item) => {
+      if (!acc[item.section]) acc[item.section] = [];
+      acc[item.section].push(item);
+      return acc;
+    }, {})
+  );
+
   return (
     <div className="min-h-screen sm:p-4 md:p-6 lg:p-8 flex items-center justify-center relative overflow-hidden bg-slate-900">
       {/* Dynamic Background */}
@@ -2352,27 +2361,24 @@ export default function OasisWorkplace() {
               </div>
             </ShadcnSidebarHeader>
             <SidebarContent>
-              {Object.entries(
-                menuItems.reduce((acc, item) => {
-                  if (!acc[item.section]) acc[item.section] = [];
-                  acc[item.section].push(item);
-                  return acc;
-                }, {} as Record<string, typeof menuItems>)
-              ).map(([section, items]) => (
+              {groupedMenuItems.map(([section, items]) => (
                 <SidebarGroup key={section}>
                   <SidebarGroupLabel>{section}</SidebarGroupLabel>
                   <SidebarMenu>
-                    {items.map(item => (
-                      <SidebarMenuItem key={item.id}>
-                        <SidebarMenuButton
-                          isActive={activeMenuTab === item.id}
-                          onClick={() => { setActiveMenuTab(item.id as any); setSearchQuery(''); setSidebarOpen(false); }}
-                        >
-                          <item.icon className="w-4 h-4" />
-                          <span>{item.label}</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
+                    {items.map(item => {
+                      const Icon = item.icon;
+                      return (
+                        <SidebarMenuItem key={item.id}>
+                          <SidebarMenuButton
+                            isActive={activeMenuTab === item.id}
+                            onClick={() => { setActiveMenuTab(item.id as 'dashboard'); setSearchQuery(''); setSidebarOpen(false); }}
+                          >
+                            <Icon className="w-4 h-4" />
+                            <span>{item.label}</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
                   </SidebarMenu>
                 </SidebarGroup>
               ))}
@@ -2666,10 +2672,12 @@ export default function OasisWorkplace() {
                         No Sponsors Mode
                       </label>
                     </div>
-                    
-                      </div>
+                  </div>
+                </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {workstationTab === 'dashboard' && (
+                  <AnimatedCard>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                         {dbCommittees.map(c => (
                           <div key={c.id} className="group relative bg-white rounded-2xl overflow-hidden border border-slate-200/60 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col">
                             {/* Hero Image Section */}
@@ -2732,7 +2740,6 @@ export default function OasisWorkplace() {
                           </div>
                         ))}
                       </div>
-                    </div>
                   </AnimatedCard>
                 )}
 
