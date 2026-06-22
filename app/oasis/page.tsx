@@ -138,14 +138,6 @@ const playBeep = (type: 'success' | 'error') => {
   }
 }
 
-// Indian-context master committee configuration list (presets)
-const INITIAL_COMMITTEES = [
-  { id: 'COM-01', name: 'United Nations Security Council (UNSC)', target: 35, fee: 3500, category: 'Premium Single', color: '#4F46E5', image: 'https://i.pinimg.com/1200x/3d/b4/c2/3db4c2dfa6abb2fc2cd87626af5a4515.jpg' },
-  { id: 'COM-02', name: 'Disarmament & International Security Committee (DISEC)', target: 85, fee: 2200, category: 'Double/Single', color: '#0EA5E9', image: 'https://i.pinimg.com/736x/5e/01/ef/5e01ef2daaffbc4f956d7c5436d45cae.jpg' },
-  { id: 'COM-03', name: 'All India Political Parties Meet (AIPPM)', target: 80, fee: 2000, category: 'Regional National', color: '#10B981', image: 'https://i.pinimg.com/1200x/9a/a9/29/9aa9293e81a3f58a3b4da36938be8171.jpg' },
-  { id: 'COM-04', name: 'United Nations Human Rights Council (UNHRC)', target: 65, fee: 2200, category: 'Double/Single', color: '#F59E0B', image: 'https://i.pinimg.com/736x/ad/b5/6b/adb56b4847ba793c7ef2f614682abd1f.jpg' },
-  { id: 'COM-05', name: 'International Press (IP)', target: 35, fee: 1800, category: 'Specialized Journalism', color: '#EF4444', image: 'https://i.pinimg.com/736x/73/14/22/731422e15ba9af97ab7bb1d23e563171.jpg' },
-]
 
 // Indian-context master expense list for KIMUN 2026 in INR (₹)
 const INITIAL_EXPENSES = [
@@ -286,8 +278,7 @@ export default function OasisWorkplace() {
 
   // Financial Workstation Local State
   const [workstationTab, setWorkstationTab] = useState('dashboard')
-  const [workstationCommittees, setWorkstationCommittees] = useState<any[]>(INITIAL_COMMITTEES)
-  const [workstationExpenses, setWorkstationExpenses] = useState<any[]>(INITIAL_EXPENSES)
+    const [workstationExpenses, setWorkstationExpenses] = useState<any[]>(INITIAL_EXPENSES)
   const [workstationRevenues, setWorkstationRevenues] = useState<any[]>(INITIAL_REVENUES)
 
   // What-if simulator factors
@@ -414,7 +405,7 @@ export default function OasisWorkplace() {
   // Db Committee Form States
   const [showDbCommitteeModal, setShowDbCommitteeModal] = useState(false)
   const [editingDbCommittee, setEditingDbCommittee] = useState<any | null>(null)
-  const [dbCommitteeForm, setDbCommitteeForm] = useState({ id: '', name: '', description: '', category: '', topics: '', backgroundGuide: '', rules: '', studyGuide: '' })
+  const [dbCommitteeForm, setDbCommitteeForm] = useState({ id: '', name: '', description: '', category: '', topics: '', backgroundGuide: '', rules: '', studyGuide: '', image: '', target: 30, fee: 1000 })
 
   // Db Portfolio Form States
   const [showDbPortfolioModal, setShowDbPortfolioModal] = useState(false)
@@ -547,8 +538,7 @@ export default function OasisWorkplace() {
     get(wsRef).then((snap) => {
       if (snap.exists()) {
         const val = snap.val()
-        if (val.committees) setWorkstationCommittees(val.committees)
-        if (val.expenses) setWorkstationExpenses(val.expenses)
+                if (val.expenses) setWorkstationExpenses(val.expenses)
         if (val.revenues) setWorkstationRevenues(val.revenues)
       }
     })
@@ -855,30 +845,24 @@ export default function OasisWorkplace() {
 
   // Workstation Live Sync to Cloud DB
   const saveWorkstationBaselineToCloud = async (comms: any[], exps: any[], revs: any[]) => {
-    if (role !== 'admin' && role !== 'oc_member') {
-      triggerNotification('Only authorized staff can sync configurations to database.', 'error')
-      return
-    }
     try {
-      const configRef = ref(firebaseDb, 'workstation_config')
-      await update(configRef, {
-        committees: comms,
+      await set(ref(firebaseDb, 'workstation_config'), {
         expenses: exps,
-        revenues: revs
+        revenues: revs,
+        lastUpdated: new Date().toISOString()
       })
-      await logActivity('SAVE_WORKSTATION_BASELINE', 'Synchronized financial config to cloud')
-      triggerNotification('Financial configuration workspace metrics synchronized to Firebase.')
-    } catch (err: any) {
-      triggerNotification('Failed to synchronize config: ' + err.message, 'error')
+      triggerNotification('Financial models synchronized with cloud.')
+    } catch (error: any) {
+      triggerNotification('Failed to sync financial baseline: ' + error.message, 'error')
     }
   }
 
   // Computations for Simulated Workspace Matrix Metrics
   const totals = useMemo(() => {
-    const targetSeats = workstationCommittees.reduce((sum, c) => sum + c.target, 0)
+    const targetSeats = dbCommittees.reduce((sum, c) => sum + c.target, 0)
     const actualTurnout = Math.round(targetSeats * (attendanceRealizationRate / 100))
 
-    const targetRegRevenue = workstationCommittees.reduce((sum, c) => sum + (c.target * c.fee), 0)
+    const targetRegRevenue = dbCommittees.reduce((sum, c) => sum + (c.target * c.fee), 0)
     const actualRegRevenue = Math.round(targetRegRevenue * (attendanceRealizationRate / 100))
 
     let targetNonRegRevenue = 0
@@ -963,7 +947,7 @@ export default function OasisWorkplace() {
       deptBudgets,
       deptActuals,
     }
-  }, [workstationCommittees, workstationExpenses, workstationRevenues, attendanceRealizationRate, sponsorRealizationRate, contingencyRate, excludeSponsors])
+  }, [dbCommittees, workstationExpenses, workstationRevenues, attendanceRealizationRate, sponsorRealizationRate, contingencyRate, excludeSponsors])
 
   // Modal Handlers
   const openAddCommitteeModal = () => {
@@ -978,22 +962,21 @@ export default function OasisWorkplace() {
     setShowCommitteeModal(true)
   }
 
-  const handleSaveCommittee = (e: React.FormEvent) => {
+  const handleSaveCommittee = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!committeeForm.name.trim()) return
-    let list: any[]
-    if (editingCommittee) {
-      list = workstationCommittees.map(c => c.id === editingCommittee.id ? { ...c, ...committeeForm } : c)
-      triggerNotification('Committee record updated successfully.')
-    } else {
-      const newId = `COM-${Date.now().toString().slice(-5)}`
-      list = [...workstationCommittees, { ...committeeForm, id: newId }]
-      triggerNotification('New committee track appended to registry.')
+    if (!editingCommittee) return
+    try {
+      const commRef = ref(firebaseDb, `committees/${editingCommittee.id}`)
+      await update(commRef, {
+        target: Number(committeeForm.target) || 30,
+        fee: Number(committeeForm.fee) || 1000
+      })
+      triggerNotification('Committee financial targets updated successfully.')
+      setShowCommitteeModal(false)
+      setEditingCommittee(null)
+    } catch (err: any) {
+      triggerNotification('Failed to update targets: ' + err.message, 'error')
     }
-    setWorkstationCommittees(list)
-    setShowCommitteeModal(false)
-    setEditingCommittee(null)
-    if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(list, workstationExpenses, workstationRevenues)
   }
 
   const openAddExpenseModal = () => {
@@ -1023,7 +1006,7 @@ export default function OasisWorkplace() {
     setWorkstationExpenses(list)
     setShowExpenseModal(false)
     setEditingExpense(null)
-    if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(workstationCommittees, list, workstationRevenues)
+    if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(dbCommittees, list, workstationRevenues)
   }
 
   const openAddRevenueModal = () => {
@@ -1053,14 +1036,14 @@ export default function OasisWorkplace() {
     setWorkstationRevenues(list)
     setShowRevenueModal(false)
     setEditingRevenue(null)
-    if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(workstationCommittees, workstationExpenses, list)
+    if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(dbCommittees, workstationExpenses, list)
   }
 
   const handleConfirmDelete = () => {
     if (!deleteConfirm) return
     const { type, id } = deleteConfirm
     if (type === 'committees') {
-      const nextCommittees = workstationCommittees.filter(c => c.id !== id)
+      const nextCommittees = dbCommittees.filter(c => c.id !== id)
       setWorkstationCommittees(nextCommittees)
       triggerNotification('Record permanently removed from workstation.', 'error')
       if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(nextCommittees, workstationExpenses, workstationRevenues)
@@ -1068,12 +1051,12 @@ export default function OasisWorkplace() {
       const nextExpenses = workstationExpenses.filter(e => e.id !== id)
       setWorkstationExpenses(nextExpenses)
       triggerNotification('Record permanently removed from workstation.', 'error')
-      if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(workstationCommittees, nextExpenses, workstationRevenues)
+      if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(dbCommittees, nextExpenses, workstationRevenues)
     } else if (type === 'revenue') {
       const nextRevenues = workstationRevenues.filter(r => r.id !== id)
       setWorkstationRevenues(nextRevenues)
       triggerNotification('Record permanently removed from workstation.', 'error')
-      if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(workstationCommittees, workstationExpenses, nextRevenues)
+      if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(dbCommittees, workstationExpenses, nextRevenues)
     } else if (type === 'tasks') {
       remove(ref(firebaseDb, `oc_tasks/${id}`))
         .then(() => {
@@ -1153,15 +1136,14 @@ export default function OasisWorkplace() {
   }
   const resetWorkstationToDefault = () => {
     if (confirm("Reset current metrics and config variables to KIMUN default baseline values?")) {
-      setWorkstationCommittees(INITIAL_COMMITTEES)
-      setWorkstationExpenses(INITIAL_EXPENSES)
+            setWorkstationExpenses(INITIAL_EXPENSES)
       setWorkstationRevenues(INITIAL_REVENUES)
       setAttendanceRealizationRate(100)
       setSponsorRealizationRate(100)
       setContingencyRate(10)
       logActivity('RESET_WORKSTATION_CONFIG', 'Reverted workstation to default baseline')
       triggerNotification('Reverted workstation configuration back to baseline defaults.')
-      if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(INITIAL_COMMITTEES, INITIAL_EXPENSES, INITIAL_REVENUES)
+      if (role === 'admin' || role === 'oc_member') saveWorkstationBaselineToCloud(dbCommittees, INITIAL_EXPENSES, INITIAL_REVENUES)
     }
   }
 
@@ -1189,7 +1171,7 @@ export default function OasisWorkplace() {
 
     csv += "--- REGISTERED TRACKS ---\r\n"
     csv += "ID,Committee Name,Classification,Target Seat Limit,Fee Per Delegate (INR),Calculated Capacity Revenue (INR)\r\n"
-    workstationCommittees.forEach(c => {
+    dbCommittees.forEach(c => {
       csv += `${c.id},"${c.name}","${c.category}",${c.target},${c.fee},${c.target * c.fee}\r\n`
     })
 
@@ -2035,6 +2017,9 @@ export default function OasisWorkplace() {
         backgroundGuide: dbCommitteeForm.backgroundGuide.trim(),
         rules: dbCommitteeForm.rules.trim(),
         studyGuide: dbCommitteeForm.studyGuide.trim(),
+        image: dbCommitteeForm.image.trim(),
+        target: Number(dbCommitteeForm.target) || 30,
+        fee: Number(dbCommitteeForm.fee) || 1000,
         updatedAt: new Date().toISOString()
       }
 
@@ -2042,7 +2027,7 @@ export default function OasisWorkplace() {
       await logActivity('SAVE_COMMITTEE', `${editingDbCommittee ? 'Updated' : 'Created'} committee: ${commId}`)
       setShowDbCommitteeModal(false)
       setEditingDbCommittee(null)
-      setDbCommitteeForm({ id: '', name: '', description: '', category: '', topics: '', backgroundGuide: '', rules: '', studyGuide: '' })
+      setDbCommitteeForm({ id: '', name: '', description: '', category: '', topics: '', backgroundGuide: '', rules: '', studyGuide: '', image: '', target: 30, fee: 1000 })
       triggerNotification(editingDbCommittee ? 'Committee updated successfully.' : 'New committee registered successfully.')
     } catch (err: any) {
       triggerNotification('Failed to save committee: ' + err.message, 'error')
@@ -2117,7 +2102,7 @@ export default function OasisWorkplace() {
     }
   }
 
-  const handleDbFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'eb_photo' | 'bg_guide' | 'rules' | 'study_guide') => {
+  const handleDbFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'eb_photo' | 'bg_guide' | 'rules' | 'study_guide' | 'comm_photo') => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -2151,6 +2136,8 @@ export default function OasisWorkplace() {
         setDbCommitteeForm(prev => ({ ...prev, rules: downloadURL }))
       } else if (type === 'study_guide') {
         setDbCommitteeForm(prev => ({ ...prev, studyGuide: downloadURL }))
+      } else if (type === 'comm_photo') {
+        setDbCommitteeForm(prev => ({ ...prev, image: downloadURL }))
       }
 
       triggerNotification('File uploaded successfully.')
@@ -2578,7 +2565,7 @@ export default function OasisWorkplace() {
                         { label: 'Check-In', icon: UserCheck, action: () => setActiveMenuTab('live_allocations'), color: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
                         { label: 'Add Task', icon: PlusCircle, action: () => setShowTaskForm(true), color: 'bg-indigo-50 text-indigo-600 border-indigo-100' },
                         { label: 'Export', icon: Download, action: handleExportCSV, color: 'bg-amber-50 text-amber-600 border-amber-100' },
-                        { label: 'Sync DB', icon: RefreshCw, action: () => saveWorkstationBaselineToCloud(workstationCommittees, workstationExpenses, workstationRevenues), color: 'bg-slate-100 text-slate-600 border-slate-200' },
+                        { label: 'Sync DB', icon: RefreshCw, action: () => saveWorkstationBaselineToCloud(dbCommittees, workstationExpenses, workstationRevenues), color: 'bg-slate-100 text-slate-600 border-slate-200' },
                       ].map((a) => (
                         <motion.button key={a.label} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} onClick={a.action}
                           className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border ${a.color} transition-all`}>
@@ -2679,252 +2666,11 @@ export default function OasisWorkplace() {
                         No Sponsors Mode
                       </label>
                     </div>
-                    <button
-                      onClick={resetWorkstationToDefault}
-                      className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs transition-all"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-                      Reset
-                    </button>
-                    {role === 'admin' && (
-                      <button
-                        onClick={() => saveWorkstationBaselineToCloud(workstationCommittees, workstationExpenses, workstationRevenues)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md shadow-indigo-100 transition-all"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        Sync to Cloud
-                      </button>
-                    )}
-                    <button
-                      onClick={handleExportCSV}
-                      className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs transition-all"
-                    >
-                      <Download className="w-3.5 h-3.5 text-slate-300" />
-                      Export CSV
-                    </button>
-                  </div>
-                </div>
-
-                {/* Tabs */}
-                <div className="bg-white border border-slate-200/80 p-1.5 rounded-xl flex flex-wrap gap-1">
-                  {[
-                    { id: 'dashboard', label: 'Executive Dashboard', icon: BarChart3 },
-                    { id: 'committees', label: 'Committee Registry', icon: ShieldCheck },
-                    { id: 'expenses', label: 'Operations Ledgers', icon: Layers },
-                    { id: 'revenue', label: 'Partnerships & Inflows', icon: DollarSign },
-                    { id: 'scenario', label: 'What-If & Break-Even', icon: Sliders },
-                  ].map(tab => {
-                    const Icon = tab.icon
-                    const isSelected = workstationTab === tab.id
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => setWorkstationTab(tab.id)}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${isSelected
-                          ? 'bg-slate-100 text-slate-900 border border-slate-200/60 shadow-xs'
-                          : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-                          }`}
-                      >
-                        <Icon className="w-3.5 h-3.5" />
-                        {tab.label}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {/* Tab Content - Executive Dashboard */}
-                {workstationTab === 'dashboard' && (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <AnimatedCard className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">Total Revenue</span>
-                            <span className="text-xl font-extrabold text-slate-900 mt-2 block">{formatINR(totals.totalTargetRevenue)}</span>
-                          </div>
-                          <div className="bg-emerald-50 p-2.5 rounded-xl">
-                            <TrendingUp className="w-5 h-5 text-emerald-600" />
-                          </div>
-                        </div>
-                        <div className="mt-4 flex items-center justify-between text-[10px] text-slate-500">
-                          <span>Actual Inflow:</span>
-                          <span className="font-bold text-slate-800">{formatINR(totals.totalActualRevenue)}</span>
-                        </div>
-                        <div className="mt-2 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                          <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${(totals.totalActualRevenue / totals.totalTargetRevenue) * 100}%` }}></div>
-                        </div>
-                      </AnimatedCard>
-
-                      <AnimatedCard className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm" delay={0.05}>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">Budgeted Expenditure</span>
-                            <span className="text-xl font-extrabold text-slate-900 mt-2 block">{formatINR(totals.budgetedExpenses)}</span>
-                          </div>
-                          <div className="bg-indigo-50 p-2.5 rounded-xl">
-                            <Layers className="w-5 h-5 text-indigo-600" />
-                          </div>
-                        </div>
-                        <div className="mt-4 flex items-center justify-between text-[10px] text-slate-500">
-                          <span>Actual Outflow:</span>
-                          <span className="font-bold text-slate-800">{formatINR(totals.actualExpenses)}</span>
-                        </div>
-                        <div className="mt-2 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                          <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${(totals.actualExpenses / totals.budgetedExpenses) * 100}%` }}></div>
-                        </div>
-                      </AnimatedCard>
-
-                      <AnimatedCard className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm" delay={0.1}>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">Net Surplus</span>
-                            <span className="text-xl font-extrabold text-indigo-600 mt-2 block">{formatINR(totals.projectedProfit)}</span>
-                          </div>
-                          <div className="bg-amber-50 p-2.5 rounded-xl">
-                            <DollarSign className="w-5 h-5 text-amber-600" />
-                          </div>
-                        </div>
-                        <div className="mt-4 flex items-center justify-between text-[10px] text-slate-500">
-                          <span>Actual Net:</span>
-                          <span className={`font-bold ${totals.actualProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {formatINR(totals.actualProfit)}
-                          </span>
-                        </div>
-                      </AnimatedCard>
-
-                      <AnimatedCard className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm" delay={0.15}>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">Target Seats</span>
-                            <span className="text-xl font-extrabold text-slate-900 mt-2 block">{totals.targetSeats} Delegates</span>
-                          </div>
-                          <div className="bg-rose-50 p-2.5 rounded-xl">
-                            <Users className="w-5 h-5 text-rose-600" />
-                          </div>
-                        </div>
-                        <div className="mt-4 flex items-center justify-between text-[10px] text-slate-500">
-                          <span>Expected Turnout:</span>
-                          <span className="font-bold text-slate-800">{totals.actualTurnout} ({attendanceRealizationRate}%)</span>
-                        </div>
-                        <div className="mt-2 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                          <div className="bg-rose-500 h-full rounded-full" style={{ width: `${attendanceRealizationRate}%` }}></div>
-                        </div>
-                      </AnimatedCard>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Department Budget Comparison */}
-                      <AnimatedCard className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm" delay={0.2}>
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-6 flex items-center gap-2">
-                          <BarChart3 className="w-4 h-4 text-indigo-500" />
-                          Department Budget vs Actual (INR)
-                        </h3>
-                        <div className="space-y-4">
-                          {DEPARTMENTS.slice(1).map(d => {
-                            const budgetVal = totals.deptBudgets[d.name] || 0
-                            const actualVal = totals.deptActuals[d.name] || 0
-                            const maxVal = Math.max(...Object.values(totals.deptBudgets as any), 1)
-                            const budgetPct = (budgetVal / maxVal) * 100
-                            const actualPct = (actualVal / maxVal) * 100
-
-                            return (
-                              <div key={d.name} className="space-y-1.5">
-                                <div className="flex justify-between text-[10px] text-slate-500 font-semibold">
-                                  <span>{d.name}</span>
-                                  <span>
-                                    <strong className="text-indigo-600">{formatINR(budgetVal)}</strong> / <span className="text-rose-500">{formatINR(actualVal)}</span>
-                                  </span>
-                                </div>
-                                <div className="relative h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                                  <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${budgetPct}%` }}
-                                    transition={{ duration: 0.5 }}
-                                    className="absolute left-0 top-0 h-full bg-indigo-500 rounded-full"
-                                  />
-                                  <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${actualPct}%` }}
-                                    transition={{ duration: 0.5, delay: 0.1 }}
-                                    className="absolute left-0 top-0 h-full bg-rose-500 rounded-full opacity-70"
-                                  />
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </AnimatedCard>
-
-                      {/* Revenue Distribution */}
-                      <AnimatedCard className="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm" delay={0.25}>
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-6 flex items-center gap-2">
-                          <LucidePieChart className="w-4 h-4 text-indigo-500" />
-                          Committee Revenue Share
-                        </h3>
-                        <div className="flex flex-wrap gap-4 mb-6">
-                          {workstationCommittees.map((c, index) => {
-                            const rev = c.target * c.fee
-                            const pct = totals.targetRegRevenue > 0 ? (rev / totals.targetRegRevenue) * 100 : 0
-                            const colors = ['#4F46E5', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']
-                            return (
-                              <div key={c.id} className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors[index % colors.length] }} />
-                                <span className="text-[10px] font-medium text-slate-600">{c.name.slice(0, 20)}</span>
-                                <span className="text-[10px] font-bold text-slate-800">{Math.round(pct)}%</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                        <div className="w-full h-8 bg-slate-100 rounded-lg overflow-hidden flex">
-                          {workstationCommittees.map((c, index) => {
-                            const rev = c.target * c.fee
-                            const pct = totals.targetRegRevenue > 0 ? (rev / totals.targetRegRevenue) * 100 : 0
-                            const colors = ['#4F46E5', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']
-                            if (pct === 0) return null
-                            return (
-                              <div
-                                key={c.id}
-                                style={{ width: `${pct}%`, backgroundColor: colors[index % colors.length] }}
-                                className="h-full transition-all duration-500"
-                              />
-                            )
-                          })}
-                        </div>
-                        <div className="mt-4 pt-4 border-t border-slate-100">
-                          <div className="flex justify-between text-[10px] text-slate-500">
-                            <span>Total Registration Revenue:</span>
-                            <span className="font-bold text-slate-800">{formatINR(totals.targetRegRevenue)}</span>
-                          </div>
-                          <div className="flex justify-between text-[10px] text-slate-500 mt-1">
-                            <span>Average Seat Fee:</span>
-                            <span className="font-bold text-slate-800">{formatINR(totals.avgSeatFee)}</span>
-                          </div>
-                        </div>
-                      </AnimatedCard>
-                    </div>
-                  </div>
-                )}
-
-                {/* Committee Registry Tab */}
-                {workstationTab === 'committees' && (
-                  <AnimatedCard>
-                    <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 sm:p-6 mb-6">
-                      <div className="flex items-center justify-between mb-6">
-                        <div>
-                          <h2 className="text-lg font-bold text-slate-900">Committee Showcase</h2>
-                          <p className="text-sm text-slate-500">Manage and preview committee configurations.</p>
-                        </div>
-                        <button
-                          onClick={openAddCommitteeModal}
-                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition-all shadow-sm"
-                        >
-                          <Plus className="w-4 h-4" />
-                          Add Committee
-                        </button>
+                    
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {workstationCommittees.map(c => (
+                        {dbCommittees.map(c => (
                           <div key={c.id} className="group relative bg-white rounded-2xl overflow-hidden border border-slate-200/60 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col">
                             {/* Hero Image Section */}
                             <div className="h-48 w-full relative overflow-hidden bg-slate-100">
@@ -4701,7 +4447,7 @@ export default function OasisWorkplace() {
                       <button
                         onClick={() => {
                           setEditingDbCommittee(null)
-                          setDbCommitteeForm({ id: '', name: '', description: '', category: 'Premium Single', topics: '', backgroundGuide: '', rules: '', studyGuide: '' })
+                          setDbCommitteeForm({ id: '', name: '', description: '', category: 'Premium Single', topics: '', backgroundGuide: '', rules: '', studyGuide: '', image: '', target: 30, fee: 1000 })
                           setShowDbCommitteeModal(true)
                         }}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-xs"
@@ -6340,6 +6086,44 @@ export default function OasisWorkplace() {
                       <input type="file" accept="application/pdf" className="hidden" onChange={(e) => handleDbFileUpload(e, 'study_guide')} disabled={isUploadingFile} />
                     </label>
                   </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Target Seats</label>
+                  <input
+                    type="number"
+                    value={dbCommitteeForm.target}
+                    onChange={e => setDbCommitteeForm(p => ({ ...p, target: Number(e.target.value) }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Delegate Fee (₹)</label>
+                  <input
+                    type="number"
+                    value={dbCommitteeForm.fee}
+                    onChange={e => setDbCommitteeForm(p => ({ ...p, fee: Number(e.target.value) }))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1.5">Committee Cover Image</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={dbCommitteeForm.image}
+                    onChange={e => setDbCommitteeForm(p => ({ ...p, image: e.target.value }))}
+                    placeholder="https://..."
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500"
+                  />
+                  <label className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-bold border border-slate-250 cursor-pointer flex items-center justify-center shrink-0">
+                    Upload Photo
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleDbFileUpload(e, 'comm_photo')} disabled={isUploadingFile} />
+                  </label>
                 </div>
               </div>
 
