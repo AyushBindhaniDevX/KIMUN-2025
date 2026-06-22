@@ -6695,11 +6695,11 @@ export default function OasisWorkplace() {
                             </div>
                           ) : (
                             <select
-                              value={selectedApplicant.assignedDepartment || ''}
-                              onChange={(e) => handleUpdateAssignment(selectedApplicant.uid, 'assignedDepartment', e.target.value)}
+                              value={selectedApplicant.pref1 || ''}
+                              onChange={(e) => handleUpdateAssignment(selectedApplicant.uid, 'pref1', e.target.value)}
                               className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-700 outline-none"
                             >
-                              <option value="">Use Primary Preference</option>
+                              <option value="" disabled>Select Primary Preference</option>
                               {DEPARTMENTS.slice(1).map(d => (
                                 <option key={d.name} value={d.name}>{d.name}</option>
                               ))}
