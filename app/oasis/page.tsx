@@ -149,9 +149,9 @@ const INITIAL_COMMITTEES = [
 
 // Indian-context master expense list for KIMUN 2026 in INR (₹)
 const INITIAL_EXPENSES = [
-  { id: 'SEC-01', dept: 'Secretariat', item: 'Accommodation for Chief Guest (5-Star)', qty: 3, unitCost: 12000, actualCost: 36000, status: 'Paid', isPerDelegate: false },
-  { id: 'SEC-02', dept: 'Secretariat', item: 'Secretariat Custom Merch (Blazers & Lapel Pins)', qty: 25, unitCost: 3200, actualCost: 80000, status: 'Paid', isPerDelegate: false },
-  { id: 'SEC-03', dept: 'Secretariat', item: 'Mementos & VIP Guest Gifts', qty: 15, unitCost: 1500, actualCost: 22000, status: 'Pending', isPerDelegate: false },
+  { id: 'SEC-01', dept: 'Business Relations & Corporate Strategy', item: 'Accommodation for Chief Guest (5-Star)', qty: 3, unitCost: 12000, actualCost: 36000, status: 'Paid', isPerDelegate: false },
+  { id: 'SEC-02', dept: 'Business Relations & Corporate Strategy', item: 'Secretariat Custom Merch (Blazers & Lapel Pins)', qty: 25, unitCost: 3200, actualCost: 80000, status: 'Paid', isPerDelegate: false },
+  { id: 'SEC-03', dept: 'Business Relations & Corporate Strategy', item: 'Mementos & VIP Guest Gifts', qty: 15, unitCost: 1500, actualCost: 22000, status: 'Pending', isPerDelegate: false },
   { id: 'DEL-01', dept: 'Delegate Relations', item: 'Delegate Kits (Premium Bags, Notebooks, Pens)', qty: 300, unitCost: 450, actualCost: 135000, status: 'Paid', isPerDelegate: true },
   { id: 'DEL-02', dept: 'Delegate Relations', item: 'ID Cards, Lanyards & Badges Printing', qty: 300, unitCost: 120, actualCost: 36000, status: 'Paid', isPerDelegate: true },
   { id: 'DEL-03', dept: 'Delegate Relations', item: 'High-Gloss Country Placards Printing', qty: 150, unitCost: 150, actualCost: 22500, status: 'Paid', isPerDelegate: false },
@@ -184,12 +184,10 @@ const INITIAL_REVENUES = [
 
 const DEPARTMENTS = [
   { name: 'All Departments', icon: Layers, color: 'bg-slate-400' },
-  { name: 'Secretariat', icon: ShieldCheck, color: 'bg-indigo-600' },
-  { name: 'Delegate Relations', icon: Users, color: 'bg-sky-500' },
-  { name: 'Academics', icon: BookOpen, color: 'bg-emerald-600' },
-  { name: 'Logistics', icon: Truck, color: 'bg-amber-500' },
-  { name: 'Marketing', icon: Megaphone, color: 'bg-rose-500' },
-  { name: 'Administration', icon: Building, color: 'bg-violet-600' },
+  { name: 'Business Relations & Corporate Strategy', icon: Building, color: 'bg-indigo-600' },
+  { name: 'Operations & Infrastructure Logistics', icon: Truck, color: 'bg-amber-500' },
+  { name: 'Delegate Affairs & Global Relations', icon: Users, color: 'bg-sky-500' },
+  { name: 'Design, Media & Digital Identity', icon: Megaphone, color: 'bg-rose-500' }
 ]
 
 const ADMIN_ALLOWED_EMAILS = [
@@ -401,7 +399,7 @@ export default function OasisWorkplace() {
 
   const [showExpenseModal, setShowExpenseModal] = useState(false)
   const [editingExpense, setEditingExpense] = useState<any | null>(null)
-  const [expenseForm, setExpenseForm] = useState({ dept: 'Secretariat', item: '', qty: 1, unitCost: 0, actualCost: 0, status: 'Pending', isPerDelegate: false })
+  const [expenseForm, setExpenseForm] = useState({ dept: 'Business Relations & Corporate Strategy', item: '', qty: 1, unitCost: 0, actualCost: 0, status: 'Pending', isPerDelegate: false })
 
   const [showRevenueModal, setShowRevenueModal] = useState(false)
   const [editingRevenue, setEditingRevenue] = useState<any | null>(null)
@@ -441,15 +439,15 @@ export default function OasisWorkplace() {
   // Live CRUD Modals & forms states
   const [showTaskForm, setShowTaskForm] = useState(false)
   const [editingTask, setEditingTask] = useState<any | null>(null)
-  const [taskForm, setTaskForm] = useState({ title: '', description: '', department: 'Secretariat', priority: 'medium', dueDate: '', assignee: '', notes: '', remarks: '', attachments: '' })
+  const [taskForm, setTaskForm] = useState({ title: '', description: '', department: 'Business Relations & Corporate Strategy', priority: 'medium', dueDate: '', assignee: '', notes: '', remarks: '', attachments: '' })
 
   const [showAssetForm, setShowAssetForm] = useState(false)
   const [editingAsset, setEditingAsset] = useState<any | null>(null)
-  const [assetForm, setAssetForm] = useState({ name: '', quantity: 1, cost: 0, status: 'pending', department: 'Secretariat' })
+  const [assetForm, setAssetForm] = useState({ name: '', quantity: 1, cost: 0, status: 'pending', department: 'Business Relations & Corporate Strategy' })
 
   const [showAnnouncementForm, setShowAnnouncementForm] = useState(false)
   const [editingAnnouncement, setEditingAnnouncement] = useState<any | null>(null)
-  const [announcementForm, setAnnouncementForm] = useState({ title: '', content: '', department: 'Secretariat', priority: 'medium', isPinned: false })
+  const [announcementForm, setAnnouncementForm] = useState({ title: '', content: '', department: 'Business Relations & Corporate Strategy', priority: 'medium', isPinned: false })
   const [selectedDeptWorkspace, setSelectedDeptWorkspace] = useState<string | null>(null)
   const [deptSubTab, setDeptSubTab] = useState<'tasks' | 'assets' | 'bulletins'>('tasks')
   const [showPayoutModal, setShowPayoutModal] = useState(false)
@@ -1000,7 +998,7 @@ export default function OasisWorkplace() {
 
   const openAddExpenseModal = () => {
     setEditingExpense(null)
-    setExpenseForm({ dept: 'Secretariat', item: '', qty: 1, unitCost: 0, actualCost: 0, status: 'Pending', isPerDelegate: false })
+    setExpenseForm({ dept: 'Business Relations & Corporate Strategy', item: '', qty: 1, unitCost: 0, actualCost: 0, status: 'Pending', isPerDelegate: false })
     setShowExpenseModal(true)
   }
 
@@ -1254,7 +1252,7 @@ export default function OasisWorkplace() {
     const candidateEmail = appData.email || 'N/A'
 
     drawField("CANDIDATE NAME:", (candidateName || '').toUpperCase(), true)
-    drawField("ASSIGNED DEPT:", (appData.pref1 || 'Secretariat').toUpperCase())
+    drawField("ASSIGNED DEPT:", (appData.pref1 || 'Business Relations & Corporate Strategy').toUpperCase())
     drawField("EMAIL ADDRESS:", candidateEmail || 'N/A')
     drawField("CONTACT PHONE:", appData.phone || 'N/A')
     drawField("NDA SIGNED ON:", appData.contractSignedAt ? new Date(appData.contractSignedAt).toLocaleString() : 'PENDING SIGNATURE')
@@ -1634,7 +1632,7 @@ export default function OasisWorkplace() {
     setTaskForm({
       title: '',
       description: '',
-      department: defaultDept || 'Secretariat',
+      department: defaultDept || 'Business Relations & Corporate Strategy',
       priority: 'medium',
       dueDate: '',
       assignee: '',
@@ -1650,7 +1648,7 @@ export default function OasisWorkplace() {
     setTaskForm({
       title: task.title || '',
       description: task.description || '',
-      department: task.department || 'Secretariat',
+      department: task.department || 'Business Relations & Corporate Strategy',
       priority: task.priority || 'medium',
       dueDate: task.dueDate || '',
       assignee: task.assignee || '',
@@ -1846,7 +1844,7 @@ export default function OasisWorkplace() {
       quantity: 1,
       cost: 0,
       status: 'pending',
-      department: defaultDept || 'Secretariat'
+      department: defaultDept || 'Business Relations & Corporate Strategy'
     })
     setShowAssetForm(true)
   }
@@ -1858,7 +1856,7 @@ export default function OasisWorkplace() {
       quantity: asset.quantity || 1,
       cost: asset.cost || 0,
       status: asset.status || 'pending',
-      department: asset.department || 'Secretariat'
+      department: asset.department || 'Business Relations & Corporate Strategy'
     })
     setShowAssetForm(true)
   }
@@ -1903,7 +1901,7 @@ export default function OasisWorkplace() {
     setAnnouncementForm({
       title: '',
       content: '',
-      department: defaultDept || 'Secretariat',
+      department: defaultDept || 'Business Relations & Corporate Strategy',
       priority: 'medium',
       isPinned: false
     })
@@ -1915,7 +1913,7 @@ export default function OasisWorkplace() {
     setAnnouncementForm({
       title: ann.title || '',
       content: ann.content || '',
-      department: ann.department || 'Secretariat',
+      department: ann.department || 'Business Relations & Corporate Strategy',
       priority: ann.priority || 'medium',
       isPinned: ann.isPinned || false
     })
@@ -2551,7 +2549,7 @@ export default function OasisWorkplace() {
                       <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Department Performance</span>
                     </div>
                     <div className="p-4 space-y-3">
-                      {DEPARTMENTS.slice(1, 7).map((d, idx) => {
+                      {DEPARTMENTS.slice(1, 5).map((d, idx) => {
                         const deptTasks = dbTasks.filter(t => t.department === d.name)
                         const rate = deptTasks.length > 0 ? Math.round(deptTasks.filter(t => t.status === 'completed').length / deptTasks.length * 100) : 0
                         return (
@@ -4088,7 +4086,7 @@ export default function OasisWorkplace() {
                     </div>
                   </div>
                   <button
-                    onClick={() => openAddTaskModal(selectedDeptFilter !== 'All Departments' ? selectedDeptFilter : 'Secretariat')}
+                    onClick={() => openAddTaskModal(selectedDeptFilter !== 'All Departments' ? selectedDeptFilter : 'Business Relations & Corporate Strategy')}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-sm"
                   >
                     <PlusCircle className="w-3.5 h-3.5" /> New Task
@@ -4236,7 +4234,7 @@ export default function OasisWorkplace() {
                     </div>
                   </div>
                   <button
-                    onClick={() => openAddAssetModal(selectedDeptFilter !== 'All Departments' ? selectedDeptFilter : 'Secretariat')}
+                    onClick={() => openAddAssetModal(selectedDeptFilter !== 'All Departments' ? selectedDeptFilter : 'Business Relations & Corporate Strategy')}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-sm"
                   >
                     <PlusCircle className="w-3.5 h-3.5" /> Add Asset
@@ -4316,7 +4314,7 @@ export default function OasisWorkplace() {
                     <p className="text-xs text-slate-500 mt-1">Broadcast announcements to the team</p>
                   </div>
                   <button
-                    onClick={() => openAddAnnouncementModal(selectedDeptFilter !== 'All Departments' ? selectedDeptFilter : 'Secretariat')}
+                    onClick={() => openAddAnnouncementModal(selectedDeptFilter !== 'All Departments' ? selectedDeptFilter : 'Business Relations & Corporate Strategy')}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-sm"
                   >
                     <PlusCircle className="w-3.5 h-3.5" /> New Broadcast
