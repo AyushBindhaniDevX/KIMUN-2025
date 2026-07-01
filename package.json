@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@api/fast2sms": "file:.api/apis/fast2sms",
     "@cashfreepayments/cashfree-sdk": "^0.1.7",
     "@chakra-ui/react": "^3.8.0",
     "@emailjs/browser": "^4.4.1",

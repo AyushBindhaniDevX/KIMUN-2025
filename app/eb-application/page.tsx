@@ -271,15 +271,17 @@ export default function EBApplicationPage() {
       await update(appRef, updates)
 
       // Notify email dispatch api
-      await fetch('/api/send-onboarding-email', {
+      await fetch('/api/sendApplicationEmail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: user.email,
-          type: 'contract',
-          candidateName: user.displayName
+          email: user.email,
+          name: user.displayName || 'EB Member',
+          type: 'status_update',
+          role: 'Executive Board',
+          status: 'contract'
         })
-      })
+      }).catch(err => console.error('Email dispatch error:', err))
 
       setApplication(prev => ({ ...prev, ...updates }))
     } catch (err: any) {
@@ -629,15 +631,17 @@ export default function EBApplicationPage() {
       await update(appRef, updates)
 
       // Notify email dispatch api
-      await fetch('/api/send-onboarding-email', {
+      await fetch('/api/sendApplicationEmail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: user.email,
-          type: 'welcomed',
-          candidateName: user.displayName
+          email: user.email,
+          name: user.displayName || 'EB Member',
+          type: 'status_update',
+          role: 'Executive Board',
+          status: 'welcomed'
         })
-      })
+      }).catch(err => console.error('Email dispatch error:', err))
 
       setApplication(prev => ({ ...prev, ...updates }))
       triggerConfetti()
@@ -863,15 +867,16 @@ export default function EBApplicationPage() {
       await set(appRef, payload)
 
       // Notify email dispatch api
-      await fetch('/api/send-onboarding-email', {
+      await fetch('/api/sendApplicationEmail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: user.email,
-          type: 'applied',
-          candidateName: user.displayName
+          email: formData.email,
+          name: formData.name,
+          type: 'receipt',
+          role: 'Executive Board'
         })
-      }).catch(err => console.error("Email dispatch error:", err))
+      }).catch(err => console.error('Email dispatch error:', err))
 
       setSubmitSuccess(true)
       setApplication(payload)

@@ -142,6 +142,7 @@ export default function RegistrationPage() {
   const [committees, setCommittees] = useState<Committee[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [delegateInfo, setDelegateInfo] = useState<DelegateInfo>({
     delegate1: {
       name: '',
@@ -513,7 +514,37 @@ export default function RegistrationPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(emailData)
-      })
+      }).catch(err => console.error('Email sending failed:', err))
+
+      // Send SMS to Delegate 1
+      if (delegateInfo.delegate1.phone) {
+        fetch('/api/send-sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: delegateInfo.delegate1.phone,
+            name: delegateInfo.delegate1.name,
+            registrationId: newRegistration?.key,
+            committee: selectedCommittee?.name,
+            portfolio: selectedPortfolio?.country
+          })
+        }).catch(err => console.error('SMS sending failed for Del 1:', err))
+      }
+
+      // Send SMS to Delegate 2
+      if (isDoubleDel && delegateInfo.delegate2?.phone) {
+        fetch('/api/send-sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: delegateInfo.delegate2.phone,
+            name: delegateInfo.delegate2.name,
+            registrationId: newRegistration?.key,
+            committee: selectedCommittee?.name,
+            portfolio: selectedPortfolio?.country
+          })
+        }).catch(err => console.error('SMS sending failed for Del 2:', err))
+      }
 
       return newRegistration.key
     } catch (err) {
@@ -523,6 +554,7 @@ export default function RegistrationPage() {
   }
 
   const initiatePayment = async () => {
+    if (isSubmitting) return
     if (!currentPhase) {
       setError('Registration is currently closed')
       return
@@ -530,6 +562,7 @@ export default function RegistrationPage() {
 
     if (!validateStep()) return
 
+    setIsSubmitting(true)
     const totalPrice = calculatePrice()
 
     // If total is 0 or less, skip Razorpay and register directly
@@ -539,6 +572,7 @@ export default function RegistrationPage() {
         router.push(`/registration-success?paymentId=FREE_REGISTRATION&registrationId=${registrationKey}`)
       } catch (err) {
         setError('Failed to complete registration. Please contact support.')
+        setIsSubmitting(false)
       }
       return
     }
@@ -563,6 +597,7 @@ export default function RegistrationPage() {
             router.push(`/registration-success?paymentId=${response.razorpay_payment_id}&registrationId=${registrationKey}`)
           } catch (err) {
             setError('Failed to complete registration. Please contact support.')
+            setIsSubmitting(false)
           }
         },
         prefill: {
@@ -571,7 +606,12 @@ export default function RegistrationPage() {
           contact: delegateInfo.delegate1.phone
         },
         theme: { color: '#4f46e5' },
-        modal: { ondismiss: () => setError('Payment cancelled') }
+        modal: { 
+          ondismiss: () => {
+            setError('Payment cancelled')
+            setIsSubmitting(false)
+          } 
+        }
       }
 
       const rzp = new (window as any).Razorpay(options)
@@ -882,8 +922,10 @@ export default function RegistrationPage() {
               </div>
 
               <div className="flex gap-3 pt-2">
-                <Button onClick={() => setStep(4)} variant="outline" className="flex-1 border-slate-200 py-5 text-slate-700">Back</Button>
-                <Button onClick={initiatePayment} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-5 rounded-lg font-semibold text-sm">Authorize & Pay</Button>
+                <Button onClick={() => setStep(4)} variant="outline" className="flex-1 border-slate-200 py-5 text-slate-700" disabled={isSubmitting}>Back</Button>
+                <Button onClick={initiatePayment} disabled={isSubmitting} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-5 rounded-lg font-semibold text-sm">
+                  {isSubmitting ? 'Processing...' : 'Authorize & Pay'}
+                </Button>
               </div>
             </motion.div>
           )}

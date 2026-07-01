@@ -245,15 +245,17 @@ export default function OCApplicationPage() {
       await update(appRef, updates)
 
       // Notify email dispatch api
-      await fetch('/api/send-onboarding-email', {
+      await fetch('/api/sendApplicationEmail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: user.email,
-          type: 'contract',
-          candidateName: user.displayName
+          email: user.email,
+          name: user.displayName || 'OC Member',
+          type: 'status_update',
+          role: 'Organizing Committee',
+          status: 'welcomed'
         })
-      })
+      }).catch(err => console.error("Email dispatch error:", err))
 
       setApplication(prev => ({ ...prev, ...updates }))
     } catch (err: any) {

@@ -1612,28 +1612,42 @@ export default function OasisWorkplace() {
       // Delegate Details
       doc.setFont('Helvetica', 'normal')
       doc.setFontSize(7)
-      const committee = delegate.displayCommittee || delegate.committeeId || 'N/A'
-      const portfolio = delegate.displayPortfolio || delegate.portfolioId || 'N/A'
       
-      // Calculate Y offsets based on text lengths
       let currentY = 42
-      doc.text("COMMITTEE:", 27, currentY, { align: 'center' })
-      currentY += 4
-      doc.setFont('Helvetica', 'bold')
-      const splitCommittee = doc.splitTextToSize(committee, 48)
-      doc.text(splitCommittee, 27, currentY, { align: 'center' })
       
-      currentY += (splitCommittee.length * 3) + 4
-      
-      doc.setFont('Helvetica', 'normal')
-      doc.text("PORTFOLIO:", 27, currentY, { align: 'center' })
-      currentY += 4
-      doc.setFont('Helvetica', 'bold')
-      const splitPortfolio = doc.splitTextToSize(portfolio, 48)
-      doc.text(splitPortfolio, 27, currentY, { align: 'center' })
+      if (delegate.role || delegate.department) {
+        const typeLabel = delegate.department ? "DEPARTMENT" : "ROLE"
+        const roleValue = (delegate.role || delegate.department || 'N/A').toUpperCase()
+        
+        doc.text(typeLabel + ":", 27, currentY, { align: 'center' })
+        currentY += 4
+        doc.setFont('Helvetica', 'bold')
+        const splitRole = doc.splitTextToSize(roleValue, 48)
+        doc.text(splitRole, 27, currentY, { align: 'center' })
+      } else {
+        const commObj = dbCommittees.find(c => c.id === delegate.committeeId)
+        const committee = commObj ? commObj.name : (delegate.displayCommittee || delegate.committeeId || 'N/A')
+        const portObj = commObj?.portfolios?.find((p: any) => p.id === delegate.portfolioId)
+        const portfolio = portObj ? portObj.country : (delegate.displayPortfolio || delegate.portfolioId || 'N/A')
+        
+        doc.text("COMMITTEE:", 27, currentY, { align: 'center' })
+        currentY += 4
+        doc.setFont('Helvetica', 'bold')
+        const splitCommittee = doc.splitTextToSize(committee, 48)
+        doc.text(splitCommittee, 27, currentY, { align: 'center' })
+        
+        currentY += (splitCommittee.length * 3) + 4
+        
+        doc.setFont('Helvetica', 'normal')
+        doc.text("PORTFOLIO:", 27, currentY, { align: 'center' })
+        currentY += 4
+        doc.setFont('Helvetica', 'bold')
+        const splitPortfolio = doc.splitTextToSize(portfolio, 48)
+        doc.text(splitPortfolio, 27, currentY, { align: 'center' })
+      }
 
       // ID string and optional QR
-      const idStr = (delegate.displayId || delegate.id || 'N/A').toUpperCase()
+      const idStr = (delegate.displayId || delegate.id || delegate.uid || 'N/A').toUpperCase()
       doc.setFont('Helvetica', 'normal')
       doc.setFontSize(6)
       doc.text(`ID: ${idStr}`, 27, 72, { align: 'center' })
@@ -1784,6 +1798,12 @@ export default function OasisWorkplace() {
     e.preventDefault()
     if (!taskForm.title.trim()) return
     try {
+      let assigneeEmail = '';
+      if (taskForm.assignee) {
+        const matchedApp = dbApplications.find(a => a.name === taskForm.assignee);
+        if (matchedApp) assigneeEmail = matchedApp.email;
+      }
+
       if (editingTask) {
         await update(ref(firebaseDb, `oc_tasks/${editingTask.id}`), {
           ...taskForm,
@@ -1791,6 +1811,20 @@ export default function OasisWorkplace() {
         })
         await logActivity('UPDATE_TASK', `Updated task: ${taskForm.title}`)
         triggerNotification('Task updated successfully.')
+
+        if (assigneeEmail) {
+          await fetch('/api/sendApplicationEmail', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: assigneeEmail,
+              name: taskForm.assignee,
+              type: 'task_updated',
+              taskTitle: taskForm.title,
+              taskDescription: taskForm.description
+            })
+          }).catch(e => console.error("Email err", e))
+        }
       } else {
         const tasksRef = ref(firebaseDb, 'oc_tasks')
         await push(tasksRef, {
@@ -1801,6 +1835,20 @@ export default function OasisWorkplace() {
         })
         await logActivity('CREATE_TASK', `Created task: ${taskForm.title}`)
         triggerNotification('Task added to Kanban Board.')
+
+        if (assigneeEmail) {
+          await fetch('/api/sendApplicationEmail', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: assigneeEmail,
+              name: taskForm.assignee,
+              type: 'task_added',
+              taskTitle: taskForm.title,
+              taskDescription: taskForm.description
+            })
+          }).catch(e => console.error("Email err", e))
+        }
       }
       setShowTaskForm(false)
       setEditingTask(null)
@@ -1900,6 +1948,20 @@ export default function OasisWorkplace() {
       await update(ref(firebaseDb, dbPath), { status: nextStatus })
       await logActivity('UPDATE_APP_STATUS', `Updated application status for ${name} to ${nextStatus}`)
       triggerNotification(`Applicant status updated to ${nextStatus}.`)
+
+      // Dispatch Email Update
+      await fetch('/api/sendApplicationEmail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          name: name,
+          type: 'status_update',
+          role: isEb ? 'Executive Board' : 'Organizing Committee',
+          status: nextStatus
+        })
+      }).catch(err => console.error("Email dispatch error:", err))
+      
     } catch (err: any) {
       triggerNotification('Failed to update: ' + err.message, 'error')
     }
@@ -2045,6 +2107,15 @@ export default function OasisWorkplace() {
     e.preventDefault()
     if (!announcementForm.title.trim()) return
     try {
+      let targetEmails: string[] = [];
+      if (announcementForm.department === 'All Departments') {
+        targetEmails = dbApplications.filter(a => a.status === 'welcomed' || a.status === 'onboarding').map(a => a.email);
+      } else {
+        targetEmails = dbApplications.filter(a => (a.status === 'welcomed' || a.status === 'onboarding') && a.department === announcementForm.department).map(a => a.email);
+      }
+      // Remove duplicates and blanks
+      targetEmails = Array.from(new Set(targetEmails.filter(e => e)));
+
       if (editingAnnouncement) {
         await update(ref(firebaseDb, `oc_announcements/${editingAnnouncement.id}`), {
           ...announcementForm,
@@ -2061,6 +2132,19 @@ export default function OasisWorkplace() {
         })
         await logActivity('CREATE_ANNOUNCEMENT', `Created announcement: ${announcementForm.title}`)
         triggerNotification('Announcement bulletin broadcasted.')
+
+        if (targetEmails.length > 0) {
+          await fetch('/api/sendApplicationEmail', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'broadcast',
+              broadcastTitle: announcementForm.title,
+              broadcastContent: announcementForm.content,
+              emails: targetEmails
+            })
+          }).catch(e => console.error("Broadcast Email err", e))
+        }
       }
       setShowAnnouncementForm(false)
       setEditingAnnouncement(null)
@@ -3310,6 +3394,7 @@ export default function OasisWorkplace() {
                       <TableHeader>
                         <TableRow className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
                           <TableHead className="py-3 px-4">Name</TableHead>
+                          <TableHead className="py-3 px-4">Allocation</TableHead>
                           <TableHead className="py-3 px-4">Institution</TableHead>
                           <TableHead className="py-3 px-4">Contact</TableHead>
                           <TableHead className="py-3 px-4 text-center">Status</TableHead>
@@ -3324,6 +3409,20 @@ export default function OasisWorkplace() {
                           return (
                             <TableRow key={del.id} className="hover:bg-slate-50/50 transition-all">
                               <TableCell className="py-3 px-4 font-semibold text-slate-800">{del.name}</TableCell>
+                              <TableCell className="py-3 px-4">
+                                {(() => {
+                                  const comm = dbCommittees.find(c => c.id === del.committeeId)
+                                  const commName = comm ? comm.name : 'Unallocated'
+                                  const port = comm?.portfolios?.find((p: any) => p.id === del.portfolioId)
+                                  const portName = port ? port.country : 'Unallocated'
+                                  return (
+                                    <>
+                                      <span className="font-semibold text-slate-700 block text-xs">{commName}</span>
+                                      <span className="text-[10px] text-slate-500">{portName}</span>
+                                    </>
+                                  )
+                                })()}
+                              </TableCell>
                               <TableCell className="py-3 px-4 text-slate-600">{del.institution}</TableCell>
                               <TableCell className="py-3 px-4">
                                 <span className="text-slate-500 text-xs">{del.email}</span>
@@ -7078,6 +7177,14 @@ export default function OasisWorkplace() {
                 Submitted: {selectedApplicant.submittedAt ? new Date(selectedApplicant.submittedAt).toLocaleDateString() : 'N/A'}
               </div>
               <div className="flex gap-2.5">
+                  {(selectedApplicant.status === 'welcomed') && (
+                    <button
+                      onClick={() => handleGenerateIDCard(selectedApplicant)}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white border border-transparent font-bold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <QrCode className="w-3.5 h-3.5" /> Generate ID Card
+                    </button>
+                  )}
                 {selectedApplicant.status !== 'rejected' && (
                   <button
                     onClick={() => {
