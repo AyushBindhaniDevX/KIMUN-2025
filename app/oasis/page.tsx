@@ -3,6 +3,9 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion'
 import {
+  MessageSquare,
+  Send,
+  MoreVertical,
   BarChart3,
   PieChart as LucidePieChart,
   DollarSign,
@@ -244,8 +247,33 @@ export default function OasisWorkplace() {
   const [loginError, setLoginError] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  // Chat Feature States
+  const [chatGroup, setChatGroup] = useState<'All (OC)' | 'Delegate' | 'EB' | 'Lobbying'>('All (OC)')
+  const [chatMessages, setChatMessages] = useState<any[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const chatEndRef = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!accessGranted || !user) return;
+    const chatsRef = ref(firebaseDb, `chats/${chatGroup}`)
+    const unsubChats = onValue(chatsRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        const parsed = Object.keys(data)
+          .map(k => ({ id: k, ...data[k] }))
+          .sort((a: any, b: any) => a.timestamp - b.timestamp);
+        setChatMessages(parsed)
+      } else {
+        setChatMessages([])
+      }
+    })
+    return () => unsubChats()
+  }, [chatGroup, accessGranted, user])
+
+
+
   // Workspace Navigation
-  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'dept_boards' | 'registry_manager' | 'delegate_search' | 'schedule_builder' | 'transport_logistics' | 'help_docs' | 'site_settings' | 'logs'>('dashboard')
+  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'dept_boards' | 'registry_manager' | 'delegate_search' | 'schedule_builder' | 'transport_logistics' | 'help_docs' | 'site_settings' | 'logs' | 'chat'>('dashboard')
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All Departments')
   const [recruitmentView, setRecruitmentView] = useState<'oc' | 'eb'>('oc')
 
@@ -790,6 +818,8 @@ export default function OasisWorkplace() {
         setDbSchedule([])
       }
     })
+
+    
 
     const blacklistRef = ref(firebaseDb, 'blacklisted')
     const unsubBlacklist = onValue(blacklistRef, (snap) => {
@@ -2543,6 +2573,7 @@ export default function OasisWorkplace() {
     { section: 'Main', id: 'academic_vault', label: 'Resources', icon: BookOpen, color: 'text-amber-600' },
     ...(role === 'admin' ? [{ section: 'Main', id: 'recruitment', label: 'Onboarding Hub', icon: Users, color: 'text-violet-600' }] : []),
     { section: 'Data Hub', id: 'dept_boards', label: 'Department Workspace', icon: Layers, color: 'text-purple-600' },
+    { section: 'Data Hub', id: 'chat', label: 'OC Chat', icon: MessageSquare, color: 'text-green-500' },
     { section: 'Data Hub', id: 'delegate_search', label: 'DeleOs', icon: Search, color: 'text-indigo-600' },
     { section: 'Data Hub', id: 'help_docs', label: 'Help and Doc', icon: Info, color: 'text-blue-600' },
     ...(role === 'admin' ? [
@@ -2635,6 +2666,136 @@ export default function OasisWorkplace() {
           <AnimatePresence mode="wait">
 
             {/* 1. OVERVIEW HUB — Magic UI + TailAdmin Redesign */}
+            
+            {activeMenuTab === 'chat' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 flex flex-col h-[calc(100vh-140px)]">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight text-slate-900">Communications</h2>
+                    <p className="text-slate-500">Internal WhatsApp-style secure chat rooms.</p>
+                  </div>
+                </div>
+                
+                <div className="flex-1 bg-white border border-slate-200 rounded-2xl shadow-sm flex overflow-hidden">
+                  {/* Left Sidebar (Groups) */}
+                  <div className="w-1/3 max-w-[280px] border-r border-slate-200 bg-slate-50 flex flex-col">
+                    <div className="p-4 border-b border-slate-200">
+                      <h3 className="font-semibold text-slate-700">Chat Groups</h3>
+                    </div>
+                    <div className="flex-1 overflow-y-auto">
+                      {['All (OC)', 'Delegate', 'EB', 'Lobbying'].map(group => (
+                        <div 
+                          key={group}
+                          onClick={() => setChatGroup(group as any)}
+                          className={`p-4 border-b border-slate-100 cursor-pointer transition-colors ${chatGroup === group ? 'bg-indigo-50 border-l-4 border-l-indigo-600' : 'hover:bg-slate-100 border-l-4 border-l-transparent'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${chatGroup === group ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+                              {group.charAt(0)}
+                            </div>
+                            <div>
+                              <p className={`font-semibold ${chatGroup === group ? 'text-indigo-900' : 'text-slate-700'}`}>{group} Group</p>
+                              <p className="text-xs text-slate-500">Tap to view</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Main Chat Area */}
+                  <div className="flex-1 flex flex-col bg-[#efeae2] relative">
+                    {/* Chat Header */}
+                    <div className="h-16 px-6 bg-white border-b border-slate-200 flex items-center justify-between shadow-sm z-10">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold">
+                           {chatGroup.charAt(0)}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-slate-800">{chatGroup} Group</h3>
+                          <p className="text-xs text-indigo-600 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Live</p>
+                        </div>
+                      </div>
+                      <MoreVertical className="w-5 h-5 text-slate-400 cursor-pointer" />
+                    </div>
+
+                    {/* Chat Messages */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 z-0 relative">
+                      {chatMessages.length === 0 ? (
+                         <div className="flex items-center justify-center h-full">
+                           <div className="bg-white/60 text-slate-500 px-4 py-2 rounded-lg text-sm shadow-sm">
+                             No messages yet. Say hi!
+                           </div>
+                         </div>
+                      ) : (
+                        chatMessages.map(msg => {
+                          const isMe = msg.senderUid === user?.uid
+                          return (
+                            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`max-w-[70%] rounded-xl px-4 py-2 shadow-sm ${isMe ? 'bg-[#dcf8c6] text-slate-800 rounded-tr-none' : 'bg-white text-slate-800 rounded-tl-none'}`}>
+                                {!isMe && <p className="text-xs font-bold text-indigo-600 mb-0.5">{msg.senderName}</p>}
+                                <p className="text-sm">{msg.text}</p>
+                                <p className="text-[10px] text-slate-500 text-right mt-1">
+                                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                            </div>
+                          )
+                        })
+                      )}
+                      <div ref={chatEndRef} />
+                    </div>
+
+                    {/* Chat Input */}
+                    <div className="p-4 bg-[#f0f2f5] border-t border-slate-200 flex items-center gap-3 z-10 relative">
+                      <input 
+                        type="text" 
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            if (!chatInput.trim()) return;
+                            const msgData = {
+                              text: chatInput.trim(),
+                              senderUid: user?.uid,
+                              senderName: user?.displayName || user?.email || 'OC Member',
+                              timestamp: Date.now()
+                            };
+                            push(ref(firebaseDb, `chats/${chatGroup}`), msgData);
+                            setChatInput('');
+                            setTimeout(() => {
+                              chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                            }, 100);
+                          }
+                        }}
+                        placeholder="Type a message..." 
+                        className="flex-1 bg-white border-none rounded-full px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                      />
+                      <button 
+                        onClick={() => {
+                          if (!chatInput.trim()) return;
+                          const msgData = {
+                            text: chatInput.trim(),
+                            senderUid: user?.uid,
+                            senderName: user?.displayName || user?.email || 'OC Member',
+                            timestamp: Date.now()
+                          };
+                          push(ref(firebaseDb, `chats/${chatGroup}`), msgData);
+                          setChatInput('');
+                          setTimeout(() => {
+                            chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                          }, 100);
+                        }}
+                        className="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center text-white hover:bg-indigo-700 transition-colors shadow-sm shrink-0"
+                      >
+                        <Send className="w-5 h-5 ml-1" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+    
             {activeMenuTab === 'dashboard' && (
               <motion.div
                 key="dashboard"

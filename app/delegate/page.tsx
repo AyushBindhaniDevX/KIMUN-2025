@@ -1,7 +1,11 @@
 // app/delegate/page.tsx
 'use client'
 import React, { useState, useEffect, Suspense } from 'react'
-import { ref, get } from 'firebase/database'
+import {
+  MessageSquare,
+  Send,
+  X,
+ref, get } from 'firebase/database'
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -147,6 +151,10 @@ function DelegateDashboardContent() {
   })
   const [expandedCard, setExpandedCard] = useState<string | null>('performance')
   const [showQrModal, setShowQrModal] = useState(false)
+  const [showChat, setShowChat] = useState(false)
+  const [chatMessages, setChatMessages] = useState<any[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const chatEndRef = React.useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user: any) => {
@@ -630,6 +638,13 @@ function DelegateDashboardContent() {
                   />
                 </div>
               )}
+              <button
+                onClick={() => router.push(`/delegate/session?committee=${delegate?.committeeId}`)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm tracking-wide transition-all shadow-md flex items-center gap-2 ml-2"
+              >
+                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                Join Oasis CM
+              </button>
             </div>
           </div>
         </motion.div>

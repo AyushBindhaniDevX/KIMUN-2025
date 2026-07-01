@@ -516,35 +516,7 @@ export default function RegistrationPage() {
         body: JSON.stringify(emailData)
       }).catch(err => console.error('Email sending failed:', err))
 
-      // Send SMS to Delegate 1
-      if (delegateInfo.delegate1.phone) {
-        fetch('/api/send-sms', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phone: delegateInfo.delegate1.phone,
-            name: delegateInfo.delegate1.name,
-            registrationId: newRegistration?.key,
-            committee: selectedCommittee?.name,
-            portfolio: selectedPortfolio?.country
-          })
-        }).catch(err => console.error('SMS sending failed for Del 1:', err))
-      }
 
-      // Send SMS to Delegate 2
-      if (isDoubleDel && delegateInfo.delegate2?.phone) {
-        fetch('/api/send-sms', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phone: delegateInfo.delegate2.phone,
-            name: delegateInfo.delegate2.name,
-            registrationId: newRegistration?.key,
-            committee: selectedCommittee?.name,
-            portfolio: selectedPortfolio?.country
-          })
-        }).catch(err => console.error('SMS sending failed for Del 2:', err))
-      }
 
       return newRegistration.key
     } catch (err) {

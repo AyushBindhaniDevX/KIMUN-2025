@@ -2,7 +2,11 @@
 'use client'
 
 import React, { useState, useEffect, Suspense } from 'react'
-import { ref, get, query, orderByChild, equalTo, set, update, push, onValue } from 'firebase/database';
+import {
+  MessageSquare,
+  Send,
+  X,
+ref, get, query, orderByChild, equalTo, set, update, push, onValue } from 'firebase/database';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -169,6 +173,10 @@ function EBPortalContent() {
   const [showFilters, setShowFilters] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [showChat, setShowChat] = useState(false)
+  const [chatMessages, setChatMessages] = useState<any[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const chatEndRef = React.useRef<HTMLDivElement>(null)
   const [activeTab, setActiveTab] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('ebActiveTab') || 'dashboard'
@@ -1005,6 +1013,12 @@ function EBPortalContent() {
               </div>
               <span className="text-sm font-medium text-slate-700">{ebMember?.name}</span>
             </div>
+            <Button
+              onClick={() => router.push(`/eb-portal/session?committee=${selectedCommittee}`)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white h-9 shadow-sm"
+            >
+              ▶ Launch Oasis CM
+            </Button>
             <Button
               variant="outline"
               onClick={handleLogout}

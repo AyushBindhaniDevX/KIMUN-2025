@@ -9,7 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@api/fast2sms": "file:.api/apis/fast2sms",
     "@cashfreepayments/cashfree-sdk": "^0.1.7",
     "@chakra-ui/react": "^3.8.0",
     "@emailjs/browser": "^4.4.1",
@@ -66,7 +65,7 @@
     "cmdk": "1.0.4",
     "cobe": "^2.0.1",
     "cors": "^2.8.5",
-    "country-flag-icons": "^1.5.16",
+    "country-flag-icons": "^1.6.20",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "8.5.1",
     "express": "^4.21.2",
@@ -113,6 +112,7 @@
     "react-select": "^5.10.0",
     "react-syntax-highlighter": "^15.6.1",
     "react-virtualized": "^9.22.6",
+    "react-world-flags": "^1.6.0",
     "recharts": "^2.15.0",
     "recoil": "^0.7.7",
     "resend": "^6.12.4",

@@ -3,7 +3,7 @@ import { Resend } from 'resend'
 import admin from 'firebase-admin'
 
 // Initialize Resend
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy')
 
 // Initialize Firebase Admin if not already done
 if (!admin.apps.length) {
