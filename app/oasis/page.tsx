@@ -198,32 +198,35 @@ const AnimatedCard = ({ children, className = "", delay = 0 }: { children: React
     initial={{ opacity: 0, y: 16 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.5, delay, ease: [0.25, 0.8, 0.25, 1] }}
+    whileHover={{ y: -4, transition: { duration: 0.3 } }}
   >
-    <Card className={className}>
+    <Card className={`backdrop-blur-xl bg-white/70 shadow-sm border-slate-200/50 hover:shadow-md transition-all duration-300 ${className}`}>
       {children}
     </Card>
   </motion.div>
 )
 
-// KPI Metric Card Component — Shadcn-inspired
+// KPI Metric Card Component — Premium Shadcn-inspired
 const KPICard = ({ title, value, subtitle, icon: Icon, color, trend, trendValue }: any) => (
-  <motion.div whileHover={{ y: -2, transition: { duration: 0.25 } }}>
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">
+  <motion.div whileHover={{ y: -4, scale: 1.02, transition: { duration: 0.25 } }}>
+    <Card className="backdrop-blur-xl bg-white/70 border-slate-200/50 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden relative">
+      {/* Decorative gradient blob */}
+      <div className={`absolute -right-4 -top-4 w-24 h-24 ${color} opacity-10 blur-2xl rounded-full pointer-events-none`} />
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+        <CardTitle className="text-sm font-semibold text-slate-700">
           {title}
         </CardTitle>
-        <div className={`${color} p-2 rounded-md`}>
+        <div className={`${color} p-2 rounded-xl shadow-inner`}>
           <Icon className="h-4 w-4 text-white" />
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        <p className="text-xs text-muted-foreground mt-1">
+      <CardContent className="relative z-10">
+        <div className="text-2xl font-black tracking-tight text-slate-800">{value}</div>
+        <p className="text-xs text-slate-500 mt-1.5 font-medium flex items-center">
           {subtitle}
           {trend && (
-            <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] ${trend === 'up' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-              {trendValue}
+            <span className={`ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide ${trend === 'up' ? 'bg-emerald-500/15 text-emerald-600' : 'bg-rose-500/15 text-rose-600'}`}>
+              {trend === 'up' ? '↑' : '↓'} {trendValue}
             </span>
           )}
         </p>
@@ -1577,6 +1580,111 @@ export default function OasisWorkplace() {
   }
 
 
+  const handleGenerateIDCard = async (delegate: any) => {
+    try {
+      const { jsPDF } = await import('jspdf')
+      // CR80 size: 53.98mm width, 85.6mm height (portrait ID card)
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [54, 86] })
+
+      // Background Gradient/Brand Color
+      doc.setFillColor(60, 80, 224) // Brand Blue
+      doc.rect(0, 0, 54, 86, 'F')
+      
+      doc.setFillColor(255, 255, 255) // White bottom half
+      doc.rect(0, 25, 54, 61, 'F')
+
+      // Header Text
+      doc.setTextColor(255, 255, 255)
+      doc.setFont('Helvetica', 'bold')
+      doc.setFontSize(10)
+      doc.text("KIMUN 2026", 27, 10, { align: 'center' })
+      doc.setFontSize(6)
+      doc.text("KALINGA INTERNATIONAL MUN", 27, 15, { align: 'center' })
+
+      // Delegate Name
+      doc.setTextColor(28, 36, 52)
+      doc.setFont('Helvetica', 'bold')
+      doc.setFontSize(9)
+      const name = (delegate.displayName || delegate.name || 'DELEGATE').toUpperCase()
+      const splitName = doc.splitTextToSize(name, 48)
+      doc.text(splitName, 27, 32, { align: 'center' })
+
+      // Delegate Details
+      doc.setFont('Helvetica', 'normal')
+      doc.setFontSize(7)
+      const committee = delegate.displayCommittee || delegate.committeeId || 'N/A'
+      const portfolio = delegate.displayPortfolio || delegate.portfolioId || 'N/A'
+      
+      // Calculate Y offsets based on text lengths
+      let currentY = 42
+      doc.text("COMMITTEE:", 27, currentY, { align: 'center' })
+      currentY += 4
+      doc.setFont('Helvetica', 'bold')
+      const splitCommittee = doc.splitTextToSize(committee, 48)
+      doc.text(splitCommittee, 27, currentY, { align: 'center' })
+      
+      currentY += (splitCommittee.length * 3) + 4
+      
+      doc.setFont('Helvetica', 'normal')
+      doc.text("PORTFOLIO:", 27, currentY, { align: 'center' })
+      currentY += 4
+      doc.setFont('Helvetica', 'bold')
+      const splitPortfolio = doc.splitTextToSize(portfolio, 48)
+      doc.text(splitPortfolio, 27, currentY, { align: 'center' })
+
+      // ID string and optional QR
+      const idStr = (delegate.displayId || delegate.id || 'N/A').toUpperCase()
+      doc.setFont('Helvetica', 'normal')
+      doc.setFontSize(6)
+      doc.text(`ID: ${idStr}`, 27, 72, { align: 'center' })
+      
+      // Footer
+      doc.setFillColor(28, 36, 52)
+      doc.rect(0, 78, 54, 8, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.text("DELEGATE ACCESS PASS", 27, 83, { align: 'center' })
+
+      doc.save(`ID_Card_${name.replace(/\s+/g, '_')}.pdf`)
+      logActivity('GENERATE_ID_CARD', `Generated ID card for ${name}`)
+      triggerNotification('ID Card generated successfully!')
+    } catch (e: any) {
+      console.error(e)
+      triggerNotification('Failed to generate ID card: ' + e.message, 'error')
+    }
+  }
+
+  const handleExportLiveAllocationsCSV = async () => {
+    let csv = "ID,Name,Institution,Course,Year,Email,Phone,Check-in Status,Check-in Time\r\n"
+    dbDelegates.forEach(d => {
+      csv += `${d.id},"${d.name || ''}","${d.institution || ''}","${d.course || ''}","${d.year || ''}","${d.email || ''}","${d.phone || ''}",${d.isCheckedIn ? 'Checked-In' : 'Pending'},"${d.checkInTime || 'N/A'}"\r\n`
+    })
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement("a")
+    link.href = URL.createObjectURL(blob)
+    link.setAttribute("download", `Oasis_Live_Allocations.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    await logActivity('CSV_EXPORT', 'Exported Live Allocations')
+    triggerNotification('Live Allocations exported successfully!')
+  }
+
+  const handleExportMarksheetsCSV = async () => {
+    let csv = "Marksheet ID,Committee ID,Details\r\n"
+    dbMarksheets.forEach(m => {
+      csv += `${m.id},"${m.committeeId}",${m.isApproved ? 'Approved' : 'Pending'}\r\n`
+    })
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement("a")
+    link.href = URL.createObjectURL(blob)
+    link.setAttribute("download", `Oasis_Marksheets.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    await logActivity('CSV_EXPORT', 'Exported Marksheets')
+    triggerNotification('Marksheets exported successfully!')
+  }
+
   // Real-time CRUD Triggers
   const claimLiveTask = async (taskId: string, currentAssignee?: string) => {
     if (!user) return
@@ -2395,8 +2503,8 @@ export default function OasisWorkplace() {
           </Sidebar>
 
 
-      <main className="flex-1 flex flex-col min-w-0 bg-white text-foreground transition-all duration-300 ease-in-out h-full overflow-hidden sm:rounded-r-[2rem]">
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-slate-100/60 px-4 bg-white/50 backdrop-blur-md z-10">
+      <main className="flex-1 flex flex-col min-w-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/60 via-slate-50/40 to-slate-100/50 text-foreground transition-all duration-300 ease-in-out h-full overflow-hidden sm:rounded-r-[2rem]">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-slate-200/50 px-4 bg-white/60 backdrop-blur-xl z-10">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <Breadcrumb>
@@ -3163,7 +3271,7 @@ export default function OasisWorkplace() {
                       <QrCode className="w-3.5 h-3.5" /> Scan QR
                     </button>
                     <button
-                      onClick={() => { }}
+                      onClick={handleExportLiveAllocationsCSV}
                       className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
                     >
                       <Download className="w-3.5 h-3.5" /> Export
@@ -3419,7 +3527,9 @@ export default function OasisWorkplace() {
                         EB Applications
                       </button>
                     </div>
-                    <button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all">
+                    <button 
+                      onClick={handleExportMarksheetsCSV}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer">
                       <Download className="w-3.5 h-3.5" /> Export Excel
                     </button>
                   </div>
@@ -5269,6 +5379,12 @@ export default function OasisWorkplace() {
                               </div>
 
                               <div className="pt-2 space-y-2">
+                                <button
+                                  onClick={() => handleGenerateIDCard(selectedDele)}
+                                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] rounded-[4px] transition-colors border-none uppercase font-bold cursor-pointer"
+                                >
+                                  <QrCode className="w-3.5 h-3.5" /> Generate ID Card
+                                </button>
                                 <button
                                   onClick={() => handleDownloadCitationPDF(selectedDele)}
                                   className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#3C50E0] hover:bg-[#2B3EB2] text-white text-[11px] rounded-[4px] transition-colors border-none uppercase font-bold cursor-pointer"
