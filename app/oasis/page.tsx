@@ -1685,6 +1685,28 @@ export default function OasisWorkplace() {
     triggerNotification('Marksheets exported successfully!')
   }
 
+  const handleExportApplicationsCSV = async () => {
+    let csv = "ID,Name,Email,Phone,Role/Dept,Status\r\n"
+    if (recruitmentView === 'oc') {
+      dbApplications.forEach(app => {
+        csv += `${app.uid},"${app.name || ''}","${app.email || ''}","${app.phone || ''}","${app.department || ''}","${app.status || 'pending'}"\r\n`
+      })
+    } else {
+      dbEbApplications.forEach(app => {
+        csv += `${app.uid},"${app.name || ''}","${app.email || ''}","${app.phone || ''}","${app.role || ''}","${app.status || 'pending'}"\r\n`
+      })
+    }
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement("a")
+    link.href = URL.createObjectURL(blob)
+    link.setAttribute("download", `Oasis_${recruitmentView.toUpperCase()}_Applications.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    await logActivity('CSV_EXPORT', `Exported ${recruitmentView.toUpperCase()} Applications`)
+    triggerNotification('Applications exported successfully!')
+  }
+
   // Real-time CRUD Triggers
   const claimLiveTask = async (taskId: string, currentAssignee?: string) => {
     if (!user) return
@@ -3462,10 +3484,17 @@ export default function OasisWorkplace() {
                 </AnimatedCard>
 
                 <AnimatedCard className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-6" delay={0.1}>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 mb-4">
-                    <FileCheck className="w-4 h-4 text-indigo-500" />
-                    Marksheet Approvals
-                  </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                      <FileCheck className="w-4 h-4 text-indigo-500" />
+                      Marksheet Approvals
+                    </h3>
+                    <button 
+                      onClick={handleExportMarksheetsCSV}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2 py-1 rounded-md flex items-center gap-1 transition-all cursor-pointer">
+                      <Download className="w-3 h-3" /> Export Excel
+                    </button>
+                  </div>
                   <div className="space-y-3 max-h-[400px] overflow-y-auto">
                     {dbCommittees.map(comm => {
                       const commMarks = dbMarksheets.filter(m => m.committeeId === comm.id)
@@ -3528,7 +3557,7 @@ export default function OasisWorkplace() {
                       </button>
                     </div>
                     <button 
-                      onClick={handleExportMarksheetsCSV}
+                      onClick={handleExportApplicationsCSV}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer">
                       <Download className="w-3.5 h-3.5" /> Export Excel
                     </button>
