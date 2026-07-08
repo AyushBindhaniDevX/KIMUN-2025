@@ -40,7 +40,8 @@ import {
   BookOpen,
   Award,
   Target,
-  Globe
+  Globe,
+  Menu
 } from 'lucide-react'
 
 import { motion, AnimatePresence } from 'framer-motion'
@@ -866,7 +867,7 @@ export default function OCApplicationPage() {
                   {[
                     { icon: Rocket, label: "Executive Leadership" },
                     { icon: Network, label: "Global Network" },
-                    { icon: FileBadge, label: "UN-Certified" },
+                    { icon: Award, label: "Professional Growth" },
                     { icon: Handshake, label: "Corporate Relations" }
                   ].map((tag, idx) => (
                     <span key={idx} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 text-white text-xs rounded-md backdrop-blur-sm border border-white/10">
@@ -895,7 +896,7 @@ export default function OCApplicationPage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-2 gap-4">
             {[
               {
                 icon: BadgeCheck,
@@ -903,14 +904,9 @@ export default function OCApplicationPage() {
                 desc: "Receive a formal Letter of Recommendation authenticating your operational metrics, heavily prioritized by institutional corporate firms and graduate program filters."
               },
               {
-                icon: FileBadge,
-                title: "UN-Authenticated Credentials",
-                desc: "Differentiate your professional profile via certified credentials vetted through established global framework representatives."
-              },
-              {
                 icon: Network,
                 title: "Enterprise Tier Networking",
-                desc: "Develop long-term corporate pipelines alongside senior industry consultants, corporate sponsors, and career diplomats."
+                desc: "Develop long-term professional connections alongside senior industry consultants, corporate sponsors, and career diplomats."
               }
             ].map((benefit, idx) => (
               <motion.div
@@ -1393,13 +1389,12 @@ export default function OCApplicationPage() {
                       </div>
                     </div>
 
-                    {/* NDA Text - Scaled down */}
+                    {/* NDA Text */}
                     <div className="bg-gray-900 border border-gray-800 rounded-md p-4 text-gray-300 text-xs font-mono leading-relaxed h-48 overflow-y-auto mb-4">
                       <h4 className="text-white font-bold text-xs border-b border-gray-800 pb-2 mb-2">KIMUN 2026 ORGANIZING COMMITTEE CONTRACT & NON-DISCLOSURE AGREEMENT</h4>
                       <p className="mb-2"><strong className="text-blue-400">1. DEFINITIONS.</strong> For the purposes of this Agreement: (a) "Confidential Information" means any and all non-public information disclosed by KIMUN to the Member... (b) "Organising Committee" refers to all individuals appointed... (c) "Third Party" means any individual or entity other than KIMUN and the Member.</p>
                       <p className="mb-2"><strong className="text-blue-400">2. OBLIGATIONS OF CONFIDENTIALITY.</strong> The Member hereby agrees and undertakes to: (a) Hold all Confidential Information in strict confidence... (b) Use the Confidential Information solely and exclusively... (c) Take all reasonable precautions... (d) Not copy, reproduce, reverse-engineer... (e) Immediately notify KIMUN upon becoming aware of any actual or suspected unauthorised disclosure...</p>
                       <p className="mb-2"><strong className="text-blue-400">3. SCOPE OF CONFIDENTIAL INFORMATION.</strong> Without limitation, Confidential Information shall include: internal communications, meeting minutes, emails, and deliberations of the Organising Committee; personal and contact information of delegates, participants, guests, speakers, and sponsors (PII); financial arrangements, budget allocations, sponsor deals, and pricing information; unpublished creative content, graphics, themes, and conceptual materials; operational plans, schedules, crisis protocols, and security arrangements; committee positions, study guides, and background guides prior to official release...</p>
-                      <p className="mb-2"><strong className="text-blue-400">4-14.</strong> [Full terms available in the complete agreement]</p>
                       <p className="text-gray-400 italic mt-2 pt-2 border-t border-gray-800">By signing below, the Member acknowledges that they have read, understood, and agree to be legally bound by all the terms and conditions set forth in this Non-Disclosure Agreement.</p>
                     </div>
 
@@ -1546,7 +1541,7 @@ export default function OCApplicationPage() {
               </div>
             </div>
           ) : (
-            /* Application Form - TCS iON Style */
+            /* Application Form - TCS iON Style with 2-step process */
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
