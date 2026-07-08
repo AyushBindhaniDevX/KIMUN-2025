@@ -273,7 +273,7 @@ export default function OasisWorkplace() {
 
 
   // Workspace Navigation
-  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'dept_boards' | 'registry_manager' | 'delegate_search' | 'schedule_builder' | 'transport_logistics' | 'help_docs' | 'site_settings' | 'logs' | 'chat'>('dashboard')
+  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'prize_tracking' | 'dept_boards' | 'registry_manager' | 'delegate_search' | 'schedule_builder' | 'transport_logistics' | 'help_docs' | 'site_settings' | 'logs' | 'chat'>('dashboard')
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All Departments')
   const [recruitmentView, setRecruitmentView] = useState<'oc' | 'eb'>('oc')
 
@@ -2613,6 +2613,7 @@ export default function OasisWorkplace() {
       { section: 'Admin Settings', id: 'schedule_builder', label: 'Schedule Builder', icon: Calendar, color: 'text-sky-500' },
       { section: 'Admin Settings', id: 'transport_logistics', label: 'Transport Settings', icon: Truck, color: 'text-amber-500' },
       { section: 'Admin Settings', id: 'coupons', label: 'Coupons', icon: Ticket, color: 'text-pink-600' },
+      { section: 'Admin Settings', id: 'prize_tracking', label: 'Prize Tracking', icon: Award, color: 'text-emerald-500' },
       { section: 'Admin Settings', id: 'registry_manager', label: 'Committee Management', icon: Sliders, color: 'text-teal-600' },
       { section: 'Admin Settings', id: 'site_settings', label: 'Global Config', icon: Settings, color: 'text-indigo-600' },
       { section: 'Admin Settings', id: 'logs', label: 'Activity Logs', icon: Activity, color: 'text-rose-600' }
@@ -4737,60 +4738,7 @@ export default function OasisWorkplace() {
                   </div>
                 </div>
 
-                {/* Prize Tracking Section */}
-                <div className="mt-12">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-                    <div>
-                      <h2 className="text-xl font-bold text-slate-900 tracking-tight">Cash Prize Tracking</h2>
-                      <p className="text-xs text-slate-500 mt-1">Generate tracking codes for delegates to check their prize status</p>
-                    </div>
-                    <button
-                      onClick={() => setShowPrizeTrackingModal(true)}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Generate Tracking Code
-                    </button>
-                  </div>
 
-                  <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
-                    <div className="overflow-x-auto">
-                      <Table className="w-full text-left border-collapse text-sm">
-                        <TableHeader>
-                          <TableRow className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
-                            <TableHead className="py-3 px-4">Tracking ID</TableHead>
-                            <TableHead className="py-3 px-4">Beneficiary</TableHead>
-                            <TableHead className="py-3 px-4">Award</TableHead>
-                            <TableHead className="py-3 px-4 text-right">Amount</TableHead>
-                            <TableHead className="py-3 px-4 text-center">Status</TableHead>
-                            <TableHead className="py-3 px-4 text-center">Generated Date</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody className="divide-y divide-slate-100">
-                          {dbPrizeTracking.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={6} className="text-center py-12 text-slate-400">No tracking codes generated yet</TableCell>
-                            </TableRow>
-                          ) : (
-                            dbPrizeTracking.map(t => (
-                              <TableRow key={t.id} className="hover:bg-slate-50/50 transition-all">
-                                <TableCell className="py-3 px-4 font-mono font-bold text-indigo-600">{t.id}</TableCell>
-                                <TableCell className="py-3 px-4 font-semibold text-slate-800">{t.beneficiary}</TableCell>
-                                <TableCell className="py-3 px-4 text-slate-600">{t.award}</TableCell>
-                                <TableCell className="py-3 px-4 text-right font-bold text-emerald-600">{formatINR(t.amount)}</TableCell>
-                                <TableCell className="py-3 px-4 text-center">
-                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${t.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : t.status === 'Failed' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
-                                    {t.status}
-                                  </span>
-                                </TableCell>
-                                <TableCell className="py-3 px-4 text-center text-slate-500 text-xs">{new Date(t.createdAt).toLocaleDateString()}</TableCell>
-                              </TableRow>
-                            ))
-                          )}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                </div>
 
                 {/* Payout Modal */}
                 {showPayoutModal && (
@@ -4899,87 +4847,7 @@ export default function OasisWorkplace() {
               </motion.div>
             )}
 
-            {/* Prize Tracking Modal */}
-            {showPrizeTrackingModal && (
-              <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.9, opacity: 0 }}
-                  className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl"
-                >
-                  <div className="flex justify-between items-center pb-4 border-b">
-                    <span className="text-sm font-bold text-slate-800">Generate Prize Tracking Code</span>
-                    <button onClick={() => setShowPrizeTrackingModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
-                  </div>
-                  <form onSubmit={handleCreatePrizeTracking} className="space-y-4 mt-4">
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Beneficiary Name</label>
-                      <input
-                        type="text"
-                        value={newPrizeTracking.beneficiary}
-                        onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, beneficiary: e.target.value }))}
-                        className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
-                        required
-                        placeholder="John Doe"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Award / Description</label>
-                      <input
-                        type="text"
-                        value={newPrizeTracking.award}
-                        onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, award: e.target.value }))}
-                        className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
-                        required
-                        placeholder="Best Delegate - UNGA"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Amount (INR)</label>
-                        <input
-                          type="number"
-                          value={newPrizeTracking.amount || ''}
-                          onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, amount: Number(e.target.value) }))}
-                          className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
-                          required
-                          placeholder="5000"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Status</label>
-                        <select
-                          value={newPrizeTracking.status}
-                          onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, status: e.target.value }))}
-                          className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
-                        >
-                          <option value="Processing">Processing</option>
-                          <option value="Completed">Completed</option>
-                          <option value="Failed">Failed</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Transaction Ref / Remarks (Optional)</label>
-                      <input
-                        type="text"
-                        value={newPrizeTracking.transactionRef}
-                        onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, transactionRef: e.target.value }))}
-                        className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
-                        placeholder="Txn ID or notes"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition-all"
-                    >
-                      Generate Tracking Code
-                    </button>
-                  </form>
-                </motion.div>
-              </div>
-            )}
+
 
             {/* 10. COUPONS (Admin only) */}
             {activeMenuTab === 'coupons' && role === 'admin' && (
@@ -5112,7 +4980,155 @@ export default function OasisWorkplace() {
               </motion.div>
             )}
 
-            {/* 11. REGISTRY MANAGER (Admin only) */}
+            {/* 11. PRIZE TRACKING (Admin only) */}
+            {activeMenuTab === 'prize_tracking' && role === 'admin' && (
+              <motion.div
+                key="prize_tracking"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                      <Award className="w-5 h-5 text-indigo-600" />
+                      Cash Prize Tracking
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-1">Generate and monitor tracking codes for delegate payouts</p>
+                  </div>
+                  <button
+                    onClick={() => setShowPrizeTrackingModal(true)}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Generate Tracking Code
+                  </button>
+                </div>
+
+                <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <Table className="w-full text-left border-collapse text-sm">
+                      <TableHeader>
+                        <TableRow className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                          <TableHead className="py-3 px-4">Tracking ID</TableHead>
+                          <TableHead className="py-3 px-4">Beneficiary</TableHead>
+                          <TableHead className="py-3 px-4">Award</TableHead>
+                          <TableHead className="py-3 px-4 text-right">Amount</TableHead>
+                          <TableHead className="py-3 px-4 text-center">Status</TableHead>
+                          <TableHead className="py-3 px-4 text-center">Generated Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-slate-100">
+                        {dbPrizeTracking.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-12 text-slate-400">No tracking codes generated yet</TableCell>
+                          </TableRow>
+                        ) : (
+                          dbPrizeTracking.map(t => (
+                            <TableRow key={t.id} className="hover:bg-slate-50/50 transition-all">
+                              <TableCell className="py-3 px-4 font-mono font-bold text-indigo-600">{t.id}</TableCell>
+                              <TableCell className="py-3 px-4 font-semibold text-slate-800">{t.beneficiary}</TableCell>
+                              <TableCell className="py-3 px-4 text-slate-600">{t.award}</TableCell>
+                              <TableCell className="py-3 px-4 text-right font-bold text-emerald-600">{formatINR(t.amount)}</TableCell>
+                              <TableCell className="py-3 px-4 text-center">
+                                <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${t.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : t.status === 'Failed' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                                  {t.status}
+                                </span>
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-center text-slate-500 text-xs">{new Date(t.createdAt).toLocaleDateString()}</TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                {/* Prize Tracking Modal */}
+                {showPrizeTrackingModal && (
+                  <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <motion.div
+                      initial={{ scale: 0.9, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.9, opacity: 0 }}
+                      className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl"
+                    >
+                      <div className="flex justify-between items-center pb-4 border-b">
+                        <span className="text-sm font-bold text-slate-800">Generate Prize Tracking Code</span>
+                        <button onClick={() => setShowPrizeTrackingModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+                      </div>
+                      <form onSubmit={handleCreatePrizeTracking} className="space-y-4 mt-4">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Beneficiary Name</label>
+                          <input
+                            type="text"
+                            value={newPrizeTracking.beneficiary}
+                            onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, beneficiary: e.target.value }))}
+                            className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                            required
+                            placeholder="John Doe"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Award / Description</label>
+                          <input
+                            type="text"
+                            value={newPrizeTracking.award}
+                            onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, award: e.target.value }))}
+                            className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                            required
+                            placeholder="Best Delegate - UNGA"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Amount (INR)</label>
+                            <input
+                              type="number"
+                              value={newPrizeTracking.amount || ''}
+                              onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                              className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                              required
+                              placeholder="5000"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Status</label>
+                            <select
+                              value={newPrizeTracking.status}
+                              onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, status: e.target.value }))}
+                              className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                            >
+                              <option value="Processing">Processing</option>
+                              <option value="Completed">Completed</option>
+                              <option value="Failed">Failed</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Transaction Ref / Remarks (Optional)</label>
+                          <input
+                            type="text"
+                            value={newPrizeTracking.transactionRef}
+                            onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, transactionRef: e.target.value }))}
+                            className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                            placeholder="Txn ID or notes"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition-all"
+                        >
+                          Generate Tracking Code
+                        </button>
+                      </form>
+                    </motion.div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* 12. REGISTRY MANAGER (Admin only) */}
             {activeMenuTab === 'registry_manager' && role === 'admin' && (
               <motion.div
                 key="registry_manager"
