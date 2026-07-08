@@ -2,19 +2,19 @@
   "rules": {
     "committees": {
       ".read": "true",
-      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')"
     },
     "portfolios": {
       ".read": "true",
-      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')"
     },
     "registrations": {
-      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')",
+      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')",
       ".write": "true"
     },
     "coupons": {
       ".read": "true",
-      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')"
     },
     "resources": {
       ".read": "true",
@@ -25,21 +25,21 @@
       ".write": "auth != null"
     },
     "payouts": {
-      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')",
-      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')",
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')"
     },
     "oc_applications": {
-      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')",
+      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')",
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')"
       }
     },
     "eb_applications": {
-      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')",
+      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')",
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')"
       }
     },
     "oc_tasks": {
@@ -47,8 +47,8 @@
       ".write": "auth != null"
     },
     "oc_finance": {
-      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')",
-      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')",
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')"
     },
     "oc_assets": {
       ".read": "auth != null",
@@ -64,23 +64,23 @@
     },
     "conferenceDetails": {
       ".read": "true",
-      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')"
     },
     "activity_logs": {
-      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')",
+      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')",
       ".write": "auth != null"
     },
     "schedule": {
       ".read": "true",
-      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')"
     },
     "site_settings": {
       ".read": "true",
-      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')"
     },
     "maintenance": {
       ".read": "true",
-      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')"
     },
     "chats": {
       ".read": "auth != null",
@@ -92,11 +92,11 @@
     },
     "blacklisted": {
       ".read": "true",
-      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')"
     },
     "prize_tracking": {
-      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')",
-      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')",
+      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')",
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')",
       "$tracking_id": {
         ".read": "true"
       }
