@@ -41,7 +41,23 @@ import {
   Award,
   Target,
   Globe,
-  Menu
+  Menu,
+  Info,
+  Star,
+  TrendingUp,
+  Shield,
+  Zap,
+  Briefcase as BriefcaseIcon,
+  ClipboardList,
+  BarChart3,
+  Megaphone,
+  Truck,
+  ShieldCheck,
+  Globe as GlobeIcon,
+  PenTool,
+  Palette,
+  Video,
+  Share2
 } from 'lucide-react'
 
 import { motion, AnimatePresence } from 'framer-motion'
@@ -59,6 +75,71 @@ const DEPARTMENTS = [
   "Operations & Infrastructure Logistics",
   "Delegate Affairs & Global Relations",
   "Design, Media & Digital Identity"
+]
+
+const DEPARTMENT_DETAILS = {
+  "Business Relations & Corporate Strategy": {
+    icon: Handshake,
+    subtitle: "Capital Management & Brand Partnerships",
+    color: "from-blue-600 to-blue-800",
+    points: [
+      "Acquire and oversee blue-chip corporate partnerships",
+      "Direct critical multi-channel public relations strategies",
+      "Develop institutional partner communication plans",
+      "Formulate detailed fiscal projections and ROI audits"
+    ]
+  },
+  "Operations & Infrastructure Logistics": {
+    icon: Settings,
+    subtitle: "Strategic Real Estate & Security",
+    color: "from-emerald-600 to-emerald-800",
+    points: [
+      "Command complex operational timelines end-to-end",
+      "Draft architectural layouts for hosting facilities",
+      "Coordinate cross-border protocol arrangements",
+      "Enforce secure risk-assessment parameters"
+    ]
+  },
+  "Delegate Affairs & Global Relations": {
+    icon: Users,
+    subtitle: "Stakeholder Management",
+    color: "from-purple-600 to-purple-800",
+    points: [
+      "Act as primary administrative point-of-contact",
+      "Compose structural rule books and academic guides",
+      "Manage client services and support pipelines",
+      "Optimize regional acquisition strategies"
+    ]
+  },
+  "Design, Media & Digital Identity": {
+    icon: Layout,
+    subtitle: "Brand Systems & Communication",
+    color: "from-rose-600 to-rose-800",
+    points: [
+      "Standardize design libraries and visual guidelines",
+      "Produce professional audio-visual campaign summaries",
+      "Design high-quality print matrices",
+      "Collaborate with digital strategy units"
+    ]
+  }
+}
+
+const BENEFITS = [
+  {
+    icon: BadgeCheck,
+    title: "Executive Endorsement",
+    desc: "Receive a formal Letter of Recommendation authenticating your operational metrics, heavily prioritized by institutional corporate firms and graduate program filters."
+  },
+  {
+    icon: FileBadge,
+    title: "UN-Authenticated Credentials",
+    desc: "Differentiate your professional profile via certified credentials vetted through established global framework representatives."
+  },
+  {
+    icon: Network,
+    title: "Enterprise Tier Networking",
+    desc: "Develop long-term corporate pipelines alongside senior industry consultants, corporate sponsors, and career diplomats."
+  }
 ]
 
 const convertToBase64 = (file: File): Promise<string> => {
@@ -109,6 +190,7 @@ export default function OCApplicationPage() {
   const [signing, setSigning] = useState(false)
   const [downloadingContract, setDownloadingContract] = useState(false)
   const [showAIInterviewModal, setShowAIInterviewModal] = useState(false)
+  const [selectedDeptInfo, setSelectedDeptInfo] = useState<string | null>(null)
 
   const handleAIInterviewComplete = async (score: number, feedback: string) => {
     if (!user) return;
@@ -824,6 +906,14 @@ export default function OCApplicationPage() {
     }
   }
 
+  // Department selection handler with info display
+  const handleDepartmentSelect = (field: 'pref1' | 'pref2', value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+    if (value && DEPARTMENT_DETAILS[value as keyof typeof DEPARTMENT_DETAILS]) {
+      setSelectedDeptInfo(value)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* TCS iON Style Top Navigation */}
@@ -842,187 +932,13 @@ export default function OCApplicationPage() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 pt-20 pb-16 max-w-7xl">
-        {/* Hero Section - TCS iON Style */}
-        <motion.section
-          initial="hidden"
-          animate="visible"
-          variants={staggerContainer}
-          className="mb-12"
-        >
-          <motion.div variants={fadeIn} className="relative rounded-lg overflow-hidden bg-gradient-to-r from-blue-700 to-blue-900 shadow-lg">
-            <div className="px-8 py-12 md:py-16">
-              <div className="max-w-3xl">
-                <div className="inline-flex items-center gap-2 bg-white/20 text-white text-xs font-semibold px-3 py-1 rounded-full mb-4 backdrop-blur-sm">
-                  <Rocket className="h-3.5 w-3.5" />
-                  Executive Appointments
-                </div>
-                <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-                  Join the KIMUN 2026<br />Organising Committee
-                </h1>
-                <p className="mt-3 text-blue-100 max-w-2xl text-sm leading-relaxed">
-                  Contribute to the organisation and delivery of a professional Model United Nations conference.
-                </p>
-                <div className="flex flex-wrap gap-2 mt-6">
-                  {[
-                    { icon: Rocket, label: "Executive Leadership" },
-                    { icon: Network, label: "Global Network" },
-                    { icon: Award, label: "Professional Growth" },
-                    { icon: Handshake, label: "Corporate Relations" }
-                  ].map((tag, idx) => (
-                    <span key={idx} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 text-white text-xs rounded-md backdrop-blur-sm border border-white/10">
-                      <tag.icon className="h-3 w-3" /> {tag.label}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </motion.section>
-
-        {/* Benefits - TCS iON Card Style */}
-        <motion.section
-          initial="hidden"
-          whileInView="visible"
-          variants={staggerContainer}
-          viewport={{ once: true, margin: "-100px" }}
-          className="mb-12"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-8 w-1 bg-blue-600 rounded"></div>
-            <div>
-              <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">Professional Growth</span>
-              <h2 className="text-xl font-bold text-gray-900">Strategic Career Advantages</h2>
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            {[
-              {
-                icon: BadgeCheck,
-                title: "Executive Endorsement",
-                desc: "Receive a formal Letter of Recommendation authenticating your operational metrics, heavily prioritized by institutional corporate firms and graduate program filters."
-              },
-              {
-                icon: Network,
-                title: "Enterprise Tier Networking",
-                desc: "Develop long-term professional connections alongside senior industry consultants, corporate sponsors, and career diplomats."
-              }
-            ].map((benefit, idx) => (
-              <motion.div
-                key={idx}
-                variants={fadeIn}
-                className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow"
-              >
-                <div className="h-10 w-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center mb-4">
-                  <benefit.icon className="h-5 w-5 text-blue-600" />
-                </div>
-                <h3 className="text-sm font-bold text-gray-900 mb-2">{benefit.title}</h3>
-                <p className="text-xs text-gray-600 leading-relaxed">{benefit.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </motion.section>
-
-        {/* Departments - TCS iON Style */}
-        <motion.section
-          initial="hidden"
-          whileInView="visible"
-          variants={staggerContainer}
-          viewport={{ once: true, margin: "-100px" }}
-          className="mb-12"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-8 w-1 bg-blue-600 rounded"></div>
-            <div>
-              <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">Corporate Structure</span>
-              <h2 className="text-xl font-bold text-gray-900">Areas of Specialization</h2>
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            {[
-              {
-                icon: Handshake,
-                title: "Business Relations & Corporate Strategy",
-                subtitle: "Capital Management & Brand Partnerships",
-                points: [
-                  "Acquire and oversee blue-chip corporate partnerships",
-                  "Direct critical multi-channel public relations strategies",
-                  "Develop institutional partner communication plans",
-                  "Formulate detailed fiscal projections and ROI audits"
-                ]
-              },
-              {
-                icon: Settings,
-                title: "Operations & Infrastructure Logistics",
-                subtitle: "Strategic Real Estate & Security",
-                points: [
-                  "Command complex operational timelines end-to-end",
-                  "Draft architectural layouts for hosting facilities",
-                  "Coordinate cross-border protocol arrangements",
-                  "Enforce secure risk-assessment parameters"
-                ]
-              },
-              {
-                icon: Users,
-                title: "Delegate Affairs & Global Relations",
-                subtitle: "Stakeholder Management",
-                points: [
-                  "Act as primary administrative point-of-contact",
-                  "Compose structural rule books and academic guides",
-                  "Manage client services and support pipelines",
-                  "Optimize regional acquisition strategies"
-                ]
-              },
-              {
-                icon: Layout,
-                title: "Design, Media & Digital Identity",
-                subtitle: "Brand Systems & Communication",
-                points: [
-                  "Standardize design libraries and visual guidelines",
-                  "Produce professional audio-visual campaign summaries",
-                  "Design high-quality print matrices",
-                  "Collaborate with digital strategy units"
-                ]
-              }
-            ].map((dept, idx) => (
-              <motion.div
-                key={idx}
-                variants={fadeIn}
-                className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-              >
-                <div className="p-5">
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="h-8 w-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
-                      <dept.icon className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-gray-900">{dept.title}</h3>
-                      <p className="text-xs text-gray-500">{dept.subtitle}</p>
-                    </div>
-                  </div>
-                  <ul className="space-y-1.5">
-                    {dept.points.map((pt, pIdx) => (
-                      <li key={pIdx} className="flex items-start gap-2 text-xs text-gray-600">
-                        <span className="text-blue-600 font-bold mt-0.5">•</span>
-                        <span>{pt}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.section>
-
-        {/* Application Portal - TCS iON Style */}
+      <main className="container mx-auto px-4 pt-20 pb-16 max-w-4xl">
+        {/* Application Form - Enhanced with integrated information */}
         <span id="apply-portal" className="block scroll-mt-16"></span>
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="max-w-3xl mx-auto"
         >
           {authLoading || checkingApp ? (
             <div className="bg-white border border-gray-200 rounded-lg p-16 text-center shadow-sm">
@@ -1030,7 +946,7 @@ export default function OCApplicationPage() {
               <p className="text-sm text-gray-600">Verifying session credentials...</p>
             </div>
           ) : !user ? (
-            /* Sign-in Prompt - TCS iON Style */
+            /* Sign-in Prompt */
             <div className="bg-white border border-gray-200 rounded-lg p-8 md:p-12 shadow-sm text-center">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold rounded-full mb-4">
                 <Rocket className="h-3.5 w-3.5" /> Direct Recruitment
@@ -1050,7 +966,7 @@ export default function OCApplicationPage() {
               <p className="text-xs text-gray-400 mt-4">We only require basic Google profile verification.</p>
             </div>
           ) : application ? (
-            /* Dashboard - TCS iON Style */
+            /* Dashboard - Show application status */
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
               <div className="p-6 border-b border-gray-200">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1069,7 +985,7 @@ export default function OCApplicationPage() {
                 </div>
               </div>
 
-              {/* Pipeline Timeline - TCS iON Style */}
+              {/* Pipeline Timeline */}
               <div className="px-6 pt-6 pb-4 border-b border-gray-200">
                 <div className="flex items-center justify-between text-xs font-medium text-gray-500 relative">
                   <div className="absolute top-3 left-6 right-6 h-0.5 bg-gray-200">
@@ -1119,9 +1035,8 @@ export default function OCApplicationPage() {
                 </div>
               </div>
 
-              {/* Status Content - TCS iON Style */}
+              {/* Status Content */}
               <div className="p-6">
-                {/* PENDING */}
                 {application.status === 'pending' && (
                   <div className="flex items-start gap-4">
                     <div className="h-10 w-10 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
@@ -1142,7 +1057,6 @@ export default function OCApplicationPage() {
                   </div>
                 )}
 
-                {/* INTERVIEW */}
                 {application.status === 'interview' && (
                   <div className="flex items-start gap-4">
                     <div className="h-10 w-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0">
@@ -1206,7 +1120,6 @@ export default function OCApplicationPage() {
                   </div>
                 )}
 
-                {/* ONBOARDING */}
                 {(application.status === 'onboarding' || application.status === 'approved') && (
                   <div>
                     <div className="flex items-start gap-4 mb-6">
@@ -1232,7 +1145,6 @@ export default function OCApplicationPage() {
                       )}
 
                       <div className="grid md:grid-cols-3 gap-4">
-                        {/* College ID */}
                         <div className="border border-gray-200 rounded-md p-4">
                           <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Document 1</span>
                           <h4 className="text-sm font-semibold text-gray-800 mt-1">Student ID</h4>
@@ -1271,7 +1183,6 @@ export default function OCApplicationPage() {
                           </div>
                         </div>
 
-                        {/* Aadhar */}
                         <div className="border border-gray-200 rounded-md p-4">
                           <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Document 2</span>
                           <h4 className="text-sm font-semibold text-gray-800 mt-1">Aadhar / Gov ID</h4>
@@ -1310,7 +1221,6 @@ export default function OCApplicationPage() {
                           </div>
                         </div>
 
-                        {/* Photo */}
                         <div className="border border-gray-200 rounded-md p-4">
                           <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Document 3</span>
                           <h4 className="text-sm font-semibold text-gray-800 mt-1">Profile Photo</h4>
@@ -1371,7 +1281,6 @@ export default function OCApplicationPage() {
                   </div>
                 )}
 
-                {/* CONTRACT */}
                 {application.status === 'contract' && (
                   <div>
                     <div className="flex items-start gap-4 mb-6">
@@ -1389,12 +1298,10 @@ export default function OCApplicationPage() {
                       </div>
                     </div>
 
-                    {/* NDA Text */}
                     <div className="bg-gray-900 border border-gray-800 rounded-md p-4 text-gray-300 text-xs font-mono leading-relaxed h-48 overflow-y-auto mb-4">
                       <h4 className="text-white font-bold text-xs border-b border-gray-800 pb-2 mb-2">KIMUN 2026 ORGANIZING COMMITTEE CONTRACT & NON-DISCLOSURE AGREEMENT</h4>
                       <p className="mb-2"><strong className="text-blue-400">1. DEFINITIONS.</strong> For the purposes of this Agreement: (a) "Confidential Information" means any and all non-public information disclosed by KIMUN to the Member... (b) "Organising Committee" refers to all individuals appointed... (c) "Third Party" means any individual or entity other than KIMUN and the Member.</p>
                       <p className="mb-2"><strong className="text-blue-400">2. OBLIGATIONS OF CONFIDENTIALITY.</strong> The Member hereby agrees and undertakes to: (a) Hold all Confidential Information in strict confidence... (b) Use the Confidential Information solely and exclusively... (c) Take all reasonable precautions... (d) Not copy, reproduce, reverse-engineer... (e) Immediately notify KIMUN upon becoming aware of any actual or suspected unauthorised disclosure...</p>
-                      <p className="mb-2"><strong className="text-blue-400">3. SCOPE OF CONFIDENTIAL INFORMATION.</strong> Without limitation, Confidential Information shall include: internal communications, meeting minutes, emails, and deliberations of the Organising Committee; personal and contact information of delegates, participants, guests, speakers, and sponsors (PII); financial arrangements, budget allocations, sponsor deals, and pricing information; unpublished creative content, graphics, themes, and conceptual materials; operational plans, schedules, crisis protocols, and security arrangements; committee positions, study guides, and background guides prior to official release...</p>
                       <p className="text-gray-400 italic mt-2 pt-2 border-t border-gray-800">By signing below, the Member acknowledges that they have read, understood, and agree to be legally bound by all the terms and conditions set forth in this Non-Disclosure Agreement.</p>
                     </div>
 
@@ -1470,7 +1377,6 @@ export default function OCApplicationPage() {
                   </div>
                 )}
 
-                {/* WELCOMED */}
                 {application.status === 'welcomed' && (
                   <div className="text-center py-6 space-y-6">
                     <div className="h-16 w-16 bg-blue-50 border-4 border-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto">
@@ -1521,7 +1427,6 @@ export default function OCApplicationPage() {
                   </div>
                 )}
 
-                {/* REJECTED */}
                 {application.status === 'rejected' && (
                   <div className="flex items-start gap-4">
                     <div className="h-10 w-10 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
@@ -1541,7 +1446,7 @@ export default function OCApplicationPage() {
               </div>
             </div>
           ) : (
-            /* Application Form - TCS iON Style with 2-step process */
+            /* Application Form with Integrated Information */
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -1599,8 +1504,7 @@ export default function OCApplicationPage() {
                         <div className="grid md:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-xs font-semibold text-gray-700 mb-1.5">Full Name *</label>
-                            <input
-                              type="text"
+                            <input                              type="text"
                               name="name"
                               value={formData.name}
                               onChange={handleInputChange}
@@ -1675,6 +1579,27 @@ export default function OCApplicationPage() {
                             <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {formErrors.course}</p>
                           )}
                         </div>
+
+                        {/* Benefits Info Box - Integrated in Step 1 */}
+                        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                          <h4 className="text-sm font-bold text-blue-900 mb-3 flex items-center gap-2">
+                            <Star className="h-4 w-4 text-blue-600" />
+                            Professional Growth - Strategic Career Advantages
+                          </h4>
+                          <div className="space-y-3">
+                            {BENEFITS.map((benefit, idx) => (
+                              <div key={idx} className="flex items-start gap-3">
+                                <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                                  <benefit.icon className="h-3.5 w-3.5 text-blue-600" />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold text-blue-900">{benefit.title}</p>
+                                  <p className="text-xs text-blue-700">{benefit.desc}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </motion.div>
                     )}
 
@@ -1689,11 +1614,14 @@ export default function OCApplicationPage() {
                       >
                         <div className="grid md:grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">First Choice *</label>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">First Choice Department *</label>
                             <select
                               name="pref1"
                               value={formData.pref1}
-                              onChange={handleInputChange}
+                              onChange={(e) => {
+                                handleInputChange(e)
+                                handleDepartmentSelect('pref1', e.target.value)
+                              }}
                               className={`w-full px-3 py-2 bg-gray-50 border rounded-md text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${formErrors.pref1 ? 'border-red-300' : 'border-gray-300'}`}
                             >
                               <option value="">Select Department</option>
@@ -1707,11 +1635,14 @@ export default function OCApplicationPage() {
                           </div>
 
                           <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Second Choice *</label>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Second Choice Department *</label>
                             <select
                               name="pref2"
                               value={formData.pref2}
-                              onChange={handleInputChange}
+                              onChange={(e) => {
+                                handleInputChange(e)
+                                handleDepartmentSelect('pref2', e.target.value)
+                              }}
                               className={`w-full px-3 py-2 bg-gray-50 border rounded-md text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${formErrors.pref2 ? 'border-red-300' : 'border-gray-300'}`}
                             >
                               <option value="">Select Department</option>
@@ -1724,6 +1655,32 @@ export default function OCApplicationPage() {
                             )}
                           </div>
                         </div>
+
+                        {/* Department Details - Shows when a department is selected */}
+                        {selectedDeptInfo && DEPARTMENT_DETAILS[selectedDeptInfo as keyof typeof DEPARTMENT_DETAILS] && (
+                          <div className="p-4 border rounded-md bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+                            <div className="flex items-start gap-3">
+                              <div className="h-10 w-10 rounded-lg bg-white border border-blue-200 flex items-center justify-center shrink-0">
+                                {(() => {
+                                  const DeptIcon = DEPARTMENT_DETAILS[selectedDeptInfo as keyof typeof DEPARTMENT_DETAILS].icon
+                                  return <DeptIcon className="h-5 w-5 text-blue-600" />
+                                })()}
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="text-sm font-bold text-gray-900">{selectedDeptInfo}</h4>
+                                <p className="text-xs text-gray-600">{DEPARTMENT_DETAILS[selectedDeptInfo as keyof typeof DEPARTMENT_DETAILS].subtitle}</p>
+                                <div className="mt-2 grid grid-cols-2 gap-1">
+                                  {DEPARTMENT_DETAILS[selectedDeptInfo as keyof typeof DEPARTMENT_DETAILS].points.map((point, idx) => (
+                                    <div key={idx} className="flex items-start gap-1.5 text-xs text-gray-700">
+                                      <span className="text-blue-500 font-bold">•</span>
+                                      <span>{point}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         <div>
                           <label className="block text-xs font-semibold text-gray-700 mb-1.5">
