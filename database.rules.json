@@ -93,6 +93,13 @@
     "blacklisted": {
       ".read": "true",
       ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')"
+    },
+    "prize_tracking": {
+      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')",
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'organizer@kimun.com')",
+      "$tracking_id": {
+        ".read": "true"
+      }
     }
   }
 }

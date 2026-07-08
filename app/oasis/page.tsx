@@ -288,6 +288,7 @@ export default function OasisWorkplace() {
   const [dbAssets, setDbAssets] = useState<any[]>([])
   const [dbAnnouncements, setDbAnnouncements] = useState<any[]>([])
   const [dbPayouts, setDbPayouts] = useState<any[]>([])
+  const [dbPrizeTracking, setDbPrizeTracking] = useState<any[]>([])
   const [dbCoupons, setDbCoupons] = useState<any[]>([])
   const [dbSchedule, setDbSchedule] = useState<any[]>([])
   const [dbActivityLogs, setDbActivityLogs] = useState<any[]>([])
@@ -485,6 +486,10 @@ export default function OasisWorkplace() {
 
   // Coupon states
   const [newCoupon, setNewCoupon] = useState({ code: '', title: '', description: '', discount: '', expiry: '', partner: '', terms: '' })
+
+  // Prize tracking states
+  const [showPrizeTrackingModal, setShowPrizeTrackingModal] = useState(false)
+  const [newPrizeTracking, setNewPrizeTracking] = useState({ beneficiary: '', award: '', amount: 0, status: 'Processing', transactionRef: '' })
 
   // Applicant details modal and legacy profile states
   const [selectedApplicant, setSelectedApplicant] = useState<any | null>(null)
@@ -781,6 +786,16 @@ export default function OasisWorkplace() {
       }
     })
 
+    const prizeTrackingRef = ref(firebaseDb, 'prize_tracking')
+    const unsubPrizeTracking = onValue(prizeTrackingRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        setDbPrizeTracking(Object.keys(data).map(k => ({ id: k, ...data[k] })))
+      } else {
+        setDbPrizeTracking([])
+      }
+    })
+
     const couponsRef = ref(firebaseDb, 'coupons')
     const unsubCoupons = onValue(couponsRef, (snap) => {
       if (snap.exists()) {
@@ -841,6 +856,7 @@ export default function OasisWorkplace() {
       unsubAssets()
       unsubAnn()
       unsubPayouts()
+      unsubPrizeTracking()
       unsubCoupons()
       unsubSchedule()
       unsubLogs()
@@ -1609,6 +1625,23 @@ export default function OasisWorkplace() {
     }
   }
 
+  const handleCreatePrizeTracking = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newPrizeTracking.beneficiary || !newPrizeTracking.amount) return
+    const trackingId = `KIMUN-PRZ-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+    try {
+      await set(ref(firebaseDb, `prize_tracking/${trackingId}`), {
+        ...newPrizeTracking,
+        createdAt: new Date().toISOString(),
+      })
+      await logActivity('CREATE_PRIZE_TRACKING', `Created tracking code ${trackingId} for ${newPrizeTracking.beneficiary}`)
+      triggerNotification(`Generated Tracking Code: ${trackingId}`)
+      setShowPrizeTrackingModal(false)
+      setNewPrizeTracking({ beneficiary: '', award: '', amount: 0, status: 'Processing', transactionRef: '' })
+    } catch (err: any) {
+      triggerNotification('Failed to generate tracking code: ' + err.message, 'error')
+    }
+  }
 
   const handleGenerateIDCard = async (delegate: any) => {
     try {
@@ -4704,6 +4737,61 @@ export default function OasisWorkplace() {
                   </div>
                 </div>
 
+                {/* Prize Tracking Section */}
+                <div className="mt-12">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-900 tracking-tight">Cash Prize Tracking</h2>
+                      <p className="text-xs text-slate-500 mt-1">Generate tracking codes for delegates to check their prize status</p>
+                    </div>
+                    <button
+                      onClick={() => setShowPrizeTrackingModal(true)}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Generate Tracking Code
+                    </button>
+                  </div>
+
+                  <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                      <Table className="w-full text-left border-collapse text-sm">
+                        <TableHeader>
+                          <TableRow className="bg-slate-50/30 border-b border-slate-200/60 text-slate-500 uppercase text-[9px] tracking-wider">
+                            <TableHead className="py-3 px-4">Tracking ID</TableHead>
+                            <TableHead className="py-3 px-4">Beneficiary</TableHead>
+                            <TableHead className="py-3 px-4">Award</TableHead>
+                            <TableHead className="py-3 px-4 text-right">Amount</TableHead>
+                            <TableHead className="py-3 px-4 text-center">Status</TableHead>
+                            <TableHead className="py-3 px-4 text-center">Generated Date</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-slate-100">
+                          {dbPrizeTracking.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center py-12 text-slate-400">No tracking codes generated yet</TableCell>
+                            </TableRow>
+                          ) : (
+                            dbPrizeTracking.map(t => (
+                              <TableRow key={t.id} className="hover:bg-slate-50/50 transition-all">
+                                <TableCell className="py-3 px-4 font-mono font-bold text-indigo-600">{t.id}</TableCell>
+                                <TableCell className="py-3 px-4 font-semibold text-slate-800">{t.beneficiary}</TableCell>
+                                <TableCell className="py-3 px-4 text-slate-600">{t.award}</TableCell>
+                                <TableCell className="py-3 px-4 text-right font-bold text-emerald-600">{formatINR(t.amount)}</TableCell>
+                                <TableCell className="py-3 px-4 text-center">
+                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${t.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : t.status === 'Failed' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                                    {t.status}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="py-3 px-4 text-center text-slate-500 text-xs">{new Date(t.createdAt).toLocaleDateString()}</TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Payout Modal */}
                 {showPayoutModal && (
                   <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -4809,6 +4897,88 @@ export default function OasisWorkplace() {
                   </div>
                 )}
               </motion.div>
+            )}
+
+            {/* Prize Tracking Modal */}
+            {showPrizeTrackingModal && (
+              <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl"
+                >
+                  <div className="flex justify-between items-center pb-4 border-b">
+                    <span className="text-sm font-bold text-slate-800">Generate Prize Tracking Code</span>
+                    <button onClick={() => setShowPrizeTrackingModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+                  </div>
+                  <form onSubmit={handleCreatePrizeTracking} className="space-y-4 mt-4">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Beneficiary Name</label>
+                      <input
+                        type="text"
+                        value={newPrizeTracking.beneficiary}
+                        onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, beneficiary: e.target.value }))}
+                        className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                        required
+                        placeholder="John Doe"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Award / Description</label>
+                      <input
+                        type="text"
+                        value={newPrizeTracking.award}
+                        onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, award: e.target.value }))}
+                        className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                        required
+                        placeholder="Best Delegate - UNGA"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Amount (INR)</label>
+                        <input
+                          type="number"
+                          value={newPrizeTracking.amount || ''}
+                          onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                          className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                          required
+                          placeholder="5000"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Status</label>
+                        <select
+                          value={newPrizeTracking.status}
+                          onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, status: e.target.value }))}
+                          className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                        >
+                          <option value="Processing">Processing</option>
+                          <option value="Completed">Completed</option>
+                          <option value="Failed">Failed</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Transaction Ref / Remarks (Optional)</label>
+                      <input
+                        type="text"
+                        value={newPrizeTracking.transactionRef}
+                        onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, transactionRef: e.target.value }))}
+                        className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                        placeholder="Txn ID or notes"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition-all"
+                    >
+                      Generate Tracking Code
+                    </button>
+                  </form>
+                </motion.div>
+              </div>
             )}
 
             {/* 10. COUPONS (Admin only) */}
