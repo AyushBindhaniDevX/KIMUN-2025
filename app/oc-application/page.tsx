@@ -79,8 +79,6 @@ export default function OCApplicationPage() {
     pref1: '',
     pref2: '',
     experience: '',
-    statement: '',
-    resume: ''
   })
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
@@ -725,8 +723,6 @@ export default function OCApplicationPage() {
         pref1: '',
         pref2: '',
         experience: '',
-        statement: '',
-        resume: ''
       })
       setFormErrors({})
       setSubmitSuccess(false)
@@ -775,19 +771,6 @@ export default function OCApplicationPage() {
       }
     }
 
-    if (currentStep === 3) {
-      if (!formData.statement.trim()) {
-        errors.statement = "Statement of purpose is required"
-      } else if (formData.statement.trim().length < 50) {
-        errors.statement = "SOP must be at least 50 characters long"
-      }
-      if (!formData.resume.trim()) {
-        errors.resume = "Resume link is required"
-      } else if (!/^https?:\/\/[^\s$.?#].[^\s]*$/i.test(formData.resume.trim())) {
-        errors.resume = "Enter a valid URL (starting with http:// or https://)"
-      }
-    }
-
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -806,7 +789,7 @@ export default function OCApplicationPage() {
     e.preventDefault()
     if (!user) return
 
-    if (!validateStep(3)) return
+    if (!validateStep(2)) return
 
     setSubmitting(true)
     setSubmitError('')
@@ -822,8 +805,6 @@ export default function OCApplicationPage() {
       pref1: formData.pref1,
       pref2: formData.pref2,
       experience: formData.experience,
-      statement: formData.statement,
-      resume: formData.resume,
       status: 'pending',
       submittedAt: new Date().toISOString()
     }
@@ -1680,7 +1661,7 @@ export default function OCApplicationPage() {
                   <div className="absolute top-4 left-6 right-6 h-0.5 bg-slate-100 -z-10">
                     <div
                       className="h-full bg-indigo-600 transition-all duration-300"
-                      style={{ width: `${((step - 1) / 2) * 100}%` }}
+                      style={{ width: `${((step - 1) / 1) * 100}%` }}
                     ></div>
                   </div>
 
@@ -1699,26 +1680,13 @@ export default function OCApplicationPage() {
 
                   {/* Step 2 */}
                   <div className="flex flex-col items-center gap-2">
-                    <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold border-2 transition-all duration-300 ${step > 2
-                        ? 'bg-indigo-600 border-indigo-600 text-white'
-                        : step === 2
-                          ? 'bg-white border-indigo-600 text-indigo-600 ring-4 ring-indigo-50'
-                          : 'bg-white border-slate-200 text-slate-400'
-                      }`}>
-                      {step > 2 ? <Check className="h-4 w-4" /> : "2"}
-                    </div>
-                    <span className={step === 2 ? 'text-indigo-600 font-bold' : ''}>Department Choices</span>
-                  </div>
-
-                  {/* Step 3 */}
-                  <div className="flex flex-col items-center gap-2">
-                    <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold border-2 transition-all duration-300 ${step === 3
+                    <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold border-2 transition-all duration-300 ${step === 2
                         ? 'bg-white border-indigo-600 text-indigo-600 ring-4 ring-indigo-50'
                         : 'bg-white border-slate-200 text-slate-400'
                       }`}>
-                      3
+                      2
                     </div>
-                    <span className={step === 3 ? 'text-indigo-600 font-bold' : ''}>SOP & Resume</span>
+                    <span className={step === 2 ? 'text-indigo-600 font-bold' : ''}>Department Choices</span>
                   </div>
                 </div>
               </div>
@@ -1883,62 +1851,6 @@ export default function OCApplicationPage() {
                           className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors resize-none"
                         />
                       </div>
-                    </motion.div>
-                  )}
-
-                  {step === 3 && (
-                    <motion.div
-                      key="step3"
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      transition={{ duration: 0.2 }}
-                      className="space-y-4"
-                    >
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                          Statement of Purpose <span className="text-slate-400 font-bold lowercase text-[10px]">(Min 50 characters)</span>
-                        </label>
-                        <textarea
-                          name="statement"
-                          rows={5}
-                          value={formData.statement}
-                          onChange={handleInputChange}
-                          placeholder="Why do you wish to join the KIMUN 2026 Organizing Committee? Highlight what value you can offer to your chosen departments."
-                          className={`w-full px-4 py-2.5 bg-slate-50 border rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors resize-none ${formErrors.statement ? 'border-red-300 bg-red-50/10' : 'border-slate-200'
-                            }`}
-                        />
-                        <div className="flex items-center justify-between mt-1 text-[10px]">
-                          {formErrors.statement ? (
-                            <p className="text-red-500 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {formErrors.statement}</p>
-                          ) : (
-                            <span className="text-slate-400">Be descriptive and authentic</span>
-                          )}
-                          <span className={formData.statement.trim().length >= 50 ? "text-indigo-600 font-bold" : "text-slate-400"}>
-                            {formData.statement.trim().length} chars
-                          </span>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Resume Link</label>
-                        <input
-                          type="url"
-                          name="resume"
-                          value={formData.resume}
-                          onChange={handleInputChange}
-                          placeholder="Google Drive, Dropbox, or OneDrive shareable link"
-                          className={`w-full px-4 py-2.5 bg-slate-50 border rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors ${formErrors.resume ? 'border-red-300 bg-red-50/10' : 'border-slate-200'
-                            }`}
-                        />
-                        <div className="flex items-center justify-between mt-1.5 text-[10px]">
-                          {formErrors.resume ? (
-                            <p className="text-red-500 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {formErrors.resume}</p>
-                          ) : (
-                            <span className="text-slate-400">Ensure link permissions are set to &quot;Anyone with the link can view&quot;</span>
-                          )}
-                        </div>
-                      </div>
 
                       {submitError && (
                         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs flex items-start gap-2">
@@ -1962,10 +1874,10 @@ export default function OCApplicationPage() {
                       Back
                     </Button>
                   ) : (
-                    <div></div> // Empty spacer to push &quot;Next&quot; to right
+                    <div></div> // Empty spacer to push "Next" to right
                   )}
 
-                  {step < 3 ? (
+                  {step < 2 ? (
                     <Button
                       type="button"
                       onClick={nextStep}
