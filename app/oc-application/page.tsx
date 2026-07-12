@@ -157,6 +157,7 @@ export default function OCApplicationPage() {
   const [authLoading, setAuthLoading] = useState(true)
   const [checkingApp, setCheckingApp] = useState(false)
   const [application, setApplication] = useState<any | null>(null)
+  const [appSettings, setAppSettings] = useState<{ status: 'Open' | 'Paused' | 'Closed' }>({ status: 'Open' })
 
   // Form states
   const [step, setStep] = useState(1)
@@ -737,6 +738,17 @@ export default function OCApplicationPage() {
   }, [])
 
   useEffect(() => {
+    const settingsRef = ref(firebaseDb, 'site_settings')
+    const unsubscribe = onValue(settingsRef, (snap) => {
+      if (snap.exists()) {
+        const val = snap.val()
+        setAppSettings({ status: val.ocApplicationStatus || 'Open' })
+      }
+    })
+    return () => unsubscribe()
+  }, [])
+
+  useEffect(() => {
     if (!user) {
       setApplication(null)
       setCheckingApp(false)
@@ -945,6 +957,18 @@ export default function OCApplicationPage() {
               <Loader2 className="h-8 w-8 text-blue-600 animate-spin mx-auto mb-4" />
               <p className="text-sm text-gray-600">Verifying session credentials...</p>
             </div>
+          ) : (!application && appSettings.status === 'Closed') ? (
+             <div className="bg-white border border-gray-200 rounded-lg p-16 text-center shadow-sm">
+                <AlertCircle className="h-12 w-12 text-rose-500 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Applications Closed</h2>
+                <p className="text-sm text-gray-600">The OC application window has officially closed. Thank you for your interest.</p>
+             </div>
+          ) : (!application && appSettings.status === 'Paused') ? (
+             <div className="bg-white border border-gray-200 rounded-lg p-16 text-center shadow-sm">
+                <Clock className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Applications Paused</h2>
+                <p className="text-sm text-gray-600">We are currently processing a high volume of applications. Please check back later.</p>
+             </div>
           ) : !user ? (
             /* Sign-in Prompt */
             <div className="bg-white border border-gray-200 rounded-lg p-8 md:p-12 shadow-sm text-center">

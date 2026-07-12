@@ -523,10 +523,32 @@ export default function OasisWorkplace() {
     }
 
     try {
+      // Check if Oasis is locked for OC members
+      const settingsRef = ref(firebaseDb, 'site_settings')
+      const settingsSnap = await get(settingsRef)
+      if (settingsSnap.exists() && settingsSnap.val().oasisLockedForOC) {
+        setLoginError('Oasis Workplace is currently locked down for security reasons. Access for OC members is temporarily suspended.')
+        setUser(null)
+        setRole(null)
+        setAccessGranted(false)
+        await signOut(firebaseAuth)
+        setAuthLoading(false)
+        return
+      }
+
       const appRef = ref(firebaseDb, `oc_applications/${currentUser.uid}`)
       const snapshot = await get(appRef)
       if (snapshot.exists()) {
         const appVal = snapshot.val()
+        if (appVal.status === 'suspended') {
+          setLoginError('Your Oasis Workplace access has been suspended. Please contact Admin.')
+          setUser(null)
+          setRole(null)
+          setAccessGranted(false)
+          await signOut(firebaseAuth)
+          setAuthLoading(false)
+          return
+        }
         if (appVal.status === 'welcomed') {
           setUser(currentUser)
           setRole('oc_member')
@@ -864,6 +886,27 @@ export default function OasisWorkplace() {
       unsubBlacklist()
     }
   }, [accessGranted, user])
+
+  // Reactive kickout for OC members if Oasis is locked
+  useEffect(() => {
+    if (role === 'oc_member' && dbSiteSettings?.oasisLockedForOC) {
+      handleSignOut().then(() => {
+        setLoginError('Oasis Workplace was locked down by administrators for safety/security reasons. Please contact Admin.')
+      })
+    }
+  }, [dbSiteSettings?.oasisLockedForOC, role])
+
+  // Reactive kickout if individual OC member is suspended
+  useEffect(() => {
+    if (role === 'oc_member' && user && dbApplications.length > 0) {
+      const myApp = dbApplications.find(a => a.uid === user.uid)
+      if (myApp && myApp.status === 'suspended') {
+        handleSignOut().then(() => {
+          setLoginError('Your Oasis Workplace access has been suspended. Please contact Admin.')
+        })
+      }
+    }
+  }, [dbApplications, role, user])
 
   // Google Sign-In trigger
   const handleGoogleSignIn = async () => {
@@ -3894,9 +3937,10 @@ export default function OasisWorkplace() {
                               <TableCell className="py-3 px-4 text-center">
                                 <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${app.status === 'welcomed' ? 'bg-emerald-100 text-emerald-700' :
                                   app.status === 'rejected' ? 'bg-rose-100 text-rose-700' :
-                                    app.status === 'interview' ? 'bg-sky-100 text-sky-700' :
-                                      app.status === 'onboarding' ? 'bg-violet-100 text-violet-700' :
-                                        'bg-amber-100 text-amber-700'
+                                    app.status === 'suspended' ? 'bg-red-600 text-white' :
+                                      app.status === 'interview' ? 'bg-sky-100 text-sky-700' :
+                                        app.status === 'onboarding' ? 'bg-violet-100 text-violet-700' :
+                                          'bg-amber-100 text-amber-700'
                                   }`}>
                                   {app.status}
                                 </span>
@@ -3919,6 +3963,7 @@ export default function OasisWorkplace() {
                                   <option value="interview">Interview</option>
                                   <option value="onboarding">Onboarding</option>
                                   <option value="welcomed">Welcome</option>
+                                  <option value="suspended">Suspended (Lock)</option>
                                   <option value="rejected">Reject</option>
                                 </select>
                               </TableCell>
@@ -6379,6 +6424,20 @@ export default function OasisWorkplace() {
                         </label>
                       </div>
 
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-semibold text-rose-600">Lock Oasis for OC</h4>
+                          <p className="text-xs text-slate-500">Suspends OC access immediately for safety or breach.</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" checked={dbSiteSettings?.oasisLockedForOC || false} onChange={(e) => {
+                            update(ref(firebaseDb, 'site_settings'), { oasisLockedForOC: e.target.checked })
+                            triggerNotification(e.target.checked ? 'Oasis locked for OC' : 'Oasis unlocked for OC', e.target.checked ? 'error' : 'success')
+                          }} />
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+                        </label>
+                      </div>
+
                       <div>
                         <h4 className="text-sm font-semibold text-slate-800 mb-2">Registration Mode</h4>
                         <select
@@ -6397,6 +6456,41 @@ export default function OasisWorkplace() {
                         </select>
                         <p className="text-xs text-slate-500 mt-2">Override the automatic date-based phase logic.</p>
                       </div>
+
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-800 mb-2">OC Application Mode</h4>
+                        <select
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          value={dbSiteSettings?.ocApplicationStatus || 'Open'}
+                          onChange={(e) => {
+                            update(ref(firebaseDb, 'site_settings'), { ocApplicationStatus: e.target.value })
+                            triggerNotification('OC application mode updated')
+                          }}
+                        >
+                          <option value="Open">Open</option>
+                          <option value="Paused">Paused</option>
+                          <option value="Closed">Closed</option>
+                        </select>
+                        <p className="text-xs text-slate-500 mt-2">Controls if the OC recruitment portal accepts new applications.</p>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-800 mb-2">EB Application Mode</h4>
+                        <select
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          value={dbSiteSettings?.ebApplicationStatus || 'Open'}
+                          onChange={(e) => {
+                            update(ref(firebaseDb, 'site_settings'), { ebApplicationStatus: e.target.value })
+                            triggerNotification('EB application mode updated')
+                          }}
+                        >
+                          <option value="Open">Open</option>
+                          <option value="Paused">Paused</option>
+                          <option value="Closed">Closed</option>
+                        </select>
+                        <p className="text-xs text-slate-500 mt-2">Controls if the EB recruitment portal accepts new applications.</p>
+                      </div>
+
                     </div>
                   </div>
 
