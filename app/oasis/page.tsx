@@ -4127,7 +4127,7 @@ export default function OasisWorkplace() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {DEPARTMENTS.slice(1).map((d) => {
+                      {DEPARTMENTS.slice(1).filter(d => role === 'admin' || (myApp && (d.name === myApp.department || d.name === myApp.pref1))).map((d) => {
                         const deptTasks = dbTasks.filter(t => t.department === d.name)
                         const completedTasks = deptTasks.filter(t => t.status === 'completed').length
                         const completionRate = deptTasks.length > 0 ? Math.round((completedTasks / deptTasks.length) * 100) : 0
