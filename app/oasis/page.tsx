@@ -3055,21 +3055,97 @@ export default function OasisWorkplace() {
                   </div>
                 </div>
 
-                {/* ── KPI CARDS — TailAdmin Style ── */}
+                {/* ── PROFILE + POINTS CARD (OC Member only) ── */}
+                {role === 'oc_member' && myApp && (
+                  <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+                    className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/60 via-white to-violet-50/40 pointer-events-none" />
+                    <div className="relative z-10 p-5 flex flex-col sm:flex-row items-start sm:items-center gap-5">
+                      <div className="relative shrink-0">
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-indigo-200">
+                          {(myApp.name || user.displayName || '?')[0].toUpperCase()}
+                        </div>
+                        <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-400 border-2 border-white flex items-center justify-center">
+                          <Check className="w-2.5 h-2.5 text-white" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <h3 className="text-base font-black text-slate-900 truncate">{myApp.name || user.displayName}</h3>
+                          <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full uppercase tracking-wider">OC Member</span>
+                          {myApp.pref1 && <span className="text-[10px] font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full truncate max-w-[140px]">{myApp.pref1}</span>}
+                        </div>
+                        <p className="text-xs text-slate-500">{user.email}</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{myApp.college || 'KIMUN 2026 OC'} · Joined {myApp.submittedAt ? new Date(myApp.submittedAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : 'This season'}</p>
+                      </div>
+                      <div className="shrink-0 flex flex-col items-center bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl px-6 py-4 text-center shadow-sm min-w-[140px]">
+                        <Award className="w-6 h-6 text-amber-500 mb-1" />
+                        <span className="text-3xl font-black text-amber-600">{myApp.earnedPoints || 0}</span>
+                        <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider mt-0.5">Points Earned</span>
+                        <div className="w-full mt-3">
+                          <div className="flex justify-between text-[9px] font-bold text-amber-400 mb-1">
+                            <span>0</span><span>500</span>
+                          </div>
+                          <div className="w-full bg-amber-100 h-1.5 rounded-full overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${Math.min(100, ((myApp.earnedPoints || 0) / 500) * 100)}%` }}
+                              transition={{ delay: 0.3, duration: 0.8 }}
+                              className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500"
+                            />
+                          </div>
+                        </div>
+                        {(myApp.earnedPoints || 0) >= 500 && (
+                          <button onClick={() => triggerNotification('Contact the Secretariat to redeem your points payout.')}
+                            className="mt-3 w-full text-[10px] font-black bg-amber-400 hover:bg-amber-500 text-amber-900 px-3 py-1.5 rounded-lg uppercase tracking-widest transition-all">
+                            Redeem Now
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {(() => {
+                      const myTasks = dbTasks.filter(t => t.assignee && (t.assignee === 'ALL' || t.assignee.split(',').map((n:string)=>n.trim()).includes(myApp.name)))
+                      const done = myTasks.filter(t => t.status === 'completed').length
+                      const inProg = myTasks.filter(t => t.status === 'in_progress').length
+                      const pending = myTasks.filter(t => t.status === 'todo').length
+                      if (myTasks.length === 0) return null
+                      return (
+                        <div className="relative z-10 px-5 pb-5 pt-0">
+                          <div className="border-t border-slate-100 pt-4 grid grid-cols-4 gap-3">
+                            {[
+                              { label: 'My Tasks', value: myTasks.length, color: 'text-slate-700', bg: 'bg-slate-50' },
+                              { label: 'Done', value: done, color: 'text-emerald-700', bg: 'bg-emerald-50' },
+                              { label: 'Active', value: inProg, color: 'text-indigo-700', bg: 'bg-indigo-50' },
+                              { label: 'Todo', value: pending, color: 'text-amber-700', bg: 'bg-amber-50' },
+                            ].map(s => (
+                              <div key={s.label} className={`${s.bg} rounded-xl p-3 text-center`}>
+                                <p className={`text-xl font-black ${s.color}`}>{s.value}</p>
+                                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">{s.label}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </motion.div>
+                )}
+
+                {/* ── KPI CARDS ── */
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
-                    { title: 'Delegates', value: dbDelegates.length, sub: `${dbDelegates.filter(d => d.isCheckedIn).length} checked in`, icon: UserCheck, grad: 'from-emerald-500 to-teal-600', bg: 'bg-emerald-50', tc: 'text-emerald-600' },
-                    { title: 'OC Applicants', value: dbApplications.length, sub: `${dbApplications.filter((a: any) => a.status === 'accepted').length} accepted`, icon: Users, grad: 'from-indigo-500 to-violet-600', bg: 'bg-indigo-50', tc: 'text-indigo-600' },
-                    { title: 'Tasks Done', value: `${dbTasks.filter(t => t.status === 'completed').length}/${dbTasks.length}`, sub: `${dbTasks.length > 0 ? Math.round(dbTasks.filter(t => t.status === 'completed').length / dbTasks.length * 100) : 0}% completion`, icon: ClipboardList, grad: 'from-amber-500 to-orange-600', bg: 'bg-amber-50', tc: 'text-amber-600' },
-                    { title: 'Assets Value', value: formatINR(dbAssets.reduce((s, a) => s + a.quantity * a.cost, 0)), sub: `${dbAssets.length} items`, icon: Package, grad: 'from-rose-500 to-pink-600', bg: 'bg-rose-50', tc: 'text-rose-600' },
+                    { title: 'Total Delegates', value: dbDelegates.length, sub: `${dbDelegates.filter(d => d.isCheckedIn).length} checked in · ${dbDelegates.length > 0 ? Math.round(dbDelegates.filter(d=>d.isCheckedIn).length/dbDelegates.length*100) : 0}% rate`, icon: UserCheck, grad: 'from-emerald-500 to-teal-600', bg: 'bg-emerald-50', tc: 'text-emerald-600' },
+                    { title: 'OC Strength', value: dbApplications.filter((a:any)=>a.status==='welcomed').length, sub: `${dbApplications.length} total · ${dbApplications.filter((a:any)=>a.status==='accepted').length} accepted`, icon: Users, grad: 'from-indigo-500 to-violet-600', bg: 'bg-indigo-50', tc: 'text-indigo-600' },
+                    { title: 'Task Completion', value: `${dbTasks.length > 0 ? Math.round(dbTasks.filter(t => t.status === 'completed').length / dbTasks.length * 100) : 0}%`, sub: `${dbTasks.filter(t => t.status === 'completed').length} done · ${dbTasks.filter(t=>t.status==='in_progress').length} active`, icon: ClipboardList, grad: 'from-amber-500 to-orange-600', bg: 'bg-amber-50', tc: 'text-amber-600' },
+                    { title: 'Asset Portfolio', value: formatINR(dbAssets.reduce((s, a) => s + a.quantity * a.cost, 0)), sub: `${dbAssets.length} items tracked`, icon: Package, grad: 'from-rose-500 to-pink-600', bg: 'bg-rose-50', tc: 'text-rose-600' },
                   ].map((kpi, i) => (
                     <motion.div key={kpi.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
-                      className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 hover:shadow-md transition-shadow group">
-                      <div className="flex items-start justify-between gap-3">
+                      className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 hover:shadow-md transition-all duration-200 group relative overflow-hidden">
+                      <div className={`absolute top-0 right-0 w-20 h-20 rounded-full bg-gradient-to-br ${kpi.grad} opacity-[0.04] -translate-y-1/3 translate-x-1/3 pointer-events-none`} />
+                      <div className="flex items-start justify-between gap-3 relative z-10">
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{kpi.title}</p>
-                          <p className="text-xl font-bold text-slate-800 mt-1 truncate">{kpi.value}</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5 truncate">{kpi.sub}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{kpi.title}</p>
+                          <p className="text-2xl font-black text-slate-800 mt-1 truncate">{kpi.value}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">{kpi.sub}</p>
                         </div>
                         <div className={`p-2.5 rounded-xl ${kpi.bg} shrink-0`}>
                           <kpi.icon className={`w-5 h-5 ${kpi.tc}`} />
@@ -3080,141 +3156,241 @@ export default function OasisWorkplace() {
                   ))}
                 </div>
 
-                {/* ── BENTO GRID — Main Widgets ── */}
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 auto-rows-auto">
+                {/* ── MAIN GRID ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-                  {/* Globe Widget */}
-                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
-                    className="md:col-span-2 lg:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden"
-                    style={{ minHeight: 280 }}>
-                    <div className="p-4 border-b border-slate-100 flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-indigo-500" />
-                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Delegate Distribution</span>
-                    </div>
-                    <div className="relative" style={{ height: 220 }}>
-                      <GlobeWidget />
-                    </div>
-                  </motion.div>
+                  {/* LEFT COL */}
+                  <div className="lg:col-span-2 space-y-5">
 
-                  {/* Animated Activity Feed */}
-                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}
-                    className="md:col-span-1 lg:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col"
-                    style={{ minHeight: 280 }}>
-                    <div className="p-4 border-b border-slate-100 flex items-center gap-2">
-                      <Activity className="w-4 h-4 text-indigo-500" />
-                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Live Feed</span>
-                    </div>
-                    <div className="flex-1 overflow-hidden p-3">
-                      <AnimatedList delay={1500}>
-                        {[...dbDelegates.slice(0, 6)].map((d, i) => (
-                          <div key={i} className="flex items-center gap-2.5 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
-                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
-                              {(d.name || '?')[0]}
+                    {/* Department Performance */}
+                    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                      className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                      <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <BarChart3 className="w-4 h-4 text-indigo-500" />
+                          <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Department Performance</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-medium">{dbTasks.length} total tasks</span>
+                      </div>
+                      <div className="p-5 space-y-5">
+                        {DEPARTMENTS.slice(1).map((d, idx) => {
+                          const deptTasks = dbTasks.filter(t => t.department === d.name)
+                          const done = deptTasks.filter(t => t.status === 'completed').length
+                          const inProg = deptTasks.filter(t => t.status === 'in_progress').length
+                          const rate = deptTasks.length > 0 ? Math.round(done / deptTasks.length * 100) : 0
+                          const IconC = d.icon
+                          return (
+                            <div key={d.name}>
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className={`${d.color} p-1.5 rounded-lg shrink-0`}>
+                                  <IconC className="w-3 h-3 text-white" />
+                                </div>
+                                <span className="text-[11px] font-bold text-slate-700 flex-1 truncate">{d.name}</span>
+                                <span className="text-[10px] font-bold text-slate-400 shrink-0">{done}/{deptTasks.length} · {rate}%</span>
+                              </div>
+                              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                <motion.div initial={{ width: 0 }} animate={{ width: `${rate}%` }} transition={{ delay: idx * 0.06, duration: 0.7 }}
+                                  className={`h-full rounded-full ${d.color}`} />
+                              </div>
+                              <div className="flex gap-3 mt-1 text-[9px] font-bold text-slate-400">
+                                <span className="text-emerald-500">✓ {done} done</span>
+                                {inProg > 0 && <span className="text-indigo-400">● {inProg} active</span>}
+                                <span>○ {deptTasks.filter(t=>t.status==='todo').length} todo</span>
+                              </div>
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-semibold text-slate-700 truncate">{d.name}</p>
-                              <p className="text-[10px] text-slate-400 truncate">{d.institution || 'Registered'}</p>
+                          )
+                        })}
+                      </div>
+                    </motion.div>
+
+                    {/* Recent Tasks */}
+                    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                      className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                      <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ClipboardList className="w-4 h-4 text-indigo-500" />
+                          <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Recent Tasks</span>
+                        </div>
+                        <button onClick={() => setActiveMenuTab('dept_boards')} className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-1">
+                          View All <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="divide-y divide-slate-50">
+                        {dbTasks.slice(0, 7).map((task, i) => (
+                          <motion.div key={task.id || i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 + i * 0.04 }}
+                            className="px-4 py-3 flex items-center gap-3 hover:bg-slate-50/60 transition-colors">
+                            <div className={`w-2 h-2 rounded-full shrink-0 ${task.status === 'completed' ? 'bg-emerald-400' : task.status === 'in_progress' ? 'bg-indigo-400' : 'bg-slate-300'}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-slate-800 truncate">{task.title}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{task.department} · {task.assignee === 'ALL' ? 'Whole Dept' : task.assignee || 'Unassigned'}</p>
                             </div>
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${d.isCheckedIn ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
-                              {d.isCheckedIn ? '✓ In' : 'Pending'}
-                            </span>
-                          </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {(task.maxPoints > 0) && (
+                                <span className="text-[9px] font-bold bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded">
+                                  {task.verified ? `+${task.awardedPoints}pt ✓` : `${task.maxPoints}pt`}
+                                </span>
+                              )}
+                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                                task.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                                task.status === 'in_progress' ? 'bg-indigo-100 text-indigo-700' :
+                                'bg-slate-100 text-slate-500'
+                              }`}>{task.status === 'in_progress' ? 'Active' : task.status === 'completed' ? 'Done' : 'Todo'}</span>
+                            </div>
+                          </motion.div>
                         ))}
-                        {dbDelegates.length === 0 && (
-                          <div className="text-center py-8 text-xs text-slate-400">No delegates yet</div>
+                        {dbTasks.length === 0 && (
+                          <div className="text-center py-10 text-xs text-slate-400">No tasks yet. Add tasks in Department Boards.</div>
                         )}
-                      </AnimatedList>
-                    </div>
-                  </motion.div>
+                      </div>
+                    </motion.div>
 
-
-
-                  {/* Department Performance */}
-                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.25 }}
-                    className="md:col-span-2 lg:col-span-4 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                    <div className="p-4 border-b border-slate-100 flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-indigo-500" />
-                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Department Performance</span>
-                    </div>
-                    <div className="p-4 space-y-3">
-                      {DEPARTMENTS.slice(1, 5).map((d, idx) => {
-                        const deptTasks = dbTasks.filter(t => t.department === d.name)
-                        const rate = deptTasks.length > 0 ? Math.round(deptTasks.filter(t => t.status === 'completed').length / deptTasks.length * 100) : 0
-                        return (
-                          <div key={d.name} className="flex items-center gap-3">
-                            <span className="text-[10px] font-bold text-slate-500 w-20 truncate shrink-0">{d.name}</span>
-                            <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                              <motion.div initial={{ width: 0 }} animate={{ width: `${rate}%` }} transition={{ delay: idx * 0.06, duration: 0.6 }}
-                                className={`h-full rounded-full ${d.color}`} />
+                    {/* Delegate Pipeline */}
+                    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                      className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                      <div className="p-4 border-b border-slate-100 flex items-center gap-2">
+                        <Users className="w-4 h-4 text-emerald-500" />
+                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Delegate Check-In Pipeline</span>
+                      </div>
+                      <div className="p-5">
+                        <div className="grid grid-cols-3 gap-4 mb-4">
+                          {[
+                            { label: 'Registered', value: dbDelegates.length, color: 'text-slate-700', bg: 'bg-slate-50', border: 'border-slate-200' },
+                            { label: 'Checked In', value: dbDelegates.filter(d=>d.isCheckedIn).length, color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+                            { label: 'Awaiting', value: dbDelegates.filter(d=>!d.isCheckedIn).length, color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
+                          ].map(s => (
+                            <div key={s.label} className={`${s.bg} border ${s.border} rounded-xl p-3 text-center`}>
+                              <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
+                              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">{s.label}</p>
                             </div>
-                            <span className="text-[10px] font-bold text-slate-600 w-8 text-right">{rate}%</span>
+                          ))}
+                        </div>
+                        <div className="flex h-3 rounded-full overflow-hidden bg-slate-100">
+                          {dbDelegates.length > 0 && (
+                            <motion.div initial={{ width: 0 }} animate={{ width: `${Math.round(dbDelegates.filter(d=>d.isCheckedIn).length/dbDelegates.length*100)}%` }} transition={{ delay: 0.3, duration: 0.8 }}
+                              className="h-full bg-emerald-400" />
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-2 font-medium">
+                          {dbDelegates.length > 0 ? `${Math.round(dbDelegates.filter(d=>d.isCheckedIn).length/dbDelegates.length*100)}% attendance rate` : 'No delegates registered yet'}
+                        </p>
+                      </div>
+                    </motion.div>
+
+                  </div>
+
+                  {/* RIGHT COL */}
+                  <div className="space-y-5">
+
+                    {/* Globe Widget */}
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
+                      className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden"
+                      style={{ minHeight: 260 }}>
+                      <div className="p-4 border-b border-slate-100 flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-indigo-500" />
+                        <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Delegate Distribution</span>
+                      </div>
+                      <div className="relative" style={{ height: 200 }}>
+                        <GlobeWidget />
+                      </div>
+                    </motion.div>
+
+                    {/* Quick Actions */}
+                    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+                      className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                      <div className="p-4 border-b border-slate-100 flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-amber-500" />
+                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Quick Actions</span>
+                      </div>
+                      <div className="p-3 grid grid-cols-2 gap-2">
+                        {[
+                          { label: 'Check-In', icon: UserCheck, action: () => setActiveMenuTab('live_allocations'), color: 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100' },
+                          { label: 'Add Task', icon: PlusCircle, action: () => setShowTaskForm(true), color: 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100' },
+                          { label: 'Dept Boards', icon: Layers, action: () => setActiveMenuTab('dept_boards'), color: 'bg-violet-50 text-violet-700 border-violet-100 hover:bg-violet-100' },
+                          { label: 'Announce', icon: Megaphone, action: () => setActiveMenuTab('announcement_hub'), color: 'bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-100' },
+                          { label: 'Export', icon: Download, action: handleExportCSV, color: 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100' },
+                          { label: 'Settings', icon: Settings, action: () => setActiveMenuTab('global_config'), color: 'bg-rose-50 text-rose-700 border-rose-100 hover:bg-rose-100' },
+                        ].map((a) => (
+                          <motion.button key={a.label} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} onClick={a.action}
+                            className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border ${a.color} transition-all`}>
+                            <a.icon className="w-5 h-5" />
+                            <span className="text-[10px] font-bold text-center leading-tight">{a.label}</span>
+                          </motion.button>
+                        ))}
+                      </div>
+                    </motion.div>
+
+                    {/* Points Leaderboard (admin only) */}
+                    {role === 'admin' && (
+                      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+                        className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Crown className="w-4 h-4 text-amber-500" />
+                            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Points Leaderboard</span>
                           </div>
-                        )
-                      })}
-                    </div>
-                  </motion.div>
+                          <span className="text-[10px] text-slate-400">Top OC members</span>
+                        </div>
+                        <div className="divide-y divide-slate-50">
+                          {dbApplications
+                            .filter((a:any) => a.status === 'welcomed' && (a.earnedPoints || 0) > 0)
+                            .sort((a:any, b:any) => (b.earnedPoints||0) - (a.earnedPoints||0))
+                            .slice(0, 5)
+                            .map((a:any, i:number) => (
+                              <div key={a.uid} className="px-4 py-2.5 flex items-center gap-3">
+                                <span className="text-sm w-6 text-center shrink-0">
+                                  {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`}
+                                </span>
+                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                                  {(a.name||'?')[0]}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-bold text-slate-800 truncate">{a.name}</p>
+                                  <p className="text-[9px] text-slate-400 truncate">{a.pref1 || 'OC'}</p>
+                                </div>
+                                <span className="text-xs font-black text-amber-600 shrink-0">{a.earnedPoints} PT</span>
+                              </div>
+                            ))}
+                          {dbApplications.filter((a:any) => a.status === 'welcomed' && (a.earnedPoints||0) > 0).length === 0 && (
+                            <div className="p-6 text-center text-xs text-slate-400">No points awarded yet</div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
 
-                  {/* Quick Actions */}
-                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}
-                    className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                    <div className="p-4 border-b border-slate-100 flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-amber-500" />
-                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Quick Actions</span>
-                    </div>
-                    <div className="p-3 grid grid-cols-2 gap-2">
-                      {[
-                        { label: 'Check-In', icon: UserCheck, action: () => setActiveMenuTab('live_allocations'), color: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
-                        { label: 'Add Task', icon: PlusCircle, action: () => setShowTaskForm(true), color: 'bg-indigo-50 text-indigo-600 border-indigo-100' },
-                        { label: 'Export', icon: Download, action: handleExportCSV, color: 'bg-amber-50 text-amber-600 border-amber-100' },
-                        { label: 'Sync DB', icon: RefreshCw, action: () => saveWorkstationBaselineToCloud(dbCommittees, workstationExpenses, workstationRevenues), color: 'bg-slate-100 text-slate-600 border-slate-200' },
-                      ].map((a) => (
-                        <motion.button key={a.label} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} onClick={a.action}
-                          className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border ${a.color} transition-all`}>
-                          <a.icon className="w-5 h-5" />
-                          <span className="text-[10px] font-bold">{a.label}</span>
-                        </motion.button>
-                      ))}
-                    </div>
-                  </motion.div>
+                    {/* Live Delegate Feed */}
+                    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                      className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                      <div className="p-4 border-b border-slate-100 flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-indigo-500" />
+                        <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Live Delegate Feed</span>
+                      </div>
+                      <div className="p-3 space-y-2 max-h-60 overflow-y-auto">
+                        <AnimatedList delay={1500}>
+                          {dbDelegates.slice(0, 8).map((d, i) => (
+                            <div key={i} className="flex items-center gap-2.5 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
+                              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                                {(d.name || '?')[0]}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-semibold text-slate-700 truncate">{d.name}</p>
+                                <p className="text-[10px] text-slate-400 truncate">{d.institution || 'Registered'}</p>
+                              </div>
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${d.isCheckedIn ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                                {d.isCheckedIn ? '✓ In' : 'Pending'}
+                              </span>
+                            </div>
+                          ))}
+                          {dbDelegates.length === 0 && (
+                            <div className="text-center py-8 text-xs text-slate-400">No delegates yet</div>
+                          )}
+                        </AnimatedList>
+                      </div>
+                    </motion.div>
 
-                  {/* Icon Cloud — Departments */}
-                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.35 }}
-                    className="md:col-span-2 lg:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                    <div className="p-4 border-b border-slate-100 flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-indigo-500" />
-                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Departments & Committees</span>
-                    </div>
-                    <IconCloud
-                      iconSlugs={DEPARTMENTS.slice(1).map(d => d.name)}
-                      className="p-3"
-                    />
-                  </motion.div>
-
-                  {/* Dotted Map */}
-                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.4 }}
-                    className="md:col-span-1 lg:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                    <div className="p-4 border-b border-slate-100 flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-indigo-500" />
-                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">Delegate Origins</span>
-                    </div>
-                    <div className="p-3">
-                      <DottedMap
-                        className="h-32 rounded-xl"
-                        dots={[
-                          { lat: 20.5937, lng: 78.9629, label: 'India' },
-                          { lat: 28.6139, lng: 77.2090, label: 'Delhi' },
-                          { lat: 19.0760, lng: 72.8777, label: 'Mumbai' },
-                          { lat: 22.5726, lng: 88.3639, label: 'Kolkata' },
-                          { lat: 17.6868, lng: 83.2185, label: 'Vizag' },
-                        ]}
-                      />
-                    </div>
-                  </motion.div>
-
-
+                  </div>
                 </div>
 
-                {/* ── DOCK — Mobile Bottom Navigation ── */}
+                {/* ── DOCK ── */}
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 sm:hidden">
                   <Dock className="scale-90">
                     {[
@@ -3238,6 +3414,8 @@ export default function OasisWorkplace() {
 
               </motion.div>
             )}
+
+
 
             {/* 2. FINANCIAL WORKSTATION */}
             {activeMenuTab === 'finance_station' && (
