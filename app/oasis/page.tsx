@@ -72,7 +72,8 @@ import {
   Zap,
   Crown,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  PenTool
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
@@ -4322,14 +4323,6 @@ export default function OasisWorkplace() {
                                                 {role === 'admin' && (
                                                   <button onClick={() => setDeleteConfirm({ type: 'tasks', id: task.id, name: task.title })} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                                                 )}
-                                                {(!task.assignee || (task.assignee !== 'ALL' && !task.assignee.includes(','))) && (
-                                                  <button onClick={() => claimLiveTask(task.id, task.assignee)} className={`px-2.5 py-1 border rounded-lg text-[9px] font-bold transition-all ${task.assignee === (user?.displayName || user?.email || 'Admin') ? 'bg-rose-50 text-rose-700 border-rose-100 hover:bg-rose-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100'}`}>
-                                                    {task.assignee === (user?.displayName || user?.email || 'Admin') ? 'Unclaim' : 'Claim Task'}
-                                                  </button>
-                                                )}
-                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                  </button>
-                                                </div>
                                               </div>
                                             </div>
                                           </motion.div>
@@ -4582,44 +4575,22 @@ export default function OasisWorkplace() {
                                   )}
                                 </div>
                               )}
-                              <div className="flex justify-between items-center text-[9px] text-slate-400 border-t border-slate-100 pt-2.5 mt-2.5">
-                                <span>Due: {task.dueDate}</span>
-                                <span>Assignee: <span className="font-semibold text-slate-600">{task.assignee || 'Unassigned'}</span></span>
-                              </div>
-                              <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-slate-100/60">
-                                {column.status === 'todo' && (
-                                  <button onClick={() => handleUpdateTaskStatus(task.id, 'in_progress')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg text-[9px] font-bold hover:bg-amber-100 transition-all text-center">
-                                    Start Progress
-                                  </button>
-                                )}
-                                {column.status === 'in_progress' && (
-                                  <>
-                                    <button onClick={() => handleUpdateTaskStatus(task.id, 'todo')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-[9px] font-bold hover:bg-slate-100 transition-all text-center">
-                                      Revert to To Do
-                                    </button>
-                                    <button onClick={() => handleUpdateTaskStatus(task.id, 'completed')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[9px] font-bold hover:bg-emerald-100 transition-all text-center">
-                                      Complete Task
-                                    </button>
-                                  </>
-                                )}
-                                {column.status === 'completed' && (
-                                  <button onClick={() => handleUpdateTaskStatus(task.id, 'in_progress')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-[9px] font-bold hover:bg-slate-100 transition-all text-center">
-                                    Reopen Task
-                                  </button>
-                                )}
-                                <div className="flex items-center justify-between gap-1 w-full mt-1">
-                                  {column.status !== 'completed' && (
-                                    <button onClick={() => claimLiveTask(task.id, task.assignee)} className={`px-2.5 py-1 border rounded-lg text-[9px] font-bold transition-all ${task.assignee === (user?.displayName || user?.email || 'Admin') ? 'bg-rose-50 text-rose-700 border-rose-100 hover:bg-rose-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100'}`}>
-                                      {task.assignee === (user?.displayName || user?.email || 'Admin') ? 'Unclaim' : 'Claim Task'}
-                                    </button>
-                                  )}
-                                  <div className="flex items-center gap-1 ml-auto">
-                                    <button onClick={() => openEditTaskModal(task)} className="p-1 text-slate-400 hover:text-indigo-600 transition-all bg-slate-50 rounded" title="Edit Task">
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button onClick={() => handleDeleteLiveTask(task.id, task.title)} className="p-1 text-slate-400 hover:text-rose-500 transition-all bg-slate-50 rounded" title="Delete Task">
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
+                                </div>
+                                <div className="flex items-center justify-between mt-4 border-t border-slate-100 pt-3 w-full">
+                                  <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                                    <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
+                                    <span>Assignee: <span className="font-semibold text-slate-600 truncate max-w-[120px] inline-block align-bottom">{task.assignee === 'ALL' ? 'Whole Department' : (task.assignee ? task.assignee.split(',').join(', ') : 'Unassigned')}</span></span>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button onClick={() => openEditTaskModal(task)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"><PenTool className="w-3.5 h-3.5" /></button>
+                                    {role === 'admin' && (
+                                      <button onClick={() => setDeleteConfirm({ type: 'tasks', id: task.id, name: task.title })} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                                    )}
+                                    {(!task.assignee || (task.assignee !== 'ALL' && !task.assignee.includes(','))) && (
+                                      <button onClick={() => claimLiveTask(task.id, task.assignee)} className={`px-2.5 py-1 border rounded-lg text-[9px] font-bold transition-all ${task.assignee === (user?.displayName || user?.email || 'Admin') ? 'bg-rose-50 text-rose-700 border-rose-100 hover:bg-rose-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100'}`}>
+                                        {task.assignee === (user?.displayName || user?.email || 'Admin') ? 'Unclaim' : 'Claim Task'}
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               </div>
