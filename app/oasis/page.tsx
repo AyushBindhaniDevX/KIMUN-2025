@@ -86,6 +86,7 @@ import { ref, onValue, update, push, remove, get, set } from 'firebase/database'
 import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth'
 import { firebaseAuth, firebaseDb, googleProvider } from '@/lib/firebase-client'
 import { Scanner } from '@yudiel/react-qr-scanner'
+import { sendWhatsAppTemplate } from '@/lib/fast2sms'
 import * as XLSX from 'xlsx'
 import 'jspdf-autotable'
 
@@ -494,7 +495,7 @@ export default function OasisWorkplace() {
 
   // Prize tracking states
   const [showPrizeTrackingModal, setShowPrizeTrackingModal] = useState(false)
-  const [newPrizeTracking, setNewPrizeTracking] = useState({ beneficiary: '', award: '', amount: 0, status: 'Processing', transactionRef: '' })
+  const [newPrizeTracking, setNewPrizeTracking] = useState({ beneficiary: '', award: '', amount: 0, status: 'Processing', transactionRef: '', phone: '' })
 
   // Applicant details modal and legacy profile states
   const [selectedApplicant, setSelectedApplicant] = useState<any | null>(null)
@@ -1684,10 +1685,15 @@ export default function OasisWorkplace() {
         ...newPrizeTracking,
         createdAt: new Date().toISOString(),
       })
+
+      if (newPrizeTracking.status === 'Completed' && newPrizeTracking.phone) {
+        sendWhatsAppTemplate(25457, newPrizeTracking.phone, [newPrizeTracking.amount.toString()]).catch(console.error)
+      }
+
       await logActivity('CREATE_PRIZE_TRACKING', `Created tracking code ${trackingId} for ${newPrizeTracking.beneficiary}`)
       triggerNotification(`Generated Tracking Code: ${trackingId}`)
       setShowPrizeTrackingModal(false)
-      setNewPrizeTracking({ beneficiary: '', award: '', amount: 0, status: 'Processing', transactionRef: '' })
+      setNewPrizeTracking({ beneficiary: '', award: '', amount: 0, status: 'Processing', transactionRef: '', phone: '' })
     } catch (err: any) {
       triggerNotification('Failed to generate tracking code: ' + err.message, 'error')
     }
@@ -1913,15 +1919,15 @@ export default function OasisWorkplace() {
     e.preventDefault()
     if (!taskForm.title.trim()) return
     try {
-      let assigneeEmails: { name: string, email: string }[] = [];
+      let assigneeEmails: { name: string, email: string, phone?: string }[] = [];
       if (taskForm.assignee === 'ALL') {
         const matchedApps = dbApplications.filter(a => a.status === 'welcomed' && (a.pref1 === taskForm.department || a.department === taskForm.department));
-        assigneeEmails = matchedApps.map(a => ({ name: a.name, email: a.email }));
+        assigneeEmails = matchedApps.map(a => ({ name: a.name, email: a.email, phone: a.phone }));
       } else if (taskForm.assignee) {
         const names = taskForm.assignee.split(',').map(n => n.trim());
         names.forEach(n => {
           const matchedApp = dbApplications.find(a => a.name === n);
-          if (matchedApp) assigneeEmails.push({ name: matchedApp.name, email: matchedApp.email });
+          if (matchedApp) assigneeEmails.push({ name: matchedApp.name, email: matchedApp.email, phone: matchedApp.phone });
         });
       }
 
@@ -1971,6 +1977,11 @@ export default function OasisWorkplace() {
               taskDescription: taskForm.description
             })
           }).catch(e => console.error("Email err", e))
+
+          if (assigneeObj.phone) {
+            // TODO_TASK_MESSAGE_ID should be replaced with actual message_id once the new_task_added template is approved in Meta.
+            sendWhatsAppTemplate('TODO_TASK_MESSAGE_ID', assigneeObj.phone).catch(console.error)
+          }
         });
       }
 
@@ -5489,6 +5500,16 @@ export default function OasisWorkplace() {
                             className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
                             required
                             placeholder="Best Delegate - UNGA"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Phone Number (For WhatsApp Alert)</label>
+                          <input
+                            type="text"
+                            value={newPrizeTracking.phone}
+                            onChange={(e) => setNewPrizeTracking(prev => ({ ...prev, phone: e.target.value }))}
+                            className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm outline-none"
+                            placeholder="9999999999"
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
