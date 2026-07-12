@@ -3130,7 +3130,7 @@ export default function OasisWorkplace() {
                   </motion.div>
                 )}
 
-                {/* ── KPI CARDS ── */
+                {/* ── KPI CARDS ── */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
                     { title: 'Total Delegates', value: dbDelegates.length, sub: `${dbDelegates.filter(d => d.isCheckedIn).length} checked in · ${dbDelegates.length > 0 ? Math.round(dbDelegates.filter(d=>d.isCheckedIn).length/dbDelegates.length*100) : 0}% rate`, icon: UserCheck, grad: 'from-emerald-500 to-teal-600', bg: 'bg-emerald-50', tc: 'text-emerald-600' },
