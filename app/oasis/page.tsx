@@ -285,6 +285,7 @@ export default function OasisWorkplace() {
   const [dbResources, setDbResources] = useState<any[]>([])
   const [dbMarksheets, setDbMarksheets] = useState<any[]>([])
   const [dbApplications, setDbApplications] = useState<any[]>([])
+  const [myApp, setMyApp] = useState<any>(null)
   const [dbEbApplications, setDbEbApplications] = useState<any[]>([])
   const [dbTasks, setDbTasks] = useState<any[]>([])
   const [dbAssets, setDbAssets] = useState<any[]>([])
@@ -464,8 +465,10 @@ export default function OasisWorkplace() {
 
   // Live CRUD Modals & forms states
   const [showTaskForm, setShowTaskForm] = useState(false)
+  const [awardingPointsTask, setAwardingPointsTask] = useState<any | null>(null)
+  const [pointsToAward, setPointsToAward] = useState<number>(0)
   const [editingTask, setEditingTask] = useState<any | null>(null)
-  const [taskForm, setTaskForm] = useState({ title: '', description: '', department: 'Business Relations & Corporate Strategy', priority: 'medium', dueDate: '', assignee: '', notes: '', remarks: '', attachments: '' })
+  const [taskForm, setTaskForm] = useState({ title: '', description: '', department: 'Business Relations & Corporate Strategy', priority: 'medium', dueDate: '', assignee: '', notes: '', remarks: '', attachments: '', maxPoints: 0 })
 
   const [showAssetForm, setShowAssetForm] = useState(false)
   const [editingAsset, setEditingAsset] = useState<any | null>(null)
@@ -901,8 +904,9 @@ export default function OasisWorkplace() {
   // Reactive kickout if individual OC member is suspended
   useEffect(() => {
     if (role === 'oc_member' && user && dbApplications.length > 0) {
-      const myApp = dbApplications.find(a => a.uid === user.uid)
-      if (myApp && myApp.status === 'suspended') {
+      const app = dbApplications.find(a => a.uid === user.uid)
+      setMyApp(app || null)
+      if (app && app.status === 'suspended') {
         handleSignOut().then(() => {
           setLoginError('Your Oasis Workplace access has been suspended. Please contact Admin.')
         })
@@ -1881,7 +1885,8 @@ export default function OasisWorkplace() {
       assignee: '',
       notes: '',
       remarks: '',
-      attachments: ''
+      attachments: '',
+      maxPoints: 0
     })
     setShowTaskForm(true)
   }
@@ -1897,7 +1902,8 @@ export default function OasisWorkplace() {
       assignee: task.assignee || '',
       notes: task.notes || '',
       remarks: task.remarks || '',
-      attachments: task.attachments || ''
+      attachments: task.attachments || '',
+      maxPoints: task.maxPoints || 0
     })
     setShowTaskForm(true)
   }
@@ -1944,6 +1950,8 @@ export default function OasisWorkplace() {
         await push(tasksRef, {
           ...taskForm,
           status: 'todo',
+          verified: false,
+          awardedPoints: 0,
           createdAt: new Date().toISOString(),
           createdBy: user?.email
         })
@@ -1997,8 +2005,11 @@ export default function OasisWorkplace() {
             const dept = cols[2].trim()
             const taskName = cols[3].trim()
             const type = cols[4].trim()
-            const details = cols.slice(5, -1).join(',').trim()
-            const statusStr = cols[cols.length - 1].trim().toLowerCase()
+            const hasPoints = cols.length >= 8
+            const statusStr = (hasPoints ? cols[cols.length - 2] : cols[cols.length - 1]).trim().toLowerCase()
+            const details = cols.slice(5, hasPoints ? -2 : -1).join(',').trim()
+            const pointsStr = hasPoints ? cols[cols.length - 1].trim() : '0'
+            const maxPoints = parseInt(pointsStr, 10) || 0
             
             let status = 'todo'
             if (statusStr === 'completed') status = 'completed'
@@ -2017,6 +2028,9 @@ export default function OasisWorkplace() {
               dueDate: date,
               assignee: assignee,
               status: status,
+              maxPoints: maxPoints,
+              verified: false,
+              awardedPoints: 0,
               createdAt: new Date().toISOString(),
               createdBy: user?.email || 'System Import'
             })
@@ -2032,6 +2046,42 @@ export default function OasisWorkplace() {
     }
     reader.readAsText(file)
     e.target.value = ''
+  }
+
+  const handleVerifyTask = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!awardingPointsTask) return
+
+    try {
+      await update(ref(firebaseDb, `oc_tasks/${awardingPointsTask.id}`), {
+        verified: true,
+        awardedPoints: pointsToAward
+      })
+      await logActivity('VERIFY_TASK', `Verified task: ${awardingPointsTask.title} with ${pointsToAward} pts`)
+
+      if (awardingPointsTask.assignee === 'ALL') {
+        const matchedApps = dbApplications.filter(a => a.status === 'welcomed' && (a.pref1 === awardingPointsTask.department || a.department === awardingPointsTask.department));
+        for (const app of matchedApps) {
+          const newPts = (app.earnedPoints || 0) + pointsToAward;
+          await update(ref(firebaseDb, `oc_applications/${app.uid}`), { earnedPoints: newPts });
+        }
+      } else if (awardingPointsTask.assignee) {
+        const names = awardingPointsTask.assignee.split(',').map((n: string) => n.trim());
+        for (const n of names) {
+          const matchedApp = dbApplications.find(a => a.name === n);
+          if (matchedApp) {
+             const newPts = (matchedApp.earnedPoints || 0) + pointsToAward;
+             await update(ref(firebaseDb, `oc_applications/${matchedApp.uid}`), { earnedPoints: newPts });
+          }
+        }
+      }
+
+      triggerNotification(`Task verified and ${pointsToAward} points awarded.`)
+      setAwardingPointsTask(null)
+      setPointsToAward(0)
+    } catch (err: any) {
+      triggerNotification('Failed to verify task: ' + err.message, 'error')
+    }
   }
 
   const handleDeleteLiveTask = (taskId: string, name: string) => {
@@ -2973,10 +3023,23 @@ export default function OasisWorkplace() {
                     </div>
                   </div>
                   <div className="relative z-10 max-w-lg">
-                    <span className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white/90 text-[10px] px-3 py-1 rounded-full font-medium tracking-wide mb-4">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#30d158] animate-pulse" />
-                      Live Session — KIMUN 2026
-                    </span>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <span className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white/90 text-[10px] px-3 py-1 rounded-full font-medium tracking-wide">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#30d158] animate-pulse" />
+                        Live Session — KIMUN 2026
+                      </span>
+                      {role === 'oc_member' && myApp && (
+                        <span className="inline-flex items-center gap-1.5 bg-amber-400/20 backdrop-blur-sm text-amber-300 text-[10px] px-3 py-1 rounded-full font-bold tracking-wide border border-amber-400/30">
+                          <Award className="w-3.5 h-3.5" />
+                          {myApp.earnedPoints || 0} Points
+                          {(myApp.earnedPoints || 0) >= 500 && (
+                            <span className="ml-1 bg-amber-400 text-amber-900 px-1.5 py-0.5 rounded uppercase text-[8px] font-black tracking-widest cursor-pointer hover:bg-amber-300" onClick={() => triggerNotification('Contact the Secretariat to redeem your payout.')}>
+                              Redeemable
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
                     <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
                       Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user.displayName?.split(' ')[0]}.
                     </h2>
@@ -4258,12 +4321,31 @@ export default function OasisWorkplace() {
                                             className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group"
                                           >
                                             <div className="flex justify-between items-start gap-2">
-                                              <span className="font-bold text-slate-800 text-sm block truncate">{task.title}</span>
-                                              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 ${task.priority === 'high' ? 'bg-rose-100 text-rose-700' :
-                                                task.priority === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
-                                                }`}>
-                                                {task.priority}
-                                              </span>
+                                              <div className="flex-1 min-w-0">
+                                                <span className="font-bold text-slate-800 text-sm block truncate">{task.title}</span>
+                                              </div>
+                                              <div className="flex gap-1.5 items-center">
+                                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 ${task.priority === 'high' ? 'bg-rose-100 text-rose-700' :
+                                                  task.priority === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                                                  }`}>
+                                                  {task.priority}
+                                                </span>
+                                                {task.maxPoints > 0 && (
+                                                  <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                                    {task.maxPoints} PT
+                                                  </span>
+                                                )}
+                                                {task.status === 'completed' && task.verified && (
+                                                  <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                                    VERIFIED (+{task.awardedPoints})
+                                                  </span>
+                                                )}
+                                                {task.status === 'completed' && !task.verified && (
+                                                  <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 bg-amber-100 text-amber-700 border border-amber-200">
+                                                    PENDING
+                                                  </span>
+                                                )}
+                                              </div>
                                             </div>
                                             <p className="text-[11px] text-slate-500 mt-2 line-clamp-3">{task.description}</p>
                                             {(task.attachments || task.notes || task.remarks) && (
@@ -4308,9 +4390,16 @@ export default function OasisWorkplace() {
                                                 </>
                                               )}
                                               {column.status === 'completed' && (
-                                                <button onClick={() => handleUpdateTaskStatus(task.id, 'in_progress')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-[9px] font-bold hover:bg-slate-100 transition-all text-center">
-                                                  Reopen Task
-                                                </button>
+                                                <>
+                                                  <button onClick={() => handleUpdateTaskStatus(task.id, 'in_progress')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-[9px] font-bold hover:bg-slate-100 transition-all text-center">
+                                                    Reopen Task
+                                                  </button>
+                                                  {role === 'admin' && !task.verified && (
+                                                    <button onClick={() => setAwardingPointsTask(task)} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-[9px] font-bold hover:bg-indigo-100 transition-all text-center">
+                                                      Verify & Award
+                                                    </button>
+                                                  )}
+                                                </>
                                               )}
                                             </div>
                                             <div className="flex items-center justify-between mt-4 border-t border-slate-100 pt-3">
@@ -4546,11 +4635,28 @@ export default function OasisWorkplace() {
                                   <span className="font-bold text-slate-800 text-sm block truncate">{task.title}</span>
                                   <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold uppercase mt-1 inline-block">{task.department}</span>
                                 </div>
-                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 ${task.priority === 'high' ? 'bg-rose-100 text-rose-700' :
-                                  task.priority === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
-                                  }`}>
-                                  {task.priority}
-                                </span>
+                                <div className="flex gap-1.5 items-center">
+                                  <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 ${task.priority === 'high' ? 'bg-rose-100 text-rose-700' :
+                                    task.priority === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                                    }`}>
+                                    {task.priority}
+                                  </span>
+                                  {task.maxPoints > 0 && (
+                                    <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 bg-indigo-100 text-indigo-700 border border-indigo-200">
+                                      {task.maxPoints} PT
+                                    </span>
+                                  )}
+                                  {task.status === 'completed' && task.verified && (
+                                    <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                      VERIFIED (+{task.awardedPoints})
+                                    </span>
+                                  )}
+                                  {task.status === 'completed' && !task.verified && (
+                                    <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded shrink-0 bg-amber-100 text-amber-700 border border-amber-200">
+                                      PENDING
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               <p className="text-[11px] text-slate-500 mt-2 line-clamp-3">{task.description}</p>
                               {(task.attachments || task.notes || task.remarks) && (
@@ -4595,9 +4701,16 @@ export default function OasisWorkplace() {
                                   </>
                                 )}
                                 {column.status === 'completed' && (
-                                  <button onClick={() => handleUpdateTaskStatus(task.id, 'in_progress')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-[9px] font-bold hover:bg-slate-100 transition-all text-center">
-                                    Reopen Task
-                                  </button>
+                                  <>
+                                    <button onClick={() => handleUpdateTaskStatus(task.id, 'in_progress')} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-lg text-[9px] font-bold hover:bg-slate-100 transition-all text-center">
+                                      Reopen Task
+                                    </button>
+                                    {role === 'admin' && !task.verified && (
+                                      <button onClick={() => setAwardingPointsTask(task)} className="flex-1 min-w-[70px] px-2.5 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-[9px] font-bold hover:bg-indigo-100 transition-all text-center">
+                                        Verify & Award
+                                      </button>
+                                    )}
+                                  </>
                                 )}
                               </div>
                               <div className="flex items-center justify-between mt-4 border-t border-slate-100 pt-3">
@@ -6568,6 +6681,27 @@ export default function OasisWorkplace() {
                     </div>
                   </div>
 
+                  {/* Data Management */}
+                  <div className="bg-white rounded-[10px] shadow-sm border border-[#E2E8F0] overflow-hidden mb-6">
+                    <div className="px-6 py-4 border-b border-[#E2E8F0] bg-slate-50 flex items-center gap-3">
+                      <Upload className="w-5 h-5 text-indigo-600" />
+                      <h3 className="text-md font-bold text-slate-800">Data Management</h3>
+                    </div>
+                    <div className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-semibold text-slate-800">Master Timeline Import (CSV)</h4>
+                          <p className="text-xs text-slate-500">Upload a master CSV to automatically create and distribute tasks to all departments.</p>
+                        </div>
+                        <label className="cursor-pointer px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-md text-sm font-semibold transition-colors flex items-center gap-2 border border-indigo-200">
+                          <Upload className="w-4 h-4" />
+                          <span>Upload CSV</span>
+                          <input type="file" accept=".csv" className="hidden" onChange={handleImportTasksCsv} />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Site Info */}
                   <div className="bg-white rounded-[10px] shadow-sm border border-[#E2E8F0] overflow-hidden">
                     <div className="px-6 py-4 border-b border-[#E2E8F0] bg-slate-50 flex items-center gap-3">
@@ -7346,6 +7480,19 @@ export default function OasisWorkplace() {
                             {recruitmentView === 'eb' ? `${selectedApplicant.committeePref2} (${selectedApplicant.rolePref2})` : selectedApplicant.pref2 || 'N/A'}
                           </span>
                         </div>
+                        {selectedApplicant.status === 'welcomed' && recruitmentView === 'oc' && (
+                          <div className="col-span-2 pt-2 border-t border-slate-100">
+                            <span className="text-slate-400 block font-medium mb-1">Earned Points</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-md border border-amber-200 shadow-sm flex items-center gap-1.5">
+                                <Award className="w-4 h-4" /> {selectedApplicant.earnedPoints || 0} PT
+                              </span>
+                              {(selectedApplicant.earnedPoints || 0) >= 500 && (
+                                <span className="text-[10px] font-bold text-amber-900 bg-amber-400 px-2 py-1 rounded uppercase tracking-wider">Redeemable</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         <div className="col-span-2 pt-2 border-t border-slate-100">
                           <span className="text-slate-400 block font-medium mb-1">Assigned Unit (Overwrite)</span>
                           {recruitmentView === 'eb' ? (
@@ -7979,6 +8126,68 @@ export default function OasisWorkplace() {
         </div>
       )}
       {/* SAP MODAL: Task Board Form */}
+      {/* AWARD POINTS MODAL */}
+      {awardingPointsTask && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden"
+          >
+            <div className="bg-gradient-to-br from-indigo-600 to-violet-600 p-6 text-white relative">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <ShieldCheck className="w-24 h-24" />
+              </div>
+              <div className="relative z-10">
+                <h3 className="text-xl font-black mb-1">Verify Task & Award Points</h3>
+                <p className="text-indigo-200 text-xs mt-0.5">Rate work quality and distribute points</p>
+              </div>
+              <button onClick={() => {
+                setAwardingPointsTask(null)
+                setPointsToAward(0)
+              }} className="absolute top-4 right-4 text-indigo-200 hover:text-white transition-colors z-10">✕</button>
+            </div>
+            
+            <form onSubmit={handleVerifyTask} className="p-6 space-y-5">
+              <div className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <h4 className="font-bold text-slate-800 text-sm mb-1">{awardingPointsTask.title}</h4>
+                  <p className="text-xs text-slate-500 line-clamp-2">{awardingPointsTask.description}</p>
+                  <div className="flex gap-2 mt-3 pt-3 border-t border-slate-200">
+                    <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded">Assignee: {awardingPointsTask.assignee === 'ALL' ? 'Whole Department' : awardingPointsTask.assignee}</span>
+                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-1 rounded">Max Points: {awardingPointsTask.maxPoints || 0}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">Points to Award</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={awardingPointsTask.maxPoints || 1000}
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-lg font-bold text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={pointsToAward}
+                    onChange={(e) => setPointsToAward(parseInt(e.target.value) || 0)}
+                    required
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1.5">Enter the number of points to award based on task completion quality. Maximum allowed for this task is {awardingPointsTask.maxPoints || 0}.</p>
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button type="button" onClick={() => {
+                  setAwardingPointsTask(null)
+                  setPointsToAward(0)
+                }} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl transition-all">Cancel</button>
+                <button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-md shadow-indigo-200">
+                  Verify & Award
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
       {showTaskForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <motion.div
