@@ -13,6 +13,7 @@ import {
   Plus,
   Trash2,
   Download,
+  Upload,
   RefreshCw,
   Sliders,
   QrCode,
@@ -1904,10 +1905,16 @@ export default function OasisWorkplace() {
     e.preventDefault()
     if (!taskForm.title.trim()) return
     try {
-      let assigneeEmail = '';
-      if (taskForm.assignee) {
-        const matchedApp = dbApplications.find(a => a.name === taskForm.assignee);
-        if (matchedApp) assigneeEmail = matchedApp.email;
+      let assigneeEmails: { name: string, email: string }[] = [];
+      if (taskForm.assignee === 'ALL') {
+        const matchedApps = dbApplications.filter(a => a.status === 'welcomed' && (a.pref1 === taskForm.department || a.department === taskForm.department));
+        assigneeEmails = matchedApps.map(a => ({ name: a.name, email: a.email }));
+      } else if (taskForm.assignee) {
+        const names = taskForm.assignee.split(',').map(n => n.trim());
+        names.forEach(n => {
+          const matchedApp = dbApplications.find(a => a.name === n);
+          if (matchedApp) assigneeEmails.push({ name: matchedApp.name, email: matchedApp.email });
+        });
       }
 
       if (editingTask) {
@@ -1918,19 +1925,19 @@ export default function OasisWorkplace() {
         await logActivity('UPDATE_TASK', `Updated task: ${taskForm.title}`)
         triggerNotification('Task updated successfully.')
 
-        if (assigneeEmail) {
-          await fetch('/api/sendApplicationEmail', {
+        assigneeEmails.forEach(assigneeObj => {
+          fetch('/api/sendApplicationEmail', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              email: assigneeEmail,
-              name: taskForm.assignee,
+              email: assigneeObj.email,
+              name: assigneeObj.name,
               type: 'task_updated',
               taskTitle: taskForm.title,
               taskDescription: taskForm.description
             })
           }).catch(e => console.error("Email err", e))
-        }
+        });
       } else {
         const tasksRef = ref(firebaseDb, 'oc_tasks')
         await push(tasksRef, {
@@ -1942,25 +1949,88 @@ export default function OasisWorkplace() {
         await logActivity('CREATE_TASK', `Created task: ${taskForm.title}`)
         triggerNotification('Task added to Kanban Board.')
 
-        if (assigneeEmail) {
-          await fetch('/api/sendApplicationEmail', {
+        assigneeEmails.forEach(assigneeObj => {
+          fetch('/api/sendApplicationEmail', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              email: assigneeEmail,
-              name: taskForm.assignee,
-              type: 'task_added',
+              email: assigneeObj.email,
+              name: assigneeObj.name,
+              type: 'task_assigned',
               taskTitle: taskForm.title,
               taskDescription: taskForm.description
             })
           }).catch(e => console.error("Email err", e))
-        }
+        });
       }
+
       setShowTaskForm(false)
       setEditingTask(null)
     } catch (err: any) {
       triggerNotification('Failed to save task: ' + err.message, 'error')
     }
+  }
+
+  const handleImportTasksCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string
+        const lines = text.split('\n').filter(line => line.trim() !== '')
+        if (lines.length < 2) throw new Error("CSV must contain a header and at least one data row.")
+        
+        const dataRows = lines.slice(1)
+        const tasksRef = ref(firebaseDb, 'oc_tasks')
+        let importCount = 0
+        
+        for (const line of dataRows) {
+          const re = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+          const cols = line.split(re).map(x => x.replace(/^"(.*)"$/, '$1'));
+          
+          if (cols.length >= 7) {
+            const date = cols[0].trim()
+            const day = cols[1].trim()
+            const dept = cols[2].trim()
+            const taskName = cols[3].trim()
+            const type = cols[4].trim()
+            const details = cols.slice(5, -1).join(',').trim()
+            const statusStr = cols[cols.length - 1].trim().toLowerCase()
+            
+            let status = 'todo'
+            if (statusStr === 'completed') status = 'completed'
+            else if (statusStr === 'in progress') status = 'in_progress'
+
+            let assignee = ''
+            if (type.toLowerCase().includes('all-department') || taskName.toLowerCase().includes('all-dept') || taskName.toLowerCase().includes('kickoff')) {
+              assignee = 'ALL'
+            }
+
+            await push(tasksRef, {
+              title: taskName,
+              description: `[${type}] ${details}`,
+              department: dept,
+              priority: 'medium',
+              dueDate: date,
+              assignee: assignee,
+              status: status,
+              createdAt: new Date().toISOString(),
+              createdBy: user?.email || 'System Import'
+            })
+            importCount++
+          }
+        }
+        
+        triggerNotification(`Successfully imported ${importCount} tasks.`)
+        await logActivity('IMPORT_TASKS', `Imported ${importCount} tasks from CSV`)
+      } catch (err: any) {
+        triggerNotification('CSV Import failed: ' + err.message, 'error')
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
   }
 
   const handleDeleteLiveTask = (taskId: string, name: string) => {
@@ -4162,9 +4232,9 @@ export default function OasisWorkplace() {
 
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 {[
-                                  { title: 'To Do', status: 'todo', color: 'bg-slate-100', textColor: 'text-slate-600', count: todoTasks },
-                                  { title: 'In Progress', status: 'in_progress', color: 'bg-amber-100', textColor: 'text-amber-700', count: inProgressTasks },
-                                  { title: 'Completed', status: 'completed', color: 'bg-emerald-100', textColor: 'text-emerald-700', count: completedTasks }
+                                  { title: 'To Do', status: 'todo', color: 'bg-slate-100', textColor: 'text-slate-600' },
+                                  { title: 'In Progress', status: 'in_progress', color: 'bg-amber-100', textColor: 'text-amber-700' },
+                                  { title: 'Completed', status: 'completed', color: 'bg-emerald-100', textColor: 'text-emerald-700' }
                                 ].map(column => (
                                   <div key={column.status} className="space-y-4">
                                     <div className={`${column.color} rounded-xl px-4 py-2.5 flex justify-between items-center`}>
@@ -4219,7 +4289,6 @@ export default function OasisWorkplace() {
                                             )}
                                             <div className="flex justify-between items-center text-[9px] text-slate-400 border-t border-slate-100 pt-2.5 mt-2.5">
                                               <span>Due: {task.dueDate}</span>
-                                              <span>Assignee: <span className="font-semibold text-slate-600">{task.assignee || 'Unassigned'}</span></span>
                                             </div>
                                             <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-slate-100/60">
                                               {column.status === 'todo' && (
@@ -4242,17 +4311,22 @@ export default function OasisWorkplace() {
                                                   Reopen Task
                                                 </button>
                                               )}
-                                              <div className="flex items-center justify-between gap-1 w-full mt-1">
-                                                {column.status !== 'completed' && (
+                                            </div>
+                                            <div className="flex items-center justify-between mt-4 border-t border-slate-100 pt-3">
+                                              <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                                                <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
+                                                <span>Assignee: <span className="font-semibold text-slate-600 truncate max-w-[120px] inline-block align-bottom">{task.assignee === 'ALL' ? 'Whole Department' : (task.assignee ? task.assignee.split(',').join(', ') : 'Unassigned')}</span></span>
+                                              </div>
+                                              <div className="flex gap-2">
+                                                <button onClick={() => openEditTaskModal(task)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"><PenTool className="w-3.5 h-3.5" /></button>
+                                                {role === 'admin' && (
+                                                  <button onClick={() => setDeleteConfirm({ type: 'tasks', id: task.id, name: task.title })} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                )}
+                                                {(!task.assignee || (task.assignee !== 'ALL' && !task.assignee.includes(','))) && (
                                                   <button onClick={() => claimLiveTask(task.id, task.assignee)} className={`px-2.5 py-1 border rounded-lg text-[9px] font-bold transition-all ${task.assignee === (user?.displayName || user?.email || 'Admin') ? 'bg-rose-50 text-rose-700 border-rose-100 hover:bg-rose-100' : 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100'}`}>
                                                     {task.assignee === (user?.displayName || user?.email || 'Admin') ? 'Unclaim' : 'Claim Task'}
                                                   </button>
                                                 )}
-                                                <div className="flex items-center gap-1 ml-auto">
-                                                  <button onClick={() => openEditTaskModal(task)} className="p-1 text-slate-400 hover:text-indigo-600 transition-all bg-slate-50 rounded" title="Edit Task">
-                                                    <Edit2 className="w-3.5 h-3.5" />
-                                                  </button>
-                                                  <button onClick={() => handleDeleteLiveTask(task.id, task.title)} className="p-1 text-slate-400 hover:text-rose-500 transition-all bg-slate-50 rounded" title="Delete Task">
                                                     <Trash2 className="w-3.5 h-3.5" />
                                                   </button>
                                                 </div>
@@ -4436,12 +4510,18 @@ export default function OasisWorkplace() {
                       />
                     </div>
                   </div>
-                  <button
-                    onClick={() => openAddTaskModal(selectedDeptFilter !== 'All Departments' ? selectedDeptFilter : 'Business Relations & Corporate Strategy')}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-sm"
-                  >
-                    <PlusCircle className="w-3.5 h-3.5" /> New Task
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <label className="bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-700 font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-sm cursor-pointer">
+                      <Upload className="w-3.5 h-3.5" /> Import CSV
+                      <input type="file" accept=".csv" className="hidden" onChange={handleImportTasksCsv} />
+                    </label>
+                    <button
+                      onClick={() => openAddTaskModal(selectedDeptFilter !== 'All Departments' ? selectedDeptFilter : 'Business Relations & Corporate Strategy')}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all shadow-sm"
+                    >
+                      <PlusCircle className="w-3.5 h-3.5" /> New Task
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -8008,24 +8088,41 @@ export default function OasisWorkplace() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Assignee</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Assignees</label>
                   {role === 'admin' ? (
-                    <select
-                      value={taskForm.assignee}
-                      onChange={(e) => setTaskForm(prev => ({ ...prev, assignee: e.target.value }))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
-                    >
-                      <option value="">-- Unassigned --</option>
-                      {dbApplications.filter(a => a.status === 'welcomed').map(app => (
-                        <option key={app.uid} value={app.name}>{app.name} ({app.department})</option>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 max-h-40 overflow-y-auto space-y-2">
+                      <label className="flex items-center gap-2 text-sm cursor-pointer border-b border-slate-200 pb-2 mb-2">
+                        <input type="checkbox" checked={taskForm.assignee === 'ALL'} onChange={(e) => {
+                           if (e.target.checked) setTaskForm(prev => ({ ...prev, assignee: 'ALL' }))
+                           else setTaskForm(prev => ({ ...prev, assignee: '' }))
+                        }} className="rounded cursor-pointer" />
+                        <span className="font-bold text-indigo-700">All (Whole Department)</span>
+                      </label>
+                      {dbApplications.filter(a => a.status === 'welcomed' && (a.pref1 === taskForm.department || a.department === taskForm.department)).length === 0 && (
+                        <p className="text-xs text-slate-400 italic py-1">No welcomed members in this department yet.</p>
+                      )}
+                      {dbApplications.filter(a => a.status === 'welcomed' && (a.pref1 === taskForm.department || a.department === taskForm.department)).map(app => (
+                        <label key={app.uid} className={`flex items-center gap-2 text-sm cursor-pointer ${taskForm.assignee === 'ALL' ? 'opacity-50' : ''}`}>
+                          <input type="checkbox" checked={taskForm.assignee !== 'ALL' && taskForm.assignee.split(',').includes(app.name)} onChange={(e) => {
+                            if (taskForm.assignee === 'ALL') return;
+                            let current = taskForm.assignee ? taskForm.assignee.split(',').filter(Boolean) : [];
+                            if (e.target.checked) {
+                              if (!current.includes(app.name)) current.push(app.name);
+                            } else {
+                              current = current.filter(n => n !== app.name);
+                            }
+                            setTaskForm(prev => ({ ...prev, assignee: current.join(',') }));
+                          }} disabled={taskForm.assignee === 'ALL'} className="rounded cursor-pointer" />
+                          <span className="text-slate-700">{app.name}</span>
+                        </label>
                       ))}
-                    </select>
+                    </div>
                   ) : (
                     <input
                       type="text"
                       value={taskForm.assignee}
                       onChange={(e) => setTaskForm(prev => ({ ...prev, assignee: e.target.value }))}
-                      placeholder="Optional Name"
+                      placeholder="Optional Assignee Names (comma separated)"
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none"
                     />
                   )}
