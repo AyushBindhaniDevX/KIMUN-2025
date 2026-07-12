@@ -275,7 +275,7 @@ export default function OasisWorkplace() {
 
 
   // Workspace Navigation
-  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'prize_tracking' | 'dept_boards' | 'registry_manager' | 'delegate_search' | 'schedule_builder' | 'transport_logistics' | 'help_docs' | 'site_settings' | 'logs' | 'chat'>('dashboard')
+  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'prize_tracking' | 'dept_boards' | 'registry_manager' | 'delegate_search' | 'schedule_builder' | 'transport_logistics' | 'help_docs' | 'site_settings' | 'logs' | 'chat' | 'announcement_hub' | 'global_config'>('dashboard')
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All Departments')
   const [recruitmentView, setRecruitmentView] = useState<'oc' | 'eb'>('oc')
 
@@ -557,6 +557,7 @@ export default function OasisWorkplace() {
         if (appVal.status === 'welcomed') {
           setUser(currentUser)
           setRole('oc_member')
+          setMyApp({ uid: currentUser.uid, ...appVal })
           setAccessGranted(true)
           setLoginError('')
           setAuthLoading(false)
@@ -3306,9 +3307,9 @@ export default function OasisWorkplace() {
                           { label: 'Check-In', icon: UserCheck, action: () => setActiveMenuTab('live_allocations'), color: 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100' },
                           { label: 'Add Task', icon: PlusCircle, action: () => setShowTaskForm(true), color: 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100' },
                           { label: 'Dept Boards', icon: Layers, action: () => setActiveMenuTab('dept_boards'), color: 'bg-violet-50 text-violet-700 border-violet-100 hover:bg-violet-100' },
-                          { label: 'Announce', icon: Megaphone, action: () => setActiveMenuTab('announcement_hub'), color: 'bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-100' },
+                          { label: 'Bulletin', icon: Megaphone, action: () => setActiveMenuTab('bulletin_board'), color: 'bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-100' },
                           { label: 'Export', icon: Download, action: handleExportCSV, color: 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100' },
-                          { label: 'Settings', icon: Settings, action: () => setActiveMenuTab('global_config'), color: 'bg-rose-50 text-rose-700 border-rose-100 hover:bg-rose-100' },
+                          { label: 'Settings', icon: Settings, action: () => setActiveMenuTab('site_settings'), color: 'bg-rose-50 text-rose-700 border-rose-100 hover:bg-rose-100' },
                         ].map((a) => (
                           <motion.button key={a.label} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }} onClick={a.action}
                             className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border ${a.color} transition-all`}>
