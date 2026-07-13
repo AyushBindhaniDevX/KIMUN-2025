@@ -3,7 +3,6 @@ import React, { useEffect, useState, useRef, Suspense } from 'react'
 import { motion } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import { getDatabase, ref, get, query, orderByChild, equalTo } from 'firebase/database'
-import Barcode from 'react-barcode'
 import html2canvas from 'html2canvas'
 import { CheckCircle, Download, Loader2, AlertCircle, ChevronRight, Instagram, Lock, User, Sparkles, MessageCircle } from 'lucide-react'
 import * as Flags from 'country-flag-icons/react/3x2'
@@ -199,70 +198,11 @@ function RegistrationSuccessContent() {
                     </span>
                   } />
                   
-                  {!isOnlineCommittee && (
-                    <>
-                      <InfoBox title="Venue" value="BMPS Takshila School Patia" />
-                      <InfoBox title="Gate Zone" value={`Zone ${zone}`} />
-                    </>
-                  )}
-                  
-                  <InfoBox title="Valid Until" value="July 6, 2026" />
                 </div>
                 
-                <div className="flex justify-center mt-6 bg-white p-3 rounded-lg w-fit mx-auto">
-                  <Barcode 
-                    value={registration.id.slice(0).toUpperCase()} 
-                    background="transparent"
-                    lineColor="#000000"
-                    width={2}
-                    height={40}
-                    fontSize={14}
-                  />
-                </div>
               </div>
             </div>
 
-            {/* Registration Summary Card */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 space-y-4">
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">
-                Registration Details
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3 text-sm">
-                  <h4 className="font-bold text-slate-800">
-                    {registration.isDoubleDel ? 'Primary Delegate' : 'Delegate Details'}
-                  </h4>
-                  <DetailRow label="Name" value={registration.delegateInfo?.delegate1?.name} />
-                  <DetailRow label="Email" value={registration.delegateInfo?.delegate1?.email} />
-                  <DetailRow label="Phone" value={registration.delegateInfo?.delegate1?.phone} />
-                  <DetailRow label="Institution" value={registration.delegateInfo?.delegate1?.institution} />
-                  <DetailRow label="Course & Year" value={`${registration.delegateInfo?.delegate1?.course}${registration.delegateInfo?.delegate1?.year ? ` (Year ${registration.delegateInfo.delegate1.year})` : ''}`} />
-                </div>
-
-                {registration.isDoubleDel && registration.delegateInfo?.delegate2 && (
-                  <div className="space-y-3 text-sm">
-                    <h4 className="font-bold text-slate-800">Co-Delegate</h4>
-                    <DetailRow label="Name" value={registration.delegateInfo.delegate2.name} />
-                    <DetailRow label="Email" value={registration.delegateInfo.delegate2.email} />
-                    <DetailRow label="Phone" value={registration.delegateInfo.delegate2.phone} />
-                    <DetailRow label="Institution" value={registration.delegateInfo.delegate2.institution} />
-                    <DetailRow label="Course & Year" value={`${registration.delegateInfo.delegate2.course}${registration.delegateInfo.delegate2.year ? ` (Year ${registration.delegateInfo.delegate2.year})` : ''}`} />
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-lg p-4 mt-6 text-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <DetailRow label="Payment Reference" value={registration.paymentId} className="font-mono text-xs select-all" />
-                <DetailRow label="Registration Phase" value={registration.registrationPhase || 'Unknown'} />
-                {registration.couponCode && (
-                  <DetailRow label="Coupon Applied" value={registration.couponCode} />
-                )}
-                {registration.discountApplied > 0 && (
-                  <DetailRow label="Discount Amount" value={`₹${registration.discountApplied}`} />
-                )}
-              </div>
-            </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
               <button
@@ -287,13 +227,6 @@ function RegistrationSuccessContent() {
     </div>
   )
 }
-
-const DetailRow = ({ label, value, className = '' }: { label: string, value: string, className?: string }) => (
-  <div>
-    <span className="text-slate-500 text-xs block mb-0.5">{label}</span>
-    <span className={`text-slate-900 font-medium block ${className}`}>{value || '-'}</span>
-  </div>
-)
 
 const InfoBox = ({ title, value }: any) => (
   <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/10">
