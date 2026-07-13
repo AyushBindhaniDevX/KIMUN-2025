@@ -3,27 +3,13 @@ import React, { useEffect, useState, useRef, Suspense } from 'react'
 import { motion } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import { getDatabase, ref, get, query, orderByChild, equalTo } from 'firebase/database'
-import { initializeApp, getApps } from 'firebase/app'
 import Barcode from 'react-barcode'
 import html2canvas from 'html2canvas'
 import { CheckCircle, Download, Loader2, AlertCircle, ChevronRight, Instagram, Lock, User, Sparkles, MessageCircle } from 'lucide-react'
 import * as Flags from 'country-flag-icons/react/3x2'
 import Image from 'next/image'
 import Link from 'next/link'
-
-// Firebase initialization
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-}
-
-const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig)
-const db = getDatabase(app)
+import { firebaseDb as db } from '@/lib/firebase-client'
 
 function RegistrationSuccessContent() {
   const searchParams = useSearchParams()
