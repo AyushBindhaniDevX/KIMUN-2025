@@ -1979,7 +1979,14 @@ export default function OasisWorkplace() {
           }).catch(e => console.error("Email err", e))
 
           if (assigneeObj.phone) {
-            sendWhatsAppTemplate(25471, assigneeObj.phone).catch(console.error)
+            // Note: Ensure the new task image is saved as public/images/new_task.png
+            const imageUrl = 'https://kimodelun.vercel.app/images/new_task.png'
+            const variables = [
+              assigneeObj.name,
+              taskForm.title,
+              taskForm.description ? taskForm.description.substring(0, 50) + (taskForm.description.length > 50 ? '...' : '') : 'Please check your dashboard.'
+            ]
+            sendWhatsAppTemplate(25471, assigneeObj.phone, variables, imageUrl).catch(console.error)
           }
         });
       }

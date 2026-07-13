@@ -10,18 +10,29 @@ const PHONE_NUMBER_ID = '1218952421300906'
  * @param messageId The template message ID (e.g. 25457 for payment_completed)
  * @param numbers Comma-separated list of 10-digit mobile numbers
  * @param variables Array of string values to replace template variables
+ * @param mediaUrl Optional URL for header media (Image, Video, Document)
  */
-export async function sendWhatsAppTemplate(messageId: string | number, numbers: string, variables: string[] = []) {
+export async function sendWhatsAppTemplate(messageId: string | number, numbers: string, variables: string[] = [], mediaUrl?: string) {
   try {
     const url = new URL('https://www.fast2sms.com/dev/whatsapp')
     url.searchParams.append('message_id', messageId.toString())
     url.searchParams.append('phone_number_id', PHONE_NUMBER_ID)
     
     // Fast2SMS requires 10 digit Indian number without country code or 10+ digits with country code.
-    url.searchParams.append('numbers', numbers)
+    // Automatically prepend +91 if the number doesn't start with a plus sign and seems to be a local number.
+    const formattedNumbers = numbers.split(',').map(n => {
+      const trimmed = n.trim();
+      return trimmed.startsWith('+') || trimmed.length > 10 ? trimmed : `+91${trimmed}`;
+    }).join(',');
+    
+    url.searchParams.append('numbers', formattedNumbers)
 
     if (variables.length > 0) {
       url.searchParams.append('variables_values', variables.join('|'))
+    }
+    
+    if (mediaUrl) {
+      url.searchParams.append('media_url', mediaUrl)
     }
 
     const response = await fetch(url.toString(), {

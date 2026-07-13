@@ -11,7 +11,7 @@ import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import Image from 'next/image'
 import Link from "next/link"
 import { firebaseAuth, firebaseDb, googleProvider } from '@/lib/firebase-client'
-
+import { sendWhatsAppTemplate } from '@/lib/fast2sms'
 type Committee = {
   id: string
   name: string
@@ -516,7 +516,29 @@ export default function RegistrationPage() {
         body: JSON.stringify(emailData)
       }).catch(err => console.error('Email sending failed:', err))
 
+      const getFlagEmoji = (countryCode: string) => {
+        if (!countryCode) return '👍';
+        const codePoints = countryCode
+          .toUpperCase()
+          .split('')
+          .map(char => 127397 + char.charCodeAt(0));
+        return String.fromCodePoint(...codePoints);
+      };
 
+      const flagOrThumb = selectedPortfolio?.countryCode ? getFlagEmoji(selectedPortfolio.countryCode) : '👍';
+      const committeeString = `${selectedPortfolio?.country || 'Unknown'} (${selectedCommittee?.name || 'Unknown'}) ${flagOrThumb}`;
+
+      const waVariables = [
+        delegateInfo.delegate1.name,
+        newRegistration?.key || 'PENDING',
+        committeeString
+      ];
+
+      const confirmationImageUrl = 'https://kimodelun.vercel.app/images/confirmation.jfif';
+      
+      if (delegateInfo.delegate1.phone) {
+        sendWhatsAppTemplate(25468, delegateInfo.delegate1.phone, waVariables, confirmationImageUrl).catch(console.error);
+      }
 
       return newRegistration.key
     } catch (err) {
