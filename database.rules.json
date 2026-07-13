@@ -24,7 +24,7 @@
       ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')"
     },
     "registrations": {
-      ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')",
+      ".read": "auth != null",
       ".write": "true",
       "$reg_id": {
         ".read": "auth != null && data.child('firebaseUid').val() === auth.uid"
