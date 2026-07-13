@@ -1979,8 +1979,7 @@ export default function OasisWorkplace() {
           }).catch(e => console.error("Email err", e))
 
           if (assigneeObj.phone) {
-            // TODO_TASK_MESSAGE_ID should be replaced with actual message_id once the new_task_added template is approved in Meta.
-            sendWhatsAppTemplate('TODO_TASK_MESSAGE_ID', assigneeObj.phone).catch(console.error)
+            sendWhatsAppTemplate(25471, assigneeObj.phone).catch(console.error)
           }
         });
       }
