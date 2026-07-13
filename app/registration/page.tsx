@@ -534,7 +534,7 @@ export default function RegistrationPage() {
         committeeString
       ];
 
-      const confirmationImageUrl = 'https://kimodelun.vercel.app/images/confirmation.jfif';
+      const confirmationImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${newRegistration?.key || 'PENDING'}`;
       
       if (delegateInfo.delegate1.phone) {
         sendWhatsAppTemplate(25468, delegateInfo.delegate1.phone, waVariables, confirmationImageUrl).catch(console.error);
