@@ -1,12 +1,12 @@
 'use client'
 import React, { useEffect, useState, useRef, Suspense } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import { getDatabase, ref, get, query, orderByChild, equalTo } from 'firebase/database'
 import { initializeApp, getApps } from 'firebase/app'
 import Barcode from 'react-barcode'
 import html2canvas from 'html2canvas'
-import { CheckCircle, Download, Loader2, AlertCircle, ChevronRight, Instagram, Lock, User, Sparkles } from 'lucide-react'
+import { CheckCircle, Download, Loader2, AlertCircle, ChevronRight, Instagram, Lock, User, Sparkles, MessageCircle } from 'lucide-react'
 import * as Flags from 'country-flag-icons/react/3x2'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -36,12 +36,7 @@ function RegistrationSuccessContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [zone, setZone] = useState(0)
-  const [showConfetti, setShowConfetti] = useState(true)
   const idCardRef = useRef(null)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showLogin, setShowLogin] = useState(false)
-  const [loginError, setLoginError] = useState('')
   const [isOnlineCommittee, setIsOnlineCommittee] = useState(false)
 
   useEffect(() => {
@@ -54,11 +49,9 @@ function RegistrationSuccessContent() {
     const fetchData = async () => {
       try {
         setLoading(true)
-        
         let fullRegistration: any = null
 
         if (registrationId) {
-          // Direct key lookup is much faster and avoids Firebase rules index requirements
           const registrationRef = ref(db, `registrations/${registrationId}`)
           const snapshot = await get(registrationRef)
           if (!snapshot.exists()) throw new Error('Registration not found')
@@ -69,7 +62,6 @@ function RegistrationSuccessContent() {
           }
           fullRegistration = { id: registrationId, ...registrationData }
         } else {
-          // Fallback if registrationId is not in URL parameters
           const registrationsRef = query(
             ref(db, 'registrations'),
             orderByChild('paymentId'),
@@ -86,7 +78,6 @@ function RegistrationSuccessContent() {
         const committeeSnapshot = await get(ref(db, `committees/${fullRegistration.committeeId}`))
         const committeeData = committeeSnapshot.val()
 
-        // Get portfolio details
         const portfolioData = committeeData.portfolios[fullRegistration.portfolioId]
 
         setRegistration(fullRegistration)
@@ -117,7 +108,7 @@ function RegistrationSuccessContent() {
       const canvas = await html2canvas(idCardRef.current, { 
         useCORS: true, 
         scale: 3,
-        backgroundColor: '#000000'
+        backgroundColor: '#ffffff'
       } as any)
       const link = document.createElement('a')
       link.download = `KIMUN-ID-${registration?.delegateInfo.delegate1.name.split(' ')[0]}.png`
@@ -128,139 +119,52 @@ function RegistrationSuccessContent() {
     }
   }
 
-  const handleLogin = async (e: any) => {
-    e.preventDefault()
-    try {
-      if (email !== registration?.delegateInfo.delegate1.email) {
-        throw new Error('Invalid credentials')
-      }
-      window.location.href = `/dashboard/${registration.id}`
-    } catch (err: any) {
-      setLoginError(err.message)
-    }
-  }
-
   if (loading) return <LoadingSpinner />
   if (error) return <ErrorDisplay message={error} paymentId={paymentId} />
   if (!registration) return <NoData />
 
   return (
-    <div className="min-h-screen bg-background text-foreground relative overflow-hidden">
-      <header className="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-md border-b border-amber-800/20">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center gap-2">
-              <Image 
-                src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" 
-                alt="KIMUN Logo" 
-                width={40} 
-                height={40} 
-                className="mr-2" 
-              />
-              <span className="text-lg font-bold text-amber-300 hidden sm:inline-block">
-                Kalinga International MUN
-              </span>
-            </Link>
-          </div>
+    <div className="min-h-screen bg-slate-50/40 text-slate-900 selection:bg-indigo-100">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
+        <div className="container mx-auto px-6 h-16 flex items-center justify-between max-w-4xl">
+          <Link href="/" className="inline-flex items-center gap-2 group text-xs font-bold uppercase tracking-wider text-slate-900 hover:text-indigo-600 transition-colors">
+            <Image 
+              src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" 
+              alt="KIMUN Logo" 
+              width={24} 
+              height={24} 
+              className="mr-1" 
+            />
+            Kalinga International MUN
+          </Link>
         </div>
       </header>
 
-      <AnimatePresence>
-        {showLogin && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
-          >
-            <motion.div 
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 20, opacity: 0 }}
-              className="bg-black border border-amber-800/30 rounded-2xl p-8 max-w-md w-full"
-            >
-              <h2 className="text-2xl font-bold text-amber-300 mb-6 flex items-center gap-2">
-                <Lock className="text-amber-400" /> Delegate Login
-              </h2>
-              
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-gray-300">Email</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-black/30 border border-amber-800/30 rounded-lg p-3 text-white"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-gray-300">Password</label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-black/30 border border-amber-800/30 rounded-lg p-3 text-white"
-                    required
-                  />
-                </div>
-                
-                {loginError && (
-                  <div className="text-red-400 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" />
-                    {loginError}
-                  </div>
-                )}
-                
-                <div className="flex gap-4 pt-4">
-                  <Button
-                    type="button"
-                    onClick={() => setShowLogin(false)}
-                    variant="outline"
-                    className="flex-1 border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="flex-1 bg-amber-600 hover:bg-amber-700 text-black"
-                  >
-                    Login
-                  </Button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="max-w-2xl mx-auto p-6 pt-24 relative z-10">
+      <div className="max-w-2xl mx-auto px-6 pt-28 pb-16">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-black/50 backdrop-blur-sm border border-amber-800/30 rounded-2xl shadow-lg p-8"
+          className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6 md:p-8"
         >
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-bold text-amber-300 flex items-center gap-2">
-              <CheckCircle className="text-green-500" /> Registration Complete!
-            </h1>
-            <span className="bg-green-900/30 px-3 py-1 rounded-full text-xs text-green-300">
-              Confirmed
-            </span>
+          <div className="flex flex-col items-center text-center mb-8">
+            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="w-8 h-8" />
+            </div>
+            <h1 className="text-3xl font-bold text-slate-900">Registration Complete!</h1>
+            <p className="text-slate-500 mt-2">
+              Thank you for registering for KIMUN 2026. Your application has been confirmed.
+            </p>
+            
+            <div className="mt-4 flex items-center gap-2 bg-indigo-50 border border-indigo-100 text-indigo-700 px-4 py-3 rounded-lg text-sm text-left">
+              <MessageCircle className="w-5 h-5 flex-shrink-0" />
+              <p>We've sent a confirmation message with your Registration ID to your registered WhatsApp number.</p>
+            </div>
           </div>
           
-          <div className="space-y-6">
-            <div className="bg-green-900/20 border border-green-800/30 rounded-xl p-4">
-              <p className="text-green-300">
-                Thank you for registering! Your delegate ID card is ready below. 
-                You can download it or login to your delegate dashboard for more information.
-              </p>
-            </div>
-            
+          <div className="space-y-8">
             <div 
               ref={idCardRef}
-              className="bg-black/30 border border-amber-800/30 rounded-xl p-8 relative overflow-hidden"
+              className="bg-gradient-to-br from-indigo-600 to-indigo-900 rounded-xl p-8 relative overflow-hidden text-white shadow-lg"
             >
               <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
                 <Image 
@@ -274,17 +178,17 @@ function RegistrationSuccessContent() {
               <div className="relative z-10">
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <h2 className="text-2xl font-bold text-amber-300">KIMUN 2025</h2>
-                    <p className="text-gray-400">Delegate Digital ID</p>
+                    <h2 className="text-2xl font-bold text-white">KIMUN 2026</h2>
+                    <p className="text-indigo-200 text-sm">Delegate Digital ID</p>
                     {isOnlineCommittee && (
-                      <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full mt-1">
+                      <span className="text-[10px] uppercase tracking-wider font-bold bg-white/20 text-white px-2 py-0.5 rounded-full mt-2 inline-block">
                         Online Committee
                       </span>
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-gray-400">Registration ID</p>
-                    <p className="font-mono text-amber-300">{registration.id.slice(0, 8).toUpperCase()}</p>
+                    <p className="text-xs text-indigo-200 uppercase tracking-wider mb-1">Registration ID</p>
+                    <p className="font-mono text-white font-bold bg-white/10 px-2 py-1 rounded">{registration.id.slice(0, 8).toUpperCase()}</p>
                   </div>
                 </div>
                 
@@ -316,164 +220,81 @@ function RegistrationSuccessContent() {
                     </>
                   )}
                   
-                  <InfoBox title="Valid Until" value="July 6, 2025" />
+                  <InfoBox title="Valid Until" value="July 6, 2026" />
                 </div>
                 
-                <div className="flex justify-center mt-4">
+                <div className="flex justify-center mt-6 bg-white p-3 rounded-lg w-fit mx-auto">
                   <Barcode 
                     value={registration.id.slice(0).toUpperCase()} 
                     background="transparent"
-                    lineColor="#f59e0b"
+                    lineColor="#000000"
                     width={2}
-                    height={50}
+                    height={40}
+                    fontSize={14}
                   />
                 </div>
               </div>
             </div>
 
             {/* Registration Summary Card */}
-            <div className="bg-black/40 border border-amber-800/30 rounded-xl p-6 space-y-4">
-              <h3 className="text-lg font-bold text-amber-300 border-b border-amber-800/20 pb-2">
-                Registration Summary & Details
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 space-y-4">
+              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">
+                Registration Details
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Delegate 1 Column */}
-                <div className="space-y-2 text-sm">
-                  <h4 className="font-semibold text-amber-400 uppercase tracking-wider text-xs">
-                    {registration.isDoubleDel ? 'Delegate 1 (Primary)' : 'Delegate Details'}
+                <div className="space-y-3 text-sm">
+                  <h4 className="font-bold text-slate-800">
+                    {registration.isDoubleDel ? 'Primary Delegate' : 'Delegate Details'}
                   </h4>
-                  <div>
-                    <span className="text-gray-400 text-xs block text-left">Name</span>
-                    <span className="text-white font-medium block text-left">{registration.delegateInfo?.delegate1?.name}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 text-xs block text-left">Email</span>
-                    <span className="text-white font-medium block text-left break-all">{registration.delegateInfo?.delegate1?.email}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 text-xs block text-left">Phone</span>
-                    <span className="text-white font-medium block text-left">{registration.delegateInfo?.delegate1?.phone}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 text-xs block text-left">Institution</span>
-                    <span className="text-white font-medium block text-left">{registration.delegateInfo?.delegate1?.institution}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 text-xs block text-left">Course & Year</span>
-                    <span className="text-white font-medium block text-left">
-                      {registration.delegateInfo?.delegate1?.course}
-                      {registration.delegateInfo?.delegate1?.year && ` (Year ${registration.delegateInfo.delegate1.year})`}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 text-xs block text-left">MUN Experience</span>
-                    <span className="text-white font-medium block text-left">
-                      {registration.delegateInfo?.delegate1?.experience || 0} {registration.delegateInfo?.delegate1?.experience === '1' ? 'conference' : 'conferences'}
-                    </span>
-                  </div>
+                  <DetailRow label="Name" value={registration.delegateInfo?.delegate1?.name} />
+                  <DetailRow label="Email" value={registration.delegateInfo?.delegate1?.email} />
+                  <DetailRow label="Phone" value={registration.delegateInfo?.delegate1?.phone} />
+                  <DetailRow label="Institution" value={registration.delegateInfo?.delegate1?.institution} />
+                  <DetailRow label="Course & Year" value={`${registration.delegateInfo?.delegate1?.course}${registration.delegateInfo?.delegate1?.year ? ` (Year ${registration.delegateInfo.delegate1.year})` : ''}`} />
                 </div>
 
-                {/* Delegate 2 Column */}
-                {registration.isDoubleDel && registration.delegateInfo?.delegate2 ? (
-                  <div className="space-y-2 text-sm">
-                    <h4 className="font-semibold text-amber-400 uppercase tracking-wider text-xs">
-                      Delegate 2 (Co-Delegate)
-                    </h4>
-                    <div>
-                      <span className="text-gray-400 text-xs block text-left">Name</span>
-                      <span className="text-white font-medium block text-left">{registration.delegateInfo.delegate2.name}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400 text-xs block text-left">Email</span>
-                      <span className="text-white font-medium block text-left break-all">{registration.delegateInfo.delegate2.email}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400 text-xs block text-left">Phone</span>
-                      <span className="text-white font-medium block text-left">{registration.delegateInfo.delegate2.phone}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400 text-xs block text-left">Institution</span>
-                      <span className="text-white font-medium block text-left">{registration.delegateInfo.delegate2.institution}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400 text-xs block text-left">Course & Year</span>
-                      <span className="text-white font-medium block text-left">
-                        {registration.delegateInfo.delegate2.course}
-                        {registration.delegateInfo.delegate2.year && ` (Year ${registration.delegateInfo.delegate2.year})`}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-gray-400 text-xs block text-left">MUN Experience</span>
-                      <span className="text-white font-medium block text-left">
-                        {registration.delegateInfo.delegate2.experience || 0} {registration.delegateInfo.delegate2.experience === '1' ? 'conference' : 'conferences'}
-                      </span>
-                    </div>
+                {registration.isDoubleDel && registration.delegateInfo?.delegate2 && (
+                  <div className="space-y-3 text-sm">
+                    <h4 className="font-bold text-slate-800">Co-Delegate</h4>
+                    <DetailRow label="Name" value={registration.delegateInfo.delegate2.name} />
+                    <DetailRow label="Email" value={registration.delegateInfo.delegate2.email} />
+                    <DetailRow label="Phone" value={registration.delegateInfo.delegate2.phone} />
+                    <DetailRow label="Institution" value={registration.delegateInfo.delegate2.institution} />
+                    <DetailRow label="Course & Year" value={`${registration.delegateInfo.delegate2.course}${registration.delegateInfo.delegate2.year ? ` (Year ${registration.delegateInfo.delegate2.year})` : ''}`} />
                   </div>
-                ) : registration.isDoubleDel ? (
-                  <div className="flex items-center justify-center p-4 border border-dashed border-amber-800/20 rounded-lg text-gray-500 italic text-sm">
-                    Co-delegate details missing/incomplete
-                  </div>
-                ) : null}
+                )}
               </div>
 
-              {/* Payment Details Subcard */}
-              <div className="bg-black/20 border border-amber-800/20 rounded-lg p-3 text-xs grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-400">
-                <div>
-                  <span className="text-amber-500/80 font-bold block mb-0.5 text-left">Payment Reference ID</span>
-                  <span className="font-mono text-sm text-white select-all block text-left">{registration.paymentId}</span>
-                </div>
-                <div>
-                  <span className="text-amber-500/80 font-bold block mb-0.5 text-left">Registration Phase</span>
-                  <span className="text-sm text-white font-medium block text-left">{registration.registrationPhase || 'Unknown'}</span>
-                </div>
+              <div className="bg-white border border-slate-200 rounded-lg p-4 mt-6 text-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <DetailRow label="Payment Reference" value={registration.paymentId} className="font-mono text-xs select-all" />
+                <DetailRow label="Registration Phase" value={registration.registrationPhase || 'Unknown'} />
                 {registration.couponCode && (
-                  <div>
-                    <span className="text-amber-500/80 font-bold block mb-0.5 text-left">Coupon Applied</span>
-                    <span className="text-sm text-white font-medium block text-left">{registration.couponCode}</span>
-                  </div>
+                  <DetailRow label="Coupon Applied" value={registration.couponCode} />
                 )}
                 {registration.discountApplied > 0 && (
-                  <div>
-                    <span className="text-amber-500/80 font-bold block mb-0.5 text-left">Discount Amount</span>
-                    <span className="text-sm text-white font-medium block text-left">₹{registration.discountApplied}</span>
-                  </div>
+                  <DetailRow label="Discount Amount" value={`₹${registration.discountApplied}`} />
                 )}
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Button
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
+              <button
                 onClick={downloadIDCard}
-                className="w-full bg-amber-600 hover:bg-amber-700 text-black py-4 rounded-xl group"
+                className="w-full flex items-center justify-center gap-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 py-3.5 rounded-lg font-semibold transition-colors"
               >
-                <Download className="w-5 h-5 mr-2" />
-                Download ID Card
-              </Button>
-              <Button
+                <Download className="w-4 h-4" />
+                Save ID Card
+              </button>
+              <button
                 onClick={() => window.location.href = `/delegate`}
-                className="w-full bg-black/30 border border-amber-600 text-amber-300 hover:bg-amber-800 hover:text-white py-4 rounded-xl"
+                className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-lg font-semibold transition-colors"
               >
-                <User className="w-5 h-5 mr-2" />
-                Delegate Dashboard
-              </Button>
+                <User className="w-4 h-4" />
+                Open Delegate Portal
+              </button>
             </div>
             
-            <div className="pt-6 border-t border-amber-800/30">
-              <h3 className="text-lg font-semibold text-amber-300 mb-3 flex items-center gap-2">
-                <Sparkles className="text-amber-400" /> Connect With Us
-              </h3>
-              <div className="flex justify-center gap-4">
-                <a 
-                  href="https://www.instagram.com/kalingainternationalmun" 
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-gradient-to-br from-purple-600 to-pink-600 p-3 rounded-full hover:opacity-80 transition-opacity"
-                >
-                  <Instagram className="w-5 h-5" />
-                </a>
-              </div>
-            </div>
           </div>
         </motion.div>
       </div>
@@ -481,50 +302,47 @@ function RegistrationSuccessContent() {
   )
 }
 
-const LoadingSpinner = () => (
-  <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-    <Loader2 className="animate-spin w-8 h-8 text-amber-500" />
-  </div>
-)
-
-const ErrorDisplay = ({ message, paymentId }: any) => (
-  <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 text-center">
-    <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-    <h2 className="text-xl font-semibold text-amber-300 mb-2">Error</h2>
-    <p className="text-gray-300 max-w-md mb-4">{message}</p>
-    {paymentId && <p className="text-sm text-gray-500">Payment ID: {paymentId}</p>}
-    <Button 
-      onClick={() => window.location.href = '/'}
-      className="mt-4 bg-amber-600 hover:bg-amber-700 text-black"
-    >
-      Return Home
-    </Button>
-  </div>
-)
-
-const NoData = () => (
-  <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-    <span className="text-gray-400">No registration data available</span>
+const DetailRow = ({ label, value, className = '' }: { label: string, value: string, className?: string }) => (
+  <div>
+    <span className="text-slate-500 text-xs block mb-0.5">{label}</span>
+    <span className={`text-slate-900 font-medium block ${className}`}>{value || '-'}</span>
   </div>
 )
 
 const InfoBox = ({ title, value }: any) => (
-  <div className="bg-black/30 border border-amber-800/30 rounded-lg p-3">
-    <p className="text-xs text-gray-400 uppercase tracking-wider">{title}</p>
-    <p className="text-lg font-medium text-white">{value}</p>
+  <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/10">
+    <p className="text-[10px] text-indigo-200 uppercase tracking-wider mb-1 font-semibold">{title}</p>
+    <div className="text-sm font-bold text-white">{value}</div>
   </div>
 )
 
-const Button = ({ children, className = '', ...props }: any) => (
-  <button
-    className={`flex items-center justify-center transition-colors ${className}`}
-    {...props}
-  >
-    {children}
-  </button>
+const LoadingSpinner = () => (
+  <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+    <Loader2 className="animate-spin w-8 h-8 text-indigo-600" />
+  </div>
 )
 
-// Single default export for the page component
+const ErrorDisplay = ({ message, paymentId }: any) => (
+  <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8 text-center">
+    <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+    <h2 className="text-xl font-bold text-slate-900 mb-2">Error</h2>
+    <p className="text-slate-500 max-w-md mb-4">{message}</p>
+    {paymentId && <p className="text-sm text-slate-400 font-mono">Payment ID: {paymentId}</p>}
+    <button 
+      onClick={() => window.location.href = '/'}
+      className="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold"
+    >
+      Return Home
+    </button>
+  </div>
+)
+
+const NoData = () => (
+  <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-500">
+    No registration data available
+  </div>
+)
+
 export default function RegistrationSuccessPage() {
   return (
     <Suspense fallback={<LoadingSpinner />}>
