@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import Confetti from 'react-confetti'
 import { Sparkles, CheckCircle, Globe, Users, AlertCircle, ChevronRight, Calendar, Clock, Lock, Unlock, ArrowLeft } from 'lucide-react'
 import * as Flags from 'country-flag-icons/react/3x2'
-import { ref, get, push, update, onValue } from 'firebase/database'
+import { ref, get, push, update, onValue, set } from 'firebase/database'
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth'
 import Image from 'next/image'
 import Link from "next/link"
@@ -164,6 +164,8 @@ export default function RegistrationPage() {
   const [couponApplied, setCouponApplied] = useState(false)
   const [couponError, setCouponError] = useState('')
   const [siteSettings, setSiteSettings] = useState<any>(null)
+  const [alreadyRegistered, setAlreadyRegistered] = useState(false)
+  const [checkingRegistration, setCheckingRegistration] = useState(false)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user: any) => {
@@ -185,6 +187,28 @@ export default function RegistrationPage() {
 
     return () => unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (authUser?.uid) {
+      const checkReg = async () => {
+        setCheckingRegistration(true)
+        try {
+          const regRef = ref(firebaseDb, `delegate_registrations/${authUser.uid}`)
+          const snap = await get(regRef)
+          if (snap.exists() && snap.val() === true) {
+            setAlreadyRegistered(true)
+          }
+        } catch (e) {
+          console.error(e)
+        } finally {
+          setCheckingRegistration(false)
+        }
+      }
+      checkReg()
+    } else {
+      setAlreadyRegistered(false)
+    }
+  }, [authUser])
 
   useEffect(() => {
     if (!authUser?.email) return
@@ -497,6 +521,9 @@ export default function RegistrationPage() {
       const portfolioRef = ref(firebaseDb, `committees/${selectedCommittee.id}/portfolios/${selectedPortfolio.id}`)
       await update(portfolioRef, { isVacant: false })
 
+      const delegateRegRef = ref(firebaseDb, `delegate_registrations/${authUser?.uid}`)
+      await set(delegateRegRef, true)
+
       const emailData = {
         email: delegateInfo.delegate1.email,
         name: delegateInfo.delegate1.name,
@@ -534,7 +561,7 @@ export default function RegistrationPage() {
         committeeString
       ];
 
-      const confirmationImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${newRegistration?.key || 'PENDING'}`;
+      const confirmationImageUrl = `https://quickchart.io/qr?text=${newRegistration?.key || 'PENDING'}&size=500&format=png&ext=.png`;
       
       if (delegateInfo.delegate1.phone) {
         sendWhatsAppTemplate(25468, delegateInfo.delegate1.phone, waVariables, confirmationImageUrl).catch(console.error);
@@ -666,6 +693,39 @@ export default function RegistrationPage() {
             Continue with Google
           </Button>
           {authError && <p className="text-sm text-red-500 mt-4">{authError}</p>}
+        </div>
+      </div>
+    )
+  }
+
+  if (checkingRegistration) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-900">
+        <div className="text-center p-8">
+          <div className="animate-pulse flex justify-center mb-4">
+            <Image src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="Loading" width={64} height={64} />
+          </div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Checking registration status...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (alreadyRegistered) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full bg-white border border-slate-200 rounded-xl p-8 shadow-sm">
+          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-8 h-8" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">Already Registered</h1>
+          <p className="text-sm text-slate-500 mb-6">
+            You have already registered for KIMUN 2026 using this Google account. 
+            Delegates can only register once per account.
+          </p>
+          <Button onClick={() => window.location.href = '/delegate'} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
+            Go to Delegate Portal
+          </Button>
         </div>
       </div>
     )

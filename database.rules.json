@@ -2,7 +2,22 @@
   "rules": {
     "committees": {
       ".read": "true",
-      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')"
+      ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')",
+      "$committee_id": {
+        "portfolios": {
+          "$portfolio_id": {
+            "isVacant": {
+              ".write": "auth != null"
+            }
+          }
+        }
+      }
+    },
+    "delegate_registrations": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
     },
     "portfolios": {
       ".read": "true",
@@ -10,7 +25,10 @@
     },
     "registrations": {
       ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')",
-      ".write": "true"
+      ".write": "true",
+      "$reg_id": {
+        ".read": "auth != null && data.child('firebaseUid').val() === auth.uid"
+      }
     },
     "coupons": {
       ".read": "true",
