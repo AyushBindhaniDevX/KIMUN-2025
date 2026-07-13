@@ -1,5 +1,6 @@
-// lib/fast2sms.ts
+'use server';
 
+// lib/fast2sms.ts
 const API_KEY = 'reQDjRhwEOWu31HxZ8nd0p2VLNYg7lmb5kvcAtCG4FfKP9XSTqHYjRZhMg6uCapTUS8nE9fiNFvI5eXA'
 const PHONE_NUMBER_ID = '1218952421300906'
 

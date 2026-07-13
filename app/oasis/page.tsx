@@ -1972,7 +1972,7 @@ export default function OasisWorkplace() {
             body: JSON.stringify({
               email: assigneeObj.email,
               name: assigneeObj.name,
-              type: 'task_assigned',
+              type: 'task_added',
               taskTitle: taskForm.title,
               taskDescription: taskForm.description
             })
