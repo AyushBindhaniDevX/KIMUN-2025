@@ -15,27 +15,42 @@ interface ApplicationEmailData {
   emails?: string[];
 }
 
-// Initialize Resend with your API key
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY || '');
 
 export async function POST(req: Request) {
-  // Validate environment variables
+  console.log('📧 Email API called');
+
+  // Check for API key
   if (!process.env.RESEND_API_KEY) {
-    console.error('RESEND_API_KEY not configured');
+    console.error('❌ RESEND_API_KEY is not set');
     return NextResponse.json(
       {
         success: false,
-        error: "Server configuration error: Missing RESEND_API_KEY"
+        error: "Server configuration error: RESEND_API_KEY not configured",
+        details: "Please set RESEND_API_KEY in environment variables"
       },
       { status: 500 }
     );
   }
 
   try {
-    const data: ApplicationEmailData = await req.json();
+    // Parse request body
+    let data: ApplicationEmailData;
+    try {
+      data = await req.json();
+      console.log('📝 Request data:', { type: data.type, email: data.email || 'broadcast' });
+    } catch (parseError) {
+      console.error('❌ Failed to parse JSON:', parseError);
+      return NextResponse.json(
+        { success: false, error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
+    }
 
     // Validate required fields
     if (!data.type) {
+      console.error('❌ Missing type field');
       return NextResponse.json(
         { success: false, error: "Missing required field: type" },
         { status: 400 }
@@ -44,6 +59,7 @@ export async function POST(req: Request) {
 
     // Validate email for non-broadcast types
     if (data.type !== 'broadcast' && !data.email) {
+      console.error('❌ Missing email for type:', data.type);
       return NextResponse.json(
         { success: false, error: "Missing required field: email" },
         { status: 400 }
@@ -53,12 +69,14 @@ export async function POST(req: Request) {
     // Validate broadcast data
     if (data.type === 'broadcast') {
       if (!data.broadcastTitle || !data.broadcastContent) {
+        console.error('❌ Broadcast missing title or content');
         return NextResponse.json(
           { success: false, error: "Broadcast requires title and content" },
           { status: 400 }
         );
       }
       if (!data.emails || data.emails.length === 0) {
+        console.error('❌ Broadcast missing recipients');
         return NextResponse.json(
           { success: false, error: "Broadcast requires at least one recipient email" },
           { status: 400 }
@@ -68,19 +86,21 @@ export async function POST(req: Request) {
 
     // Generate email content
     const { subject, body, toField } = generateEmailContent(data);
+    console.log('📧 Generated email:', { subject, recipient: toField || 'broadcast' });
 
-    // For Resend, you need to use a verified domain or their sandbox
-    // For testing, you can use the sandbox domain: onbarding@resend.dev
-    // But for production, you MUST verify your domain
+    // Use Resend sandbox domain for testing
     const fromEmail = process.env.FROM_EMAIL || 'onboarding@resend.dev';
+    console.log('📧 Sending from:', fromEmail);
 
-    // If using broadcast, send individual emails (Resend doesn't support BCC in the same way)
+    // Handle broadcast emails
     if (data.type === 'broadcast' && data.emails) {
+      console.log(`📨 Sending broadcast to ${data.emails.length} recipients`);
+
       // Send to each email individually
       const emailPromises = data.emails.map(email => {
         return resend.emails.send({
           from: `KIMUN Team <${fromEmail}>`,
-          to: email,
+          to: email.trim(),
           subject: subject,
           html: body,
           text: body.replace(/<[^>]*>?/gm, ''),
@@ -89,21 +109,27 @@ export async function POST(req: Request) {
 
       const results = await Promise.allSettled(emailPromises);
 
-      // Check if any failed
-      const failed = results.filter(r => r.status === 'rejected');
-      if (failed.length > 0) {
-        console.error(`${failed.length} emails failed to send`);
+      // Check results
+      const fulfilled = results.filter(r => r.status === 'fulfilled');
+      const rejected = results.filter(r => r.status === 'rejected');
+
+      console.log(`✅ ${fulfilled.length} emails sent, ❌ ${rejected.length} failed`);
+
+      if (rejected.length > 0) {
+        console.error('❌ Failed emails:', rejected.map(r => (r as PromiseRejectedResult).reason));
       }
 
       return NextResponse.json({
         success: true,
-        sent: results.filter(r => r.status === 'fulfilled').length,
-        failed: failed.length,
-        message: `Sent to ${results.filter(r => r.status === 'fulfilled').length} recipients`
+        sent: fulfilled.length,
+        failed: rejected.length,
+        message: `Sent to ${fulfilled.length} of ${data.emails.length} recipients`
       });
     }
 
     // Send single email
+    console.log('📨 Sending single email to:', toField || data.email);
+
     const { data: emailData, error } = await resend.emails.send({
       from: `KIMUN Team <${fromEmail}>`,
       to: toField || data.email || '',
@@ -113,24 +139,31 @@ export async function POST(req: Request) {
     });
 
     if (error) {
-      console.error('Resend error:', error);
+      console.error('❌ Resend API error:', error);
       return NextResponse.json(
-        { success: false, error: error.message },
+        {
+          success: false,
+          error: error.message,
+          details: error
+        },
         { status: 500 }
       );
     }
 
+    console.log('✅ Email sent successfully:', emailData?.id);
     return NextResponse.json({
       success: true,
-      id: emailData?.id
+      id: emailData?.id,
+      message: 'Email sent successfully'
     });
 
   } catch (error) {
-    console.error('Email API error:', error);
+    console.error('❌ Email API error:', error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to send email'
+        error: error instanceof Error ? error.message : 'Failed to send email',
+        details: error instanceof Error ? error.stack : undefined
       },
       { status: 500 }
     );
@@ -282,8 +315,6 @@ function generateEmailContent(data: ApplicationEmailData): {
   }
   else if (data.type === 'broadcast') {
     subject = `📢 Announcement: ${data.broadcastTitle}`;
-    // For broadcast, we'll send individually, so use the first email for the to field
-    // But we'll handle this in the main function
     toField = data.emails?.[0] || '';
 
     body = `
