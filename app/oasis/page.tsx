@@ -2891,7 +2891,16 @@ export default function OasisWorkplace() {
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
-          <div className="ml-auto flex items-center gap-4">
+          <div className="ml-auto flex items-center gap-3">
+             <a
+               href="/form-builder"
+               target="_blank"
+               rel="noopener noreferrer"
+               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold transition-all shadow-sm"
+             >
+               <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+               Form Builder Studio
+             </a>
              <div className="text-right hidden sm:block">
                <span className="text-sm font-semibold block leading-tight">{user.displayName?.split(' ')[0]}</span>
                <span className="text-xs text-muted-foreground">{role === 'admin' ? 'Administrator' : 'OC Member'}</span>
