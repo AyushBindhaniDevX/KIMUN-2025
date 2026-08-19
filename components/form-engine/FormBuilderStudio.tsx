@@ -103,8 +103,11 @@ export function FormBuilderStudio({
     },
   ]
 
+  const generateUniqueId = (prefix = 'field') =>
+    `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+
   const handleAddField = (type: FormFieldType) => {
-    const newFieldId = `field_${Date.now().toString().slice(-6)}`
+    const newFieldId = generateUniqueId('field')
     const newField: FormField = {
       id: newFieldId,
       type,
@@ -115,8 +118,8 @@ export function FormBuilderStudio({
       options:
         type === 'select' || type === 'radio' || type === 'multiselect'
           ? [
-              { label: 'Option 1', value: 'option_1', priceDelta: 0 },
-              { label: 'Option 2', value: 'option_2', priceDelta: 0 },
+              { label: 'Option 1', value: generateUniqueId('opt_1'), priceDelta: 0 },
+              { label: 'Option 2', value: generateUniqueId('opt_2'), priceDelta: 0 },
             ]
           : undefined,
     }
@@ -133,7 +136,7 @@ export function FormBuilderStudio({
   }
 
   const handleDuplicateField = (field: FormField) => {
-    const newFieldId = `field_${Date.now().toString().slice(-6)}`
+    const newFieldId = generateUniqueId('field')
     const clonedField: FormField = {
       ...JSON.parse(JSON.stringify(field)),
       id: newFieldId,
@@ -198,7 +201,7 @@ export function FormBuilderStudio({
 
   const handleAddSection = () => {
     const newSec: FormSection = {
-      id: `sec_${Date.now().toString().slice(-6)}`,
+      id: generateUniqueId('sec'),
       title: `Step ${schema.sections.length + 1}: Additional Information`,
       subtitle: 'Please complete the required details below.',
       fields: [],
@@ -594,7 +597,7 @@ export function FormBuilderStudio({
               <div className="flex items-center gap-2 overflow-x-auto pb-1">
                 {schema.sections.map((sec, idx) => (
                   <button
-                    key={sec.id}
+                    key={`${sec.id || 'sec'}_${idx}`}
                     type="button"
                     onClick={() => {
                       setSelectedSectionIdx(idx)
@@ -691,7 +694,7 @@ export function FormBuilderStudio({
                       const isSelected = selectedFieldId === field.id
                       return (
                         <div
-                          key={field.id}
+                          key={`${field.id || 'field'}_${idx}`}
                           onClick={() => setSelectedFieldId(field.id)}
                           className={`p-4 rounded-xl border-2 transition-all cursor-pointer relative group ${
                             isSelected
@@ -887,7 +890,7 @@ export function FormBuilderStudio({
 
                     <div className="space-y-2">
                       {selectedField.options?.map((opt, oIdx) => (
-                        <div key={oIdx} className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                        <div key={`${opt.value || 'opt'}_${oIdx}`} className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
                           <input
                             type="text"
                             value={opt.label}
@@ -1018,7 +1021,14 @@ export function FormBuilderStudio({
                 <div
                   key={tpl.id}
                   onClick={() => {
-                    setSchema(tpl)
+                    const cloned: FormSchema = JSON.parse(JSON.stringify(tpl))
+                    cloned.sections.forEach((sec, sIdx) => {
+                      sec.id = generateUniqueId(`sec_${sIdx}`)
+                      sec.fields.forEach((f, fIdx) => {
+                        f.id = generateUniqueId(`field_${sIdx}_${fIdx}`)
+                      })
+                    })
+                    setSchema(cloned)
                     setShowTemplateModal(false)
                     setSelectedSectionIdx(0)
                     setSelectedFieldId(null)
