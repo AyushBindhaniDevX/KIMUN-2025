@@ -227,11 +227,15 @@ export function FormBuilderStudio({
     setSelectedSectionIdx(Math.max(0, idx - 1))
   }
 
-  const handleSaveAndPublish = () => {
-    if (onPublish) onPublish(schema)
-    if (onSave) onSave(schema)
-    setIsSavedSuccess(true)
-    setTimeout(() => setIsSavedSuccess(false), 3000)
+  const handleSaveAndPublish = async () => {
+    try {
+      if (onPublish) await onPublish(schema)
+      else if (onSave) await onSave(schema)
+      setIsSavedSuccess(true)
+      setTimeout(() => setIsSavedSuccess(false), 3000)
+    } catch (err) {
+      console.error('Save and publish error:', err)
+    }
   }
 
   const publicUrl = typeof window !== 'undefined'

@@ -112,6 +112,18 @@
       ".read": "true",
       ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')"
     },
+    "forms": {
+      ".read": "true",
+      ".write": "auth != null"
+    },
+    "form_slugs": {
+      ".read": "true",
+      ".write": "auth != null"
+    },
+    "form_submissions": {
+      ".read": "auth != null",
+      ".write": "true"
+    },
     "prize_tracking": {
       ".read": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')",
       ".write": "auth != null && (auth.token.email === 'ayushbindhani001@gmail.com' || auth.token.email === 'admin@kimun.com' || auth.token.email === 'writetoanurup@gmail.com' || auth.token.email === 'organizer@kimun.com')",
