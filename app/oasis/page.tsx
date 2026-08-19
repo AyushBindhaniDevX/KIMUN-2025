@@ -87,6 +87,7 @@ import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } fr
 import { firebaseAuth, firebaseDb, googleProvider } from '@/lib/firebase-client'
 import { Scanner } from '@yudiel/react-qr-scanner'
 import { sendWhatsAppTemplate } from '@/lib/fast2sms'
+import { sendTaskNotification } from '@/components/tasks'
 import * as XLSX from 'xlsx'
 import 'jspdf-autotable'
 
@@ -1845,10 +1846,20 @@ export default function OasisWorkplace() {
     if (!user) return
     const me = user.displayName || user.email || 'Admin'
     const isClaimedByMe = currentAssignee === me
+    const taskObj = dbTasks.find(t => t.id === taskId)
     try {
       await update(ref(firebaseDb, `oc_tasks/${taskId}`), { assignee: isClaimedByMe ? '' : me })
       await logActivity('CLAIM_TASK', `${isClaimedByMe ? 'Unclaimed' : 'Claimed'} live task ID: ${taskId}`)
       triggerNotification(isClaimedByMe ? 'Task unclaimed.' : 'Claimed task successfully.')
+
+      if (taskObj && !isClaimedByMe) {
+        sendTaskNotification({
+          task: { ...taskObj, assignee: me },
+          eventType: 'task_claimed',
+          actorName: me,
+          dbApplications
+        }).catch(e => console.error("Task claim notification err:", e))
+      }
     } catch (err: any) {
       triggerNotification('Claim failed: ' + err.message, 'error')
     }
@@ -1857,12 +1868,23 @@ export default function OasisWorkplace() {
 
   const handleUpdateTaskStatus = async (taskId: string, newStatus: string) => {
     try {
+      const taskObj = dbTasks.find(t => t.id === taskId)
       await update(ref(firebaseDb, `oc_tasks/${taskId}`), {
         status: newStatus,
         updatedAt: new Date().toISOString()
       })
       await logActivity('UPDATE_TASK_STATUS', `Moved task ID: ${taskId} to ${newStatus}`)
       triggerNotification('Task status updated.')
+
+      if (taskObj) {
+        sendTaskNotification({
+          task: taskObj,
+          eventType: 'task_status_changed',
+          newStatus: newStatus,
+          actorName: user?.displayName || user?.email || 'Admin',
+          dbApplications
+        }).catch(e => console.error("Task status notification err:", e))
+      }
     } catch (err: any) {
       triggerNotification('Failed to update task status: ' + err.message, 'error')
     }
@@ -1870,12 +1892,23 @@ export default function OasisWorkplace() {
 
   const completeLiveTask = async (taskId: string) => {
     try {
+      const taskObj = dbTasks.find(t => t.id === taskId)
       await update(ref(firebaseDb, `oc_tasks/${taskId}`), {
         status: 'completed',
         completedAt: new Date().toISOString()
       })
       await logActivity('COMPLETE_TASK', `Completed live task ID: ${taskId}`)
       triggerNotification('Task marked as completed.')
+
+      if (taskObj) {
+        sendTaskNotification({
+          task: taskObj,
+          eventType: 'task_completed',
+          newStatus: 'completed',
+          actorName: user?.displayName || user?.email || 'Admin',
+          dbApplications
+        }).catch(e => console.error("Task complete notification err:", e))
+      }
     } catch (err: any) {
       triggerNotification('Failed to complete task: ' + err.message, 'error')
     }
@@ -1919,18 +1952,6 @@ export default function OasisWorkplace() {
     e.preventDefault()
     if (!taskForm.title.trim()) return
     try {
-      let assigneeEmails: { name: string, email: string, phone?: string }[] = [];
-      if (taskForm.assignee === 'ALL') {
-        const matchedApps = dbApplications.filter(a => a.status === 'welcomed' && (a.pref1 === taskForm.department || a.department === taskForm.department));
-        assigneeEmails = matchedApps.map(a => ({ name: a.name, email: a.email, phone: a.phone }));
-      } else if (taskForm.assignee) {
-        const names = taskForm.assignee.split(',').map(n => n.trim());
-        names.forEach(n => {
-          const matchedApp = dbApplications.find(a => a.name === n);
-          if (matchedApp) assigneeEmails.push({ name: matchedApp.name, email: matchedApp.email, phone: matchedApp.phone });
-        });
-      }
-
       if (editingTask) {
         await update(ref(firebaseDb, `oc_tasks/${editingTask.id}`), {
           ...taskForm,
@@ -1939,22 +1960,15 @@ export default function OasisWorkplace() {
         await logActivity('UPDATE_TASK', `Updated task: ${taskForm.title}`)
         triggerNotification('Task updated successfully.')
 
-        assigneeEmails.forEach(assigneeObj => {
-          fetch('/api/sendApplicationEmail', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: assigneeObj.email,
-              name: assigneeObj.name,
-              type: 'task_updated',
-              taskTitle: taskForm.title,
-              taskDescription: taskForm.description
-            })
-          }).catch(e => console.error("Email err", e))
-        });
+        sendTaskNotification({
+          task: { id: editingTask.id, ...taskForm },
+          eventType: 'task_updated',
+          actorName: user?.displayName || user?.email || 'Admin',
+          dbApplications
+        }).catch(e => console.error("Task update notification err:", e))
       } else {
         const tasksRef = ref(firebaseDb, 'oc_tasks')
-        await push(tasksRef, {
+        const newTaskRef = await push(tasksRef, {
           ...taskForm,
           status: 'todo',
           verified: false,
@@ -1965,30 +1979,31 @@ export default function OasisWorkplace() {
         await logActivity('CREATE_TASK', `Created task: ${taskForm.title}`)
         triggerNotification('Task added to Kanban Board.')
 
-        assigneeEmails.forEach(assigneeObj => {
-          fetch('/api/sendApplicationEmail', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: assigneeObj.email,
-              name: assigneeObj.name,
-              type: 'task_added',
-              taskTitle: taskForm.title,
-              taskDescription: taskForm.description
-            })
-          }).catch(e => console.error("Email err", e))
+        sendTaskNotification({
+          task: { id: newTaskRef.key || undefined, ...taskForm, status: 'todo' },
+          eventType: 'task_added',
+          actorName: user?.displayName || user?.email || 'Admin',
+          dbApplications
+        }).catch(e => console.error("Task add notification err:", e))
 
-          if (assigneeObj.phone) {
-            // Note: Ensure the new task image is saved as public/images/new_task.png
-            const imageUrl = 'https://kimodelun.vercel.app/images/new_task.png'
-            const variables = [
-              assigneeObj.name,
-              taskForm.title,
-              taskForm.description ? taskForm.description.substring(0, 50) + (taskForm.description.length > 50 ? '...' : '') : 'Please check your dashboard.'
-            ]
-            sendWhatsAppTemplate(25471, assigneeObj.phone, variables, imageUrl).catch(console.error)
-          }
-        });
+        // Also trigger WhatsApp if phone numbers are available
+        if (taskForm.assignee) {
+          const names = taskForm.assignee === 'ALL'
+            ? dbApplications.filter(a => a.status === 'welcomed' && (a.pref1 === taskForm.department || a.department === taskForm.department))
+            : taskForm.assignee.split(',').map(n => n.trim()).map(n => dbApplications.find(a => a.name === n)).filter(Boolean);
+
+          names.forEach((recipient: any) => {
+            if (recipient?.phone) {
+              const imageUrl = 'https://kimodelun.vercel.app/images/new_task.png'
+              const variables = [
+                recipient.name,
+                taskForm.title,
+                taskForm.description ? taskForm.description.substring(0, 50) + (taskForm.description.length > 50 ? '...' : '') : 'Please check your dashboard.'
+              ]
+              sendWhatsAppTemplate(25471, recipient.phone, variables, imageUrl).catch(console.error)
+            }
+          })
+        }
       }
 
       setShowTaskForm(false)
@@ -2095,6 +2110,15 @@ export default function OasisWorkplace() {
       }
 
       triggerNotification(`Task verified and ${pointsToAward} points awarded.`)
+      
+      sendTaskNotification({
+        task: awardingPointsTask,
+        eventType: 'task_verified',
+        awardedPoints: pointsToAward,
+        actorName: user?.displayName || user?.email || 'Admin',
+        dbApplications
+      }).catch(e => console.error("Task verify notification err:", e))
+
       setAwardingPointsTask(null)
       setPointsToAward(0)
     } catch (err: any) {
