@@ -26,7 +26,8 @@ import { Meeting, MoMData, ActionItem, AttendanceRecord } from './types';
 import {
   generateWhatsAppMoM,
   generateMeetingMoMPdf,
-  resolveMeetingRecipients
+  resolveMeetingRecipients,
+  emailToKey
 } from './meetings-utils';
 
 interface MomStudioModalProps {
@@ -91,12 +92,21 @@ export function MomStudioModal({
       setKeyDiscussions(existingMoM?.keyDiscussions || []);
       setActionItems(existingMoM?.actionItems || []);
 
-      // Initialize Attendance map
+      // Initialize Attendance map with safe Firebase keys
       const recipients = resolveMeetingRecipients(meeting, dbApplications, dbEbApplications);
-      const initialAttendance: Record<string, AttendanceRecord> = { ...(meeting.attendance || {}) };
+      const initialAttendance: Record<string, AttendanceRecord> = {};
+
+      if (meeting.attendance) {
+        Object.values(meeting.attendance).forEach(rec => {
+          if (rec && rec.email) {
+            const k = emailToKey(rec.email);
+            initialAttendance[k] = rec;
+          }
+        });
+      }
 
       recipients.forEach(r => {
-        const key = r.email.toLowerCase();
+        const key = emailToKey(r.email);
         if (!initialAttendance[key]) {
           initialAttendance[key] = {
             name: r.name,
@@ -176,10 +186,11 @@ export function MomStudioModal({
 
   // Attendance management
   const handleSetAttendanceStatus = (email: string, status: AttendanceRecord['status']) => {
+    const key = emailToKey(email);
     setAttendance(prev => ({
       ...prev,
-      [email.toLowerCase()]: {
-        ...prev[email.toLowerCase()],
+      [key]: {
+        ...prev[key],
         status,
         timestamp: Date.now()
       }
@@ -760,9 +771,9 @@ export function MomStudioModal({
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredAttendance.map(att => {
-                      const emailKey = att.email.toLowerCase();
+                      const safeKey = emailToKey(att.email);
                       return (
-                        <tr key={emailKey} className="hover:bg-slate-50/60 transition">
+                        <tr key={safeKey} className="hover:bg-slate-50/60 transition">
                           <td className="p-3">
                             <div className="font-bold text-slate-800">{att.name}</div>
                             <div className="text-[11px] text-slate-500 sm:hidden">{att.email}</div>
@@ -775,7 +786,7 @@ export function MomStudioModal({
                             <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
                               <button
                                 type="button"
-                                onClick={() => handleSetAttendanceStatus(emailKey, 'present')}
+                                onClick={() => handleSetAttendanceStatus(att.email, 'present')}
                                 className={`px-2.5 py-1 rounded text-[11px] font-bold transition ${
                                   att.status === 'present'
                                     ? 'bg-emerald-600 text-white shadow-sm'
@@ -786,7 +797,7 @@ export function MomStudioModal({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleSetAttendanceStatus(emailKey, 'excused')}
+                                onClick={() => handleSetAttendanceStatus(att.email, 'excused')}
                                 className={`px-2.5 py-1 rounded text-[11px] font-bold transition ${
                                   att.status === 'excused'
                                     ? 'bg-amber-500 text-white shadow-sm'
@@ -797,7 +808,7 @@ export function MomStudioModal({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleSetAttendanceStatus(emailKey, 'absent')}
+                                onClick={() => handleSetAttendanceStatus(att.email, 'absent')}
                                 className={`px-2.5 py-1 rounded text-[11px] font-bold transition ${
                                   att.status === 'absent'
                                     ? 'bg-rose-600 text-white shadow-sm'

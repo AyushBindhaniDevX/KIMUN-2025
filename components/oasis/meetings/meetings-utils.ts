@@ -3,8 +3,20 @@ import autoTable from 'jspdf-autotable';
 import { Meeting } from './types';
 
 /**
- * Recursively cleans an object/array so that no key contains `undefined`,
- * which Firebase Realtime Database strictly rejects with an error.
+ * Converts an email or string into a safe Firebase Realtime Database key.
+ * Firebase keys cannot contain '.', '#', '$', '/', '[', or ']'.
+ */
+export function emailToKey(email: string = ''): string {
+  return String(email)
+    .toLowerCase()
+    .trim()
+    .replace(/[\.\#\$\/\[\]@]/g, '_');
+}
+
+/**
+ * Recursively cleans an object/array so that no key contains `undefined`
+ * or illegal Firebase characters (., #, $, /, [, ]), which Firebase Realtime
+ * Database strictly rejects with an error.
  */
 export function sanitizeForFirebase<T>(obj: T): T {
   if (obj === null || obj === undefined) {
@@ -17,7 +29,9 @@ export function sanitizeForFirebase<T>(obj: T): T {
     const cleaned: any = {};
     for (const [key, value] of Object.entries(obj)) {
       if (value !== undefined) {
-        cleaned[key] = sanitizeForFirebase(value);
+        // Firebase keys cannot contain ., #, $, /, [, or ]
+        const safeKey = key.replace(/[\.\#\$\/\[\]]/g, '_');
+        cleaned[safeKey] = sanitizeForFirebase(value);
       }
     }
     return cleaned;
