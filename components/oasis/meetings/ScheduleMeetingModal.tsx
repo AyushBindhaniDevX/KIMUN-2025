@@ -107,8 +107,8 @@ export function ScheduleMeetingModal({
     const item: AgendaItem = {
       id: Date.now().toString(),
       topic: newTopic.trim(),
-      presenter: newPresenter.trim() || undefined,
-      duration: newDuration.trim() || undefined
+      presenter: newPresenter.trim() || '',
+      duration: newDuration.trim() || ''
     };
     setAgenda([...agenda, item]);
     setNewTopic('');
@@ -149,6 +149,14 @@ export function ScheduleMeetingModal({
     setErrorMsg('');
 
     try {
+      const sanitizedAgenda = agenda.map(a => ({
+        id: a.id || Date.now().toString(),
+        topic: a.topic || '',
+        presenter: a.presenter || '',
+        duration: a.duration || '',
+        notes: a.notes || ''
+      }));
+
       const payload: Partial<Meeting> = {
         title: title.trim(),
         department,
@@ -159,8 +167,8 @@ export function ScheduleMeetingModal({
         meetingLink: meetingLink.trim(),
         venue: venue.trim(),
         targetAudience,
-        customAttendees: targetAudience === 'custom' ? customAttendees : undefined,
-        agenda,
+        customAttendees: targetAudience === 'custom' ? customAttendees : [],
+        agenda: sanitizedAgenda,
         hostName: initialData?.hostName || currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Secretariat',
         hostEmail: initialData?.hostEmail || currentUser?.email || 'secretariat@kimun.org',
         status: initialData?.status || 'scheduled',

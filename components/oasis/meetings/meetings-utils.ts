@@ -3,6 +3,29 @@ import autoTable from 'jspdf-autotable';
 import { Meeting } from './types';
 
 /**
+ * Recursively cleans an object/array so that no key contains `undefined`,
+ * which Firebase Realtime Database strictly rejects with an error.
+ */
+export function sanitizeForFirebase<T>(obj: T): T {
+  if (obj === null || obj === undefined) {
+    return null as any;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => (item === undefined ? null : sanitizeForFirebase(item))) as any;
+  }
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = sanitizeForFirebase(value);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
+/**
  * Resolves audience members list (names, emails, phones) from database applications.
  */
 export function resolveMeetingRecipients(

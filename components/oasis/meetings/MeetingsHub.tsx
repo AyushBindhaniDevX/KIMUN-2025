@@ -36,7 +36,8 @@ import { MomStudioModal } from './MomStudioModal';
 import {
   generateWhatsAppMeetingInvite,
   generateMeetingMoMPdf,
-  resolveMeetingRecipients
+  resolveMeetingRecipients,
+  sanitizeForFirebase
 } from './meetings-utils';
 import { ref, push, update, remove } from 'firebase/database';
 import { firebaseDb } from '@/lib/firebase-client';
@@ -169,7 +170,8 @@ export function MeetingsHub({
       if (meetingId) {
         // Update existing
         const meetingRef = ref(firebaseDb, `meetings/${meetingId}`);
-        await update(meetingRef, meetingData);
+        const sanitized = sanitizeForFirebase(meetingData);
+        await update(meetingRef, sanitized);
         finalMeeting = { ...editingMeeting, ...meetingData } as Meeting;
         showToast('Meeting details updated successfully!');
       } else {
@@ -197,7 +199,7 @@ export function MeetingsHub({
           updatedAt: Date.now()
         };
 
-        await update(newRef, newMeeting);
+        await update(newRef, sanitizeForFirebase(newMeeting));
         finalMeeting = newMeeting;
         showToast('Meeting scheduled successfully!');
       }
@@ -240,7 +242,7 @@ export function MeetingsHub({
     if (publish) {
       updates.status = 'completed';
     }
-    await update(meetingRef, updates);
+    await update(meetingRef, sanitizeForFirebase(updates));
   };
 
   // Send Meeting Invitation Email via API

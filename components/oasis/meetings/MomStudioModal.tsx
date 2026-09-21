@@ -145,7 +145,7 @@ export function MomStudioModal({
       id: Date.now().toString(),
       task: newTask.trim(),
       assignee: newAssignee.trim() || 'Unassigned',
-      dueDate: newDueDate || undefined,
+      dueDate: newDueDate || '',
       priority: newPriority,
       status: 'pending'
     };
@@ -213,13 +213,20 @@ export function MomStudioModal({
   // Construct current MoM data object
   const buildCurrentMoMData = (publish = false): MoMData => ({
     summary: summary.trim(),
-    keyDiscussions,
-    decisions,
-    actionItems,
+    keyDiscussions: keyDiscussions || [],
+    decisions: decisions || [],
+    actionItems: (actionItems || []).map(ai => ({
+      id: ai.id || Date.now().toString(),
+      task: ai.task || '',
+      assignee: ai.assignee || 'Unassigned',
+      dueDate: ai.dueDate || '',
+      priority: ai.priority || 'Medium',
+      status: ai.status || 'pending'
+    })),
     recordedBy: recordedBy.trim() || 'Secretariat',
     recordedAt: meeting.mom?.recordedAt || Date.now(),
     published: publish || Boolean(meeting.mom?.published),
-    publishedAt: publish ? Date.now() : meeting.mom?.publishedAt
+    publishedAt: publish ? Date.now() : (meeting.mom?.publishedAt || 0)
   });
 
   // Save handler
