@@ -138,7 +138,7 @@ export function generateWhatsAppMeetingInvite(meeting: Meeting): string {
 
   text += `👤 *Organized by:* ${meeting.hostName || 'Secretariat'}\n`;
   text += `⚠️ *Note:* Attendance will be actively recorded on OASIS. Please be punctual!\n`;
-  text += `\n_KIIT International Model United Nations Secretariat_`;
+  text += `\n_KIMUN Secretariat_`;
 
   return text;
 }
@@ -226,13 +226,13 @@ export function generateMeetingMoMPdf(meeting: Meeting) {
     : 'N/A';
 
   // --- Header Banner ---
-  doc.setFillColor(30, 27, 75); // Indigo 950
+  doc.setFillColor(15, 23, 42); // Slate 900
   doc.rect(0, 0, 210, 32, 'F');
 
-  doc.setTextColor(199, 210, 254); // Indigo 200
+  doc.setTextColor(226, 232, 240);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.text('KIIT INTERNATIONAL MODEL UNITED NATIONS 2026', 14, 12);
+  doc.text('KIMUN 2026 • OFFICIAL SECRETARIAT RECORD', 14, 12);
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);

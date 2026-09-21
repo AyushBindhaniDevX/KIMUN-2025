@@ -127,188 +127,105 @@ async function generateQRCode(text: string): Promise<string> {
 }
 
 // Generate beautiful email template
-function generateEmailTemplate(data: {
-  name: string;
-  registrationId: string;
-  committee: string;
-  portfolio: string;
-  zone: string;
-  secondDelegate?: string;
-  barcodeBase64: string;
-  qrCodeUrl: string;
-}): string {
+function generateEmailTemplate(data: RegistrationData & { barcodeBase64: string; qrCodeUrl: string }): string {
   return `
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KIMUN 2025 Registration</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f9f9f9;
-        }
-        .header {
-            background-color: #1a365d;
-            color: white;
-            padding: 20px;
-            text-align: center;
-            border-radius: 8px 8px 0 0;
-        }
-        .logo {
-            max-width: 150px;
-            margin-bottom: 15px;
-        }
-        .container {
-            background-color: white;
-            border-radius: 0 0 8px 8px;
-            padding: 25px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            color: #1a365d;
-            margin-top: 0;
-        }
-        h2 {
-            color: #2c5282;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 8px;
-            margin-top: 25px;
-        }
-        .delegate-info {
-            background-color: #f8fafc;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 20px 0;
-        }
-        .info-item {
-            margin-bottom: 10px;
-        }
-        .info-label {
-            font-weight: bold;
-            color: #4a5568;
-        }
-        .barcode-container {
-            display: flex;
-            justify-content: space-around;
-            margin: 25px 0;
-            flex-wrap: wrap;
-        }
-        .barcode-item {
-            text-align: center;
-            margin: 10px;
-        }
-        .barcode-image {
-            max-width: 200px;
-            height: auto;
-        }
-        .footer {
-            margin-top: 30px;
-            font-size: 0.9em;
-            color: #718096;
-            text-align: center;
-        }
-        .policy-list {
-            padding-left: 20px;
-        }
-        .policy-list li {
-            margin-bottom: 8px;
-        }
-        .highlight {
-            background-color: #fffaf0;
-            padding: 15px;
-            border-left: 4px solid #dd6b20;
-            margin: 20px 0;
-        }
-    </style>
+    <title>KIMUN Registration Confirmation</title>
 </head>
-<body>
-    <div class="header">
-        <!-- Replace with your actual logo URL -->
-        <img src="https://kimun497636615.wordpress.com/wp-content/uploads/2025/03/kimun_logo_color.png" alt="KIMUN Logo" class="logo">
-        <h1>KIMUN 2025 Registration Confirmation</h1>
-    </div>
-    
-    <div class="container">
-        <p>Dear ${data.name},</p>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 28px 16px; color: #0f172a;">
+    <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);">
+        <!-- Top Gradient Accent Bar -->
+        <div style="height: 5px; background: linear-gradient(90deg, #f59e0b 0%, #6366f1 50%, #4338ca 100%);"></div>
+
+        <!-- Header -->
+        <div style="background: linear-gradient(145deg, #090d16 0%, #111827 50%, #1e1b4b 100%); padding: 36px 30px 28px; text-align: center; color: #ffffff;">
+            <div style="display: inline-block; padding: 5px 16px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(165, 180, 252, 0.35); border-radius: 9999px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; font-weight: 800; color: #c7d2fe; margin-bottom: 14px;">
+                KIMUN • OFFICIAL CONFIRMATION
+            </div>
+            <h1 style="margin: 0; font-size: 24px; font-weight: 800; color: #ffffff; line-height: 1.35; letter-spacing: -0.3px;">
+                Registration Confirmed
+            </h1>
+            <p style="margin: 8px 0 0; font-size: 13px; color: #cbd5e1;">Official Delegate Credentials & Access Pass</p>
+        </div>
         
-        <p>We're thrilled to confirm your registration for the <strong>Kalinga International Model United Nations 2025</strong>! 
-        Below you'll find all the important details about your participation.</p>
-        
-        <div class="delegate-info">
-            <h2>Your Delegate Information</h2>
+        <div style="padding: 28px 28px 24px;">
+            <p style="font-size: 15px; margin-top: 0; color: #1e293b;">Dear <strong>${data.name}</strong>,</p>
             
-            <div class="info-item">
-                <span class="info-label">Delegate ID:</span> ${data.registrationId}
+            <p style="color: #475569; line-height: 1.6;">We are pleased to confirm your registration for <strong>KIMUN</strong>! Below you will find your official delegate allotment details and digital entry pass.</p>
+            
+            <!-- Delegate Info Card -->
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 22px; margin: 22px 0;">
+                <h3 style="margin: 0 0 14px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: #4338ca; font-weight: 800;">
+                    Delegate Allocation Details
+                </h3>
+                
+                <table style="width: 100%; border-collapse: collapse; font-size: 13.5px;">
+                    <tr style="border-bottom: 1px solid #edf2f7;">
+                        <td style="padding: 8px 0; color: #64748b; width: 130px; font-weight: 600;">Delegate ID:</td>
+                        <td style="padding: 8px 0; font-weight: 800; font-family: monospace; color: #4338ca; font-size: 14px;">${data.registrationId}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #edf2f7;">
+                        <td style="padding: 8px 0; color: #64748b; font-weight: 600;">Committee:</td>
+                        <td style="padding: 8px 0; font-weight: 700; color: #0f172a;">${data.committee}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #edf2f7;">
+                        <td style="padding: 8px 0; color: #64748b; font-weight: 600;">Portfolio:</td>
+                        <td style="padding: 8px 0; font-weight: 700; color: #0f172a;">${data.portfolio}</td>
+                    </tr>
+                    ${data.secondDelegate ? `
+                    <tr style="border-bottom: 1px solid #edf2f7;">
+                        <td style="padding: 8px 0; color: #64748b; font-weight: 600;">Co-Delegate:</td>
+                        <td style="padding: 8px 0; font-weight: 600; color: #334155;">${data.secondDelegate}</td>
+                    </tr>
+                    ` : ''}
+                    <tr>
+                        <td style="padding: 8px 0; color: #64748b; font-weight: 600;">Status:</td>
+                        <td style="padding: 8px 0; font-weight: 700; color: #059669;">Verified & Ratified</td>
+                    </tr>
+                </table>
             </div>
             
-            <div class="info-item">
-                <span class="info-label">Committee:</span> ${data.committee}
+            <!-- Important Highlight -->
+            <div style="margin: 22px 0; padding: 14px 18px; background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 8px; font-size: 12.5px; color: #92400e; line-height: 1.55;">
+                <strong>Entry Requirement:</strong> Please present this confirmation (digital or printed) at the registration desk for verification. The QR pass below will be scanned for your conference badge.
             </div>
             
-            <div class="info-item">
-                <span class="info-label">Portfolio:</span> ${data.portfolio}
+            <!-- QR Code Section -->
+            <div style="text-align: center; margin: 26px 0; padding: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px;">
+                <div style="font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">
+                    Official Entry Pass (QR)
+                </div>
+                <img src="${data.qrCodeUrl}" alt="Delegate QR Code" style="max-width: 180px; height: auto; border-radius: 8px; border: 1px solid #e2e8f0; padding: 6px; background: #ffffff;">
+                <div style="margin-top: 10px; font-family: monospace; font-size: 12px; color: #64748b; font-weight: 600;">
+                    ${data.registrationId}
+                </div>
             </div>
             
-            ${data.secondDelegate ? `
-            <div class="info-item">
-                <span class="info-label">Second Delegate:</span> ${data.secondDelegate}
-            </div>
-            ` : ''}
-            
-            <div class="info-item">
-                <span class="info-label">Venue:</span> TBA
-            </div>
-            
-            <div class="info-item">
-                <span class="info-label">Gate Entry:</span> TBA
-            </div>
-            
-            <div class="info-item">
-                <span class="info-label">Event Dates:</span> JULY 5,6, 2025
+            <!-- Policies Section -->
+            <div style="margin-top: 24px;">
+                <h4 style="margin: 0 0 10px; font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Conference Policies & Guidelines
+                </h4>
+                <ul style="margin: 0; padding-left: 20px; color: #475569; font-size: 12.5px; line-height: 1.6;">
+                    <li>All participants must adhere to conference regulations and parliamentary procedures.</li>
+                    <li>Official badges must be worn visibly at all times within committee chambers.</li>
+                    <li>Participation in all assigned committee sessions is mandatory for award eligibility.</li>
+                    <li>Valid institutional identification must accompany this pass during physical check-in.</li>
+                </ul>
             </div>
         </div>
         
-        <div class="highlight">
-            <strong>Important:</strong> Please bring this email (printed or digital) and your identification 
-            to the event for verification. Your QR code below will be scanned for entry.
-        </div>
-        
-        <h2>Your Access Codes</h2>
-        <div class="barcode-container">
-            
-            <div class="barcode-item">
-                <h3>Entry Code</h3>
-                <img src="${data.qrCodeUrl}" alt="Delegate QR Code" class="barcode-image">
+        <!-- Footer -->
+        <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 28px; text-align: center;">
+            <div style="font-size: 12px; font-weight: 800; color: #0f172a; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px;">KIMUN Secretariat</div>
+            <div style="font-size: 11px; color: #64748b; line-height: 1.5;">
+                Official Operational Communication • OASIS KIMUN System<br/>
+                Bhubaneswar, India
             </div>
-        </div>
-        
-        <h2>Event Policies</h2>
-        <ul class="policy-list">
-            <li>All participants must comply with local laws and KIMUN regulations.</li>
-            <li>Participation implies acceptance of all policies.</li>
-            <li>The Secretary-General holds the authority for any policy exceptions.</li>
-            <li>Delegates must complete registration fee payment before participation.</li>
-            <li>No refunds will be issued for withdrawals after registration.</li>
-            <li>All delegates must carry valid identification.</li>
-        </ul>
-        
-        <h2>Contact Information</h2>
-        <p>If you have any questions, please contact our registration team:</p>
-        <ul class="policy-list">
-            <li>Phone: +918249979557</li>
-            <li>Website: www.kimun.in.net</li>
-        </ul>
-        
-        <div class="footer">
-            <p>We look forward to seeing you at KIMUN 2025!</p>
-            <p><strong>The KIMUN Organizing Committee</strong></p>
         </div>
     </div>
 </body>

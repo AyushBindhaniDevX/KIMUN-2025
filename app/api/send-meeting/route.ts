@@ -103,67 +103,79 @@ export async function POST(req: Request) {
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>${escapeHtml(meeting.title)}</title>
         </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b;">
-          <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.05);">
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 28px 16px; color: #0f172a;">
+          <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);">
+            <!-- Top Gradient Accent Bar -->
+            <div style="height: 5px; background: linear-gradient(90deg, #f59e0b 0%, #6366f1 50%, #4338ca 100%);"></div>
+
             <!-- Header -->
-            <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); padding: 32px 28px; text-align: center; color: #ffffff;">
-              <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 2px; font-weight: 700; color: #a5b4fc; margin-bottom: 8px;">KIIT International Model United Nations</div>
-              <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #ffffff; line-height: 1.3;">${escapeHtml(meeting.title)}</h1>
-              <div style="display: inline-block; margin-top: 12px; padding: 4px 14px; background: rgba(255,255,255,0.15); border-radius: 9999px; font-size: 12px; font-weight: 600; color: #e0e7ff;">
-                ${escapeHtml(meeting.department || 'All Departments')} • ${escapeHtml(meeting.type || 'Official Sync')}
+            <div style="background: linear-gradient(145deg, #090d16 0%, #111827 50%, #1e1b4b 100%); padding: 36px 30px 30px; text-align: center; color: #ffffff;">
+              <div style="display: inline-block; padding: 5px 16px; background: rgba(99, 102, 241, 0.18); border: 1px solid rgba(165, 180, 252, 0.35); border-radius: 9999px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; font-weight: 800; color: #c7d2fe; margin-bottom: 14px;">
+                KIMUN 2026 • OFFICIAL SECRETARIAT
+              </div>
+              <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #ffffff; line-height: 1.35; letter-spacing: -0.3px;">
+                ${escapeHtml(meeting.title)}
+              </h1>
+              <div style="margin-top: 14px;">
+                <span style="display: inline-block; margin: 2px 4px; padding: 4px 12px; background: rgba(255,255,255,0.12); border-radius: 6px; font-size: 11.5px; font-weight: 700; color: #e0e7ff;">
+                  ${escapeHtml(meeting.department || 'All Departments')}
+                </span>
+                <span style="display: inline-block; margin: 2px 4px; padding: 4px 12px; background: rgba(255,255,255,0.08); border-radius: 6px; font-size: 11.5px; font-weight: 600; color: #cbd5e1;">
+                  ${escapeHtml(meeting.type || 'Official Sync')}
+                </span>
               </div>
             </div>
 
             <!-- Key Info Box -->
-            <div style="padding: 28px 28px 20px 28px;">
-              <div style="background-color: #f1f5f9; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px;">
+            <div style="padding: 28px 28px 24px;">
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 22px; margin-bottom: 26px;">
                 <table style="width: 100%; border-collapse: collapse;">
                   <tr>
-                    <td style="padding: 6px 0; font-size: 13px; color: #64748b; width: 110px;">📅 Date & Time:</td>
-                    <td style="padding: 6px 0; font-size: 14px; font-weight: 700; color: #0f172a;">${meetingDateFormatted}</td>
+                    <td style="padding: 7px 0; font-size: 13px; color: #64748b; width: 120px; font-weight: 600;">📅 Date & Time:</td>
+                    <td style="padding: 7px 0; font-size: 14px; font-weight: 700; color: #0f172a;">${meetingDateFormatted}</td>
                   </tr>
                   <tr>
-                    <td style="padding: 6px 0; font-size: 13px; color: #64748b;">⏱️ Duration:</td>
-                    <td style="padding: 6px 0; font-size: 14px; font-weight: 600; color: #334155;">${meeting.durationMinutes || 45} Minutes</td>
+                    <td style="padding: 7px 0; font-size: 13px; color: #64748b; font-weight: 600;">⏱️ Duration:</td>
+                    <td style="padding: 7px 0; font-size: 14px; font-weight: 600; color: #334155;">${meeting.durationMinutes || 45} Minutes</td>
                   </tr>
                   <tr>
-                    <td style="padding: 6px 0; font-size: 13px; color: #64748b;">📍 Platform/Venue:</td>
-                    <td style="padding: 6px 0; font-size: 14px; font-weight: 600; color: #4338ca;">
+                    <td style="padding: 7px 0; font-size: 13px; color: #64748b; font-weight: 600;">📍 Platform:</td>
+                    <td style="padding: 7px 0; font-size: 14px; font-weight: 700; color: #4338ca;">
                       ${escapeHtml(meeting.meetingPlatform || 'Online Video Conference')}
-                      ${meeting.venue ? ` (${escapeHtml(meeting.venue)})` : ''}
+                      ${meeting.venue ? ` <span style="font-weight: normal; color: #64748b;">(${escapeHtml(meeting.venue)})</span>` : ''}
                     </td>
                   </tr>
                   ${meeting.hostName ? `
                   <tr>
-                    <td style="padding: 6px 0; font-size: 13px; color: #64748b;">👤 Organized By:</td>
-                    <td style="padding: 6px 0; font-size: 14px; font-weight: 600; color: #334155;">${escapeHtml(meeting.hostName)}</td>
+                    <td style="padding: 7px 0; font-size: 13px; color: #64748b; font-weight: 600;">👤 Organized By:</td>
+                    <td style="padding: 7px 0; font-size: 14px; font-weight: 600; color: #334155;">${escapeHtml(meeting.hostName)}</td>
                   </tr>` : ''}
                 </table>
               </div>
 
               <!-- CTA Join Button -->
               ${meeting.meetingLink ? `
-              <div style="text-align: center; margin-bottom: 28px;">
-                <a href="${escapeHtml(meeting.meetingLink)}" target="_blank" style="display: inline-block; background: #4f46e5; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 700; font-size: 15px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);">
+              <div style="text-align: center; margin: 26px 0;">
+                <a href="${escapeHtml(meeting.meetingLink)}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%); color: #ffffff; text-decoration: none; padding: 14px 34px; border-radius: 12px; font-weight: 700; font-size: 15px; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);">
                   👉 Join Meeting Room
                 </a>
-                <div style="font-size: 11px; color: #64748b; margin-top: 8px;">
-                  Link: <a href="${escapeHtml(meeting.meetingLink)}" style="color: #4f46e5;">${escapeHtml(meeting.meetingLink)}</a>
+                <div style="font-size: 11px; color: #64748b; margin-top: 10px;">
+                  Direct Link: <a href="${escapeHtml(meeting.meetingLink)}" style="color: #4f46e5; text-decoration: underline;">${escapeHtml(meeting.meetingLink)}</a>
                 </div>
               </div>` : ''}
 
               <!-- Agenda Section -->
-              <div style="margin-top: 24px;">
-                <h3 style="font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center;">
-                  📋 Meeting Agenda & Schedule
+              <div style="margin-top: 28px;">
+                <h3 style="font-size: 14.5px; font-weight: 800; color: #0f172a; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+                  📋 Pre-Meeting Agenda
                 </h3>
-                <table style="width: 100%; border-collapse: collapse; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; font-size: 13px;">
+                <table style="width: 100%; border-collapse: collapse; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; font-size: 13px;">
                   <thead>
                     <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569; text-align: left;">
-                      <th style="padding: 8px 12px; width: 32px;">#</th>
-                      <th style="padding: 8px 12px;">Topic</th>
-                      <th style="padding: 8px 12px;">Lead</th>
-                      <th style="padding: 8px 12px; text-align: right;">Time</th>
+                      <th style="padding: 9px 12px; width: 32px;">#</th>
+                      <th style="padding: 9px 12px;">Topic</th>
+                      <th style="padding: 9px 12px;">Lead</th>
+                      <th style="padding: 9px 12px; text-align: right;">Duration</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -173,15 +185,18 @@ export async function POST(req: Request) {
               </div>
 
               <!-- Important Note -->
-              <div style="margin-top: 24px; padding: 14px; background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 6px; font-size: 12px; color: #92400e; line-height: 1.5;">
-                <strong>Attendance Notice:</strong> Attendance will be recorded during the meeting for KIMUN Secretariat records. Please join on time.
+              <div style="margin-top: 24px; padding: 14px 16px; background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 8px; font-size: 12px; color: #92400e; line-height: 1.55;">
+                <strong>Attendance Notice:</strong> Official attendance will be recorded on OASIS during this sync. Please join promptly on time.
               </div>
             </div>
 
             <!-- Footer -->
-            <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 28px; text-align: center; font-size: 11px; color: #94a3b8;">
-              This notification was generated automatically by <strong>OASIS KIMUN 2026</strong>.<br/>
-              KIIT International Model United Nations Secretariat • Bhubaneswar, India
+            <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 28px; text-align: center;">
+              <div style="font-size: 12px; font-weight: 800; color: #0f172a; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px;">KIMUN Secretariat</div>
+              <div style="font-size: 11px; color: #64748b; line-height: 1.5;">
+                Official Operational Communication • OASIS KIMUN System<br/>
+                Bhubaneswar, India
+              </div>
             </div>
           </div>
         </body>
@@ -196,17 +211,17 @@ export async function POST(req: Request) {
       const actionItems = mom.actionItems || [];
 
       const discussionsHtml = keyDiscussions.length > 0
-        ? keyDiscussions.map(d => `<li style="margin-bottom: 6px; color: #334155;">${escapeHtml(d)}</li>`).join('')
+        ? keyDiscussions.map(d => `<li style="margin-bottom: 7px; color: #334155; line-height: 1.55;">${escapeHtml(d)}</li>`).join('')
         : '<li style="color: #94a3b8; font-style: italic;">No specific discussion points logged.</li>';
 
       const decisionsHtml = decisions.length > 0
-        ? decisions.map(d => `<li style="margin-bottom: 6px; color: #047857; font-weight: 600;">✅ ${escapeHtml(d)}</li>`).join('')
+        ? decisions.map(d => `<li style="margin-bottom: 7px; color: #047857; font-weight: 600; line-height: 1.55;">✅ ${escapeHtml(d)}</li>`).join('')
         : '<li style="color: #94a3b8; font-style: italic;">No formal decisions recorded.</li>';
 
       const actionItemsHtml = actionItems.length > 0
         ? actionItems.map((item, i) => `
             <tr style="border-bottom: 1px solid #e2e8f0;">
-              <td style="padding: 10px 12px; font-weight: 700; color: #4338ca;">${i + 1}</td>
+              <td style="padding: 10px 12px; font-weight: 700; color: #047857;">${i + 1}</td>
               <td style="padding: 10px 12px; color: #0f172a; font-weight: 600;">${escapeHtml(item.task)}</td>
               <td style="padding: 10px 12px; color: #334155;">${escapeHtml(item.assignee || 'Unassigned')}</td>
               <td style="padding: 10px 12px; color: #64748b; font-size: 12px;">${item.dueDate ? escapeHtml(item.dueDate) : 'Immediate'}</td>
@@ -231,13 +246,20 @@ export async function POST(req: Request) {
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>MoM: ${escapeHtml(meeting.title)}</title>
         </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b;">
-          <div style="max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.05);">
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 28px 16px; color: #0f172a;">
+          <div style="max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);">
+            <!-- Top Gradient Accent Bar -->
+            <div style="height: 5px; background: linear-gradient(90deg, #10b981 0%, #059669 50%, #047857 100%);"></div>
+
             <!-- Header -->
-            <div style="background: linear-gradient(135deg, #064e3b 0%, #047857 50%, #059669 100%); padding: 32px 28px; text-align: center; color: #ffffff;">
-              <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 2px; font-weight: 700; color: #a7f3d0; margin-bottom: 8px;">Official Minutes of Meeting (MoM)</div>
-              <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #ffffff; line-height: 1.3;">${escapeHtml(meeting.title)}</h1>
-              <div style="margin-top: 10px; font-size: 12px; color: #d1fae5;">
+            <div style="background: linear-gradient(145deg, #022c22 0%, #064e3b 50%, #065f46 100%); padding: 36px 30px 30px; text-align: center; color: #ffffff;">
+              <div style="display: inline-block; padding: 5px 16px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(167, 243, 208, 0.35); border-radius: 9999px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; font-weight: 800; color: #a7f3d0; margin-bottom: 14px;">
+                KIMUN 2026 • OFFICIAL MINUTES OF MEETING (MoM)
+              </div>
+              <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #ffffff; line-height: 1.35; letter-spacing: -0.3px;">
+                ${escapeHtml(meeting.title)}
+              </h1>
+              <div style="margin-top: 12px; font-size: 12px; color: #d1fae5;">
                 Conducted: ${meetingDateFormatted} • Recorded by: ${escapeHtml(mom.recordedBy || meeting.hostName || 'Secretariat')}
               </div>
             </div>
@@ -246,48 +268,48 @@ export async function POST(req: Request) {
             <div style="padding: 28px;">
               <!-- Executive Summary -->
               ${mom.summary ? `
-              <div style="margin-bottom: 24px;">
-                <h3 style="font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #0f172a; margin-bottom: 8px; font-weight: 800;">
+              <div style="margin-bottom: 26px;">
+                <h3 style="font-size: 13.5px; text-transform: uppercase; letter-spacing: 1px; color: #047857; margin-bottom: 10px; font-weight: 800;">
                   📌 Executive Summary
                 </h3>
-                <div style="background-color: #f8fafc; border-left: 4px solid #059669; padding: 14px 16px; border-radius: 6px; font-size: 13.5px; line-height: 1.6; color: #334155;">
+                <div style="background-color: #f8fafc; border-left: 4px solid #059669; padding: 16px 18px; border-radius: 8px; font-size: 13.5px; line-height: 1.65; color: #334155;">
                   ${escapeHtml(mom.summary).replace(/\n/g, '<br/>')}
                 </div>
               </div>` : ''}
 
               <!-- Key Decisions -->
-              <div style="margin-bottom: 24px;">
-                <h3 style="font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #0f172a; margin-bottom: 8px; font-weight: 800;">
-                  🎯 Key Decisions Approved
+              <div style="margin-bottom: 26px;">
+                <h3 style="font-size: 13.5px; text-transform: uppercase; letter-spacing: 1px; color: #047857; margin-bottom: 10px; font-weight: 800;">
+                  🎯 Key Decisions Ratified
                 </h3>
-                <ul style="margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.5;">
+                <ul style="margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.55;">
                   ${decisionsHtml}
                 </ul>
               </div>
 
               <!-- Discussion Notes -->
-              <div style="margin-bottom: 24px;">
-                <h3 style="font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #0f172a; margin-bottom: 8px; font-weight: 800;">
+              <div style="margin-bottom: 26px;">
+                <h3 style="font-size: 13.5px; text-transform: uppercase; letter-spacing: 1px; color: #0f172a; margin-bottom: 10px; font-weight: 800;">
                   💬 Key Discussions & Highlights
                 </h3>
-                <ul style="margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.5;">
+                <ul style="margin: 0; padding-left: 20px; font-size: 13.5px; line-height: 1.55;">
                   ${discussionsHtml}
                 </ul>
               </div>
 
               <!-- Action Items Table -->
-              <div style="margin-bottom: 24px;">
-                <h3 style="font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #0f172a; margin-bottom: 10px; font-weight: 800;">
+              <div style="margin-bottom: 26px;">
+                <h3 style="font-size: 13.5px; text-transform: uppercase; letter-spacing: 1px; color: #0f172a; margin-bottom: 12px; font-weight: 800;">
                   ⚡ Action Items & Assignees
                 </h3>
-                <table style="width: 100%; border-collapse: collapse; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; font-size: 13px;">
+                <table style="width: 100%; border-collapse: collapse; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; font-size: 13px;">
                   <thead>
-                    <tr style="background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1; color: #334155; text-align: left;">
-                      <th style="padding: 8px 12px; width: 28px;">#</th>
-                      <th style="padding: 8px 12px;">Task</th>
-                      <th style="padding: 8px 12px;">Assignee</th>
-                      <th style="padding: 8px 12px;">Deadline</th>
-                      <th style="padding: 8px 12px; text-align: right;">Priority</th>
+                    <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #334155; text-align: left;">
+                      <th style="padding: 9px 12px; width: 28px;">#</th>
+                      <th style="padding: 9px 12px;">Task</th>
+                      <th style="padding: 9px 12px;">Assignee</th>
+                      <th style="padding: 9px 12px;">Deadline</th>
+                      <th style="padding: 9px 12px; text-align: right;">Priority</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -298,16 +320,21 @@ export async function POST(req: Request) {
 
               <!-- Attendance Stats -->
               ${meeting.attendanceStats ? `
-              <div style="background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 12px 16px; font-size: 12px; color: #64748b; display: flex; justify-content: space-between;">
+              <div style="background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 14px 18px; font-size: 12.5px; color: #475569; display: flex; justify-content: space-between; align-items: center;">
                 <span>👥 Attendance Record: <strong>${meeting.attendanceStats.presentCount} Present</strong> / ${meeting.attendanceStats.totalCount} Invited</span>
-                <span>Rate: <strong>${Math.round((meeting.attendanceStats.presentCount / (meeting.attendanceStats.totalCount || 1)) * 100)}%</strong></span>
+                <span style="background: #e2e8f0; padding: 3px 10px; border-radius: 9999px; font-weight: 700; color: #0f172a;">
+                  Rate: ${Math.round((meeting.attendanceStats.presentCount / (meeting.attendanceStats.totalCount || 1)) * 100)}%
+                </span>
               </div>` : ''}
             </div>
 
             <!-- Footer -->
-            <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 28px; text-align: center; font-size: 11px; color: #94a3b8;">
-              Published via <strong>OASIS KIMUN 2026</strong> Secretariat Portal.<br/>
-              All assigned team members are requested to review and fulfill action items by their respective due dates.
+            <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 28px; text-align: center;">
+              <div style="font-size: 12px; font-weight: 800; color: #0f172a; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px;">KIMUN Secretariat</div>
+              <div style="font-size: 11px; color: #64748b; line-height: 1.5;">
+                Published via <strong>OASIS KIMUN 2026</strong> System.<br/>
+                All assigned team members are requested to complete their deliverables on schedule.
+              </div>
             </div>
           </div>
         </body>
