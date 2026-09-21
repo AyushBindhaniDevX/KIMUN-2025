@@ -73,8 +73,10 @@ import {
   Crown,
   ChevronUp,
   ChevronDown,
-  PenTool
+  PenTool,
+  Video
 } from 'lucide-react'
+import { MeetingsHub, Meeting } from '@/components/oasis/meetings'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -277,7 +279,7 @@ export default function OasisWorkplace() {
 
 
   // Workspace Navigation
-  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'prize_tracking' | 'dept_boards' | 'registry_manager' | 'delegate_search' | 'schedule_builder' | 'transport_logistics' | 'help_docs' | 'site_settings' | 'logs' | 'chat' | 'announcement_hub' | 'global_config'>('dashboard')
+  const [activeMenuTab, setActiveMenuTab] = useState<'dashboard' | 'finance_station' | 'live_allocations' | 'academic_vault' | 'recruitment' | 'task_board' | 'assets_ledger' | 'bulletin_board' | 'payouts' | 'coupons' | 'prize_tracking' | 'dept_boards' | 'registry_manager' | 'delegate_search' | 'schedule_builder' | 'transport_logistics' | 'help_docs' | 'site_settings' | 'logs' | 'chat' | 'announcement_hub' | 'global_config' | 'meetings'>('dashboard')
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All Departments')
   const [recruitmentView, setRecruitmentView] = useState<'oc' | 'eb'>('oc')
 
@@ -296,6 +298,7 @@ export default function OasisWorkplace() {
   const [dbPrizeTracking, setDbPrizeTracking] = useState<any[]>([])
   const [dbCoupons, setDbCoupons] = useState<any[]>([])
   const [dbSchedule, setDbSchedule] = useState<any[]>([])
+  const [dbMeetings, setDbMeetings] = useState<Meeting[]>([])
   const [dbActivityLogs, setDbActivityLogs] = useState<any[]>([])
   const [dbBlacklisted, setDbBlacklisted] = useState<Record<string, any>>({})
   const [dbSiteSettings, setDbSiteSettings] = useState<any>({
@@ -864,7 +867,15 @@ export default function OasisWorkplace() {
       }
     })
 
-    
+    const meetingsRef = ref(firebaseDb, 'meetings')
+    const unsubMeetings = onValue(meetingsRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val()
+        setDbMeetings(Object.keys(data).map(k => ({ id: k, ...data[k] })))
+      } else {
+        setDbMeetings([])
+      }
+    })
 
     const blacklistRef = ref(firebaseDb, 'blacklisted')
     const unsubBlacklist = onValue(blacklistRef, (snap) => {
@@ -889,6 +900,7 @@ export default function OasisWorkplace() {
       unsubPrizeTracking()
       unsubCoupons()
       unsubSchedule()
+      unsubMeetings()
       unsubLogs()
       unsubSettings()
       unsubBlacklist()
@@ -2812,6 +2824,7 @@ export default function OasisWorkplace() {
     { section: 'Main', id: 'academic_vault', label: 'Resources', icon: BookOpen, color: 'text-amber-600' },
     ...(role === 'admin' ? [{ section: 'Main', id: 'recruitment', label: 'Onboarding Hub', icon: Users, color: 'text-violet-600' }] : []),
     { section: 'Data Hub', id: 'dept_boards', label: 'Department Workspace', icon: Layers, color: 'text-purple-600' },
+    { section: 'Data Hub', id: 'meetings', label: 'Meetings & MoM', icon: Video, color: 'text-indigo-600' },
     { section: 'Data Hub', id: 'chat', label: 'OC Chat', icon: MessageSquare, color: 'text-green-500' },
     { section: 'Data Hub', id: 'delegate_search', label: 'DeleOs', icon: Search, color: 'text-indigo-600' },
     { section: 'Data Hub', id: 'help_docs', label: 'Help and Doc', icon: Info, color: 'text-blue-600' },
@@ -2916,6 +2929,30 @@ export default function OasisWorkplace() {
 
             {/* 1. OVERVIEW HUB — Magic UI + TailAdmin Redesign */}
             
+            {activeMenuTab === 'meetings' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+                      <Video className="w-6 h-6 text-indigo-600" />
+                      Meetings & Minutes of Meeting (MoM)
+                    </h2>
+                    <p className="text-slate-500 text-sm">
+                      Coordinate syncs, generate & distribute Google Meet/Zoom links, track attendance, and broadcast official MoM records.
+                    </p>
+                  </div>
+                </div>
+
+                <MeetingsHub
+                  meetings={dbMeetings}
+                  dbApplications={dbApplications}
+                  dbEbApplications={dbEbApplications}
+                  currentUser={user}
+                  role={role}
+                />
+              </motion.div>
+            )}
+
             {activeMenuTab === 'chat' && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 flex flex-col h-[calc(100vh-140px)]">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
@@ -3355,6 +3392,7 @@ export default function OasisWorkplace() {
                       <div className="p-3 grid grid-cols-2 gap-2">
                         {[
                           { label: 'Check-In', icon: UserCheck, action: () => setActiveMenuTab('live_allocations'), color: 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100' },
+                          { label: 'Meetings', icon: Video, action: () => setActiveMenuTab('meetings'), color: 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100' },
                           { label: 'Add Task', icon: PlusCircle, action: () => setShowTaskForm(true), color: 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100' },
                           { label: 'Dept Boards', icon: Layers, action: () => setActiveMenuTab('dept_boards'), color: 'bg-violet-50 text-violet-700 border-violet-100 hover:bg-violet-100' },
                           { label: 'Bulletin', icon: Megaphone, action: () => setActiveMenuTab('bulletin_board'), color: 'bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-100' },

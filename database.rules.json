@@ -130,6 +130,10 @@
       "$tracking_id": {
         ".read": "true"
       }
+    },
+    "meetings": {
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 }
