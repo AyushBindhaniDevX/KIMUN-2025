@@ -4,19 +4,21 @@ import { Meeting } from './types';
 
 /**
  * Converts an email or string into a safe Firebase Realtime Database key.
- * Firebase keys cannot contain '.', '#', '$', '/', '[', or ']'.
+ * Firebase keys cannot contain '.', '#', '$', '/', '[', ']', or control characters.
  */
 export function emailToKey(email: string = ''): string {
-  return String(email)
+  const sanitized = String(email || '')
     .toLowerCase()
     .trim()
-    .replace(/[\.\#\$\/\[\]@]/g, '_');
+    .replace(/[\.\#\$\/\[\]\x00-\x1F\x7F@\s]/g, '_')
+    .replace(/[^a-z0-9_-]/g, '_');
+  return sanitized || 'member_' + Math.random().toString(36).substring(2, 8);
 }
 
 /**
  * Recursively cleans an object/array so that no key contains `undefined`
- * or illegal Firebase characters (., #, $, /, [, ]), which Firebase Realtime
- * Database strictly rejects with an error.
+ * or illegal Firebase characters (., #, $, /, [, ], control characters),
+ * which Firebase Realtime Database strictly rejects with an error.
  */
 export function sanitizeForFirebase<T>(obj: T): T {
   if (obj === null || obj === undefined) {
@@ -26,11 +28,17 @@ export function sanitizeForFirebase<T>(obj: T): T {
     return obj.map(item => (item === undefined ? null : sanitizeForFirebase(item))) as any;
   }
   if (typeof obj === 'object') {
+    if (obj instanceof Date) {
+      return (obj as any).toISOString();
+    }
     const cleaned: any = {};
     for (const [key, value] of Object.entries(obj)) {
       if (value !== undefined) {
-        // Firebase keys cannot contain ., #, $, /, [, or ]
-        const safeKey = key.replace(/[\.\#\$\/\[\]]/g, '_');
+        // Firebase keys cannot contain ., #, $, /, [, ], or control characters
+        let safeKey = key.replace(/[\.\#\$\/\[\]\x00-\x1F\x7F]/g, '_').trim();
+        if (!safeKey) {
+          safeKey = 'item_' + Math.random().toString(36).substring(2, 8);
+        }
         cleaned[safeKey] = sanitizeForFirebase(value);
       }
     }

@@ -37,7 +37,8 @@ import {
   generateWhatsAppMeetingInvite,
   generateMeetingMoMPdf,
   resolveMeetingRecipients,
-  sanitizeForFirebase
+  sanitizeForFirebase,
+  emailToKey
 } from './meetings-utils';
 import { ref, push, update, remove } from 'firebase/database';
 import { firebaseDb } from '@/lib/firebase-client';
@@ -234,9 +235,24 @@ export function MeetingsHub({
     publish: boolean
   ) => {
     const meetingRef = ref(firebaseDb, `meetings/${meetingId}`);
+    
+    // Ensure all attendance records have safe Firebase keys
+    const cleanAttendance: Record<string, AttendanceRecord> = {};
+    if (attendance) {
+      Object.entries(attendance).forEach(([k, v]) => {
+        if (v) {
+          const safeKey = emailToKey(v.email || k);
+          cleanAttendance[safeKey] = {
+            ...v,
+            email: v.email || k
+          };
+        }
+      });
+    }
+
     const updates: any = {
       mom: momData,
-      attendance,
+      attendance: cleanAttendance,
       updatedAt: Date.now()
     };
     if (publish) {

@@ -97,10 +97,14 @@ export function MomStudioModal({
       const initialAttendance: Record<string, AttendanceRecord> = {};
 
       if (meeting.attendance) {
-        Object.values(meeting.attendance).forEach(rec => {
-          if (rec && rec.email) {
-            const k = emailToKey(rec.email);
-            initialAttendance[k] = rec;
+        Object.entries(meeting.attendance).forEach(([rawKey, rec]) => {
+          if (rec) {
+            const email = rec.email || rawKey;
+            const k = emailToKey(email);
+            initialAttendance[k] = {
+              ...rec,
+              email: rec.email || email
+            };
           }
         });
       }
@@ -240,6 +244,19 @@ export function MomStudioModal({
     publishedAt: publish ? Date.now() : (meeting.mom?.publishedAt || 0)
   });
 
+  // Convert current attendance state to guaranteed-safe Firebase keys
+  const getGuaranteedSafeAttendance = () => {
+    const safe: Record<string, AttendanceRecord> = {};
+    Object.entries(attendance).forEach(([k, v]) => {
+      const safeKey = emailToKey(v.email || k);
+      safe[safeKey] = {
+        ...v,
+        email: v.email || k
+      };
+    });
+    return safe;
+  };
+
   // Save handler
   const handleSave = async (publish = false) => {
     setIsSaving(true);
@@ -247,7 +264,8 @@ export function MomStudioModal({
     setSuccessMsg('');
     try {
       const momData = buildCurrentMoMData(publish);
-      await onSaveMoM(meeting.id, momData, attendance, publish);
+      const safeAttendance = getGuaranteedSafeAttendance();
+      await onSaveMoM(meeting.id, momData, safeAttendance, publish);
       setSuccessMsg(publish ? 'MoM successfully published!' : 'MoM draft saved!');
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err: any) {
@@ -263,7 +281,8 @@ export function MomStudioModal({
     setErrorMsg('');
     try {
       const momData = buildCurrentMoMData(true);
-      await onSaveMoM(meeting.id, momData, attendance, true);
+      const safeAttendance = getGuaranteedSafeAttendance();
+      await onSaveMoM(meeting.id, momData, safeAttendance, true);
       await onSendEmailMoM(meeting, momData);
       setSuccessMsg('MoM email broadcast dispatched to all members!');
       setTimeout(() => setSuccessMsg(''), 4000);
