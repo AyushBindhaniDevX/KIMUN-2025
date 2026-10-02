@@ -353,7 +353,7 @@ export async function POST(req: Request) {
     if (process.env.RESEND_API_KEY) {
       try {
         const resend = new Resend(process.env.RESEND_API_KEY);
-        const fromAddress = process.env.RESEND_FROM || 'KIMUN Secretariat <onboarding@resend.dev>';
+        const fromAddress = process.env.RESEND_FROM || 'KIMUN Secretariat <kimun@subedge.com>';
 
         // Resend batch or single
         for (const recipient of validRecipients) {
